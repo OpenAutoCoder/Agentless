@@ -143,7 +143,33 @@ Here the `--start_file` refers to the previous related-element localization. `--
 
 The final edit locations **Agentless** will perform repair on is saved in `results/edit_location/loc_outputs.jsonl`, with logs in `results/edit_location/localize.log`
 
-> you can use `--temperature` and `--num_samples` to sample multiple of the third step and merge them 
+
+#### Sampling edit locations multiple times and merging
+
+For the last localization step of localizing to edit locations, we can also perform sampling to obtain multiple sets of edit locations. 
+
+```shell
+python agentless/fl/localize.py --fine_grain_line_level \
+                                --output_folder results/edit_location_samples \
+                                --start_file results/related_level/loc_outputs.jsonl \
+                                --top_n 3 --context_window=10 --temperature 0.8 \
+                                --num_samples 4
+```
+
+This command will sample with temperature 0.8 and generate 4 edit location sets. We can then merge them together to form a bigger list of edit locations. 
+
+Run the following command to merge:
+
+```shell
+python agentless/fl/localize.py --merge \
+                                --output_folder results/edit_location_samples_merged \
+                                --start_file results/edit_location_samples/loc_outputs.jsonl \
+                                --num_samples 4
+```
+
+This will perform pair-wise merging of samples (i.e., sample 0 and 1 will be merged and sample 2 and 3 will be merged). Furthermore it will also merge all samples together. 
+
+The merged location files can be found in `results/edit_location_samples_merged/loc_merged_{st_id}-{en_id}_outputs.jsonl` where `st_id` and `en_id` indicates the samples that are being merged. The location file with all samples merged together can be found as `results/edit_location_samples_merged/loc_all_merged_outputs.jsonl`. Furthermore, we also include the location of each individual sample for completeness within the folder. 
 
 </div>
 </details>
