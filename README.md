@@ -186,7 +186,7 @@ This command will produced the `all_preds.jsonl` that contains the final selecte
 
 You can download the complete artifacts of **Agentless** in our [v0.1.0 release](https://github.com/OpenAutoCoder/Agentless/releases/tag/v0.1.0):
 - 🐈‍⬛ agentless_logs: raw logs and trajectory information
-- 🐈‍⬛ swebench_lite_repo_structure**: preprocessed structure information for each SWE-Bench-lite problem
+- 🐈‍⬛ swebench_lite_repo_structure: preprocessed structure information for each SWE-Bench-lite problem
 - 🐈‍⬛ 20240630_agentless_gpt4o: evaluated run of **Agentless** used in our paper
 
 ## 📝 Citation
