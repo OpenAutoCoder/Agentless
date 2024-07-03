@@ -16,28 +16,31 @@ execution_results = dict()
 def _load_results(args):
     global execution_results
 
-    # assumes interval
-    interval = (0, args.num_samples - 1)
-    root = Path(args.patch_folder)
+    roots = [Path(folder) for folder in args.patch_folder.split(",")]
 
-    for i in range(interval[0], interval[1] + 1):
-        patches = load_jsonl(root / f"output_{i}_normalized.jsonl")
-        print(
-            f"Loaded {len(patches)} patches from {root / f'output_{i}_normalized.jsonl'}"
-        )
-        for patch in patches[:300]:
-            try:
-                execution_results.setdefault(patch["instance_id"], []).append(
-                    {
-                        "normalized_patch": patch["normalized_patch"].strip(),
-                        "patch": patch["model_patch"],
-                        "plausible": True,  # default to TRUE for now, TODO: add plausible execution.
-                    }
-                )
-            except:
-                print(i)
-                print(patch)
-                exit(-1)
+    # assumes interval
+    intervals = [(0, int(args.num_samples / len(roots)) - 1) for _ in range(len(roots))]
+
+    for index, root in enumerate(roots):
+        interval = intervals[index]
+        for i in range(interval[0], interval[1] + 1):
+            patches = load_jsonl(root / f"output_{i}_normalized.jsonl")
+            print(
+                f"Loaded {len(patches)} patches from {root / f'output_{i}_normalized.jsonl'}"
+            )
+            for patch in patches[:300]:
+                try:
+                    execution_results.setdefault(patch["instance_id"], []).append(
+                        {
+                            "normalized_patch": patch["normalized_patch"].strip(),
+                            "patch": patch["model_patch"],
+                            "plausible": True,  # default to TRUE for now, TODO: add plausible execution.
+                        }
+                    )
+                except:
+                    print(i)
+                    print(patch)
+                    exit(-1)
 
 
 def get_sample(instance_id, sample_id) -> tuple[str, bool]:
@@ -218,24 +221,31 @@ def majority_voting(args):
 
 
 def normalize_patches(args):
-    output_folder = Path(args.patch_folder)
-    selected_ids = list(range(args.num_samples))
-    for i in selected_ids:
-        if os.path.exists(output_folder / f"output_{i}_normalized.jsonl"):
-            # skip
-            continue
-        patches = load_jsonl(output_folder / f"output_{i}_processed.jsonl")
-        for d in patches:
-            instance_id = d["instance_id"]
-            patch = d["model_patch"]
-            original_file_content = d["original_file_content"]
-            normalized_patch = normalize_patch(
-                instance_id, patch, original_file_content
-            )
-            d["normalized_patch"] = normalized_patch
-        with open(output_folder / f"output_{i}_normalized.jsonl", "w") as f:
+    # separate the patch folders
+    output_folders = [Path(folder) for folder in args.patch_folder.split(",")]
+    num_folders = len(output_folders)
+    # output_folder = Path(args.patch_folder)
+    selected_ids = list(range(int(args.num_samples / num_folders)))
+
+    # print(num_folders, output_folders)
+
+    for output_folder in output_folders:
+        for i in selected_ids:
+            if os.path.exists(output_folder / f"output_{i}_normalized.jsonl"):
+                # skip
+                continue
+            patches = load_jsonl(output_folder / f"output_{i}_processed.jsonl")
             for d in patches:
-                f.write(json.dumps(d) + "\n")
+                instance_id = d["instance_id"]
+                patch = d["model_patch"]
+                original_file_content = d["original_file_content"]
+                normalized_patch = normalize_patch(
+                    instance_id, patch, original_file_content
+                )
+                d["normalized_patch"] = normalized_patch
+            with open(output_folder / f"output_{i}_normalized.jsonl", "w") as f:
+                for d in patches:
+                    f.write(json.dumps(d) + "\n")
 
 
 def main():

@@ -498,13 +498,14 @@ def repair(args):
                 file_loc_intervals,
                 diff_format=args.diff_format,
             )
-            prev_content = file_contents[edited_file]
-            prev_contents.append(prev_content)
-
-            file_names.append(edited_file)
 
             if new_content == "":
-                continue
+                prev_contents.append("")
+                file_names.append("")
+            else:
+                prev_content = file_contents[edited_file]
+                prev_contents.append(prev_content)
+                file_names.append(edited_file)
 
         counts.append(count)
         raw_outputs.append(raw_output)
