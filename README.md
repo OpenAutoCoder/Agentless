@@ -50,7 +50,11 @@ Then export your OpenAI API key
 export OPENAI_API_KEY={key_here}
 ```
 
-Now you are ready to run **Agentless** on the problems in SWE-bench! We now go through a step-by-step example of how to run **Agentless** 
+Now you are ready to run **Agentless** on the problems in SWE-bench! We now go through a step-by-step example of how to run **Agentless**. 
+
+> [!NOTE]
+> 
+> To reproduce the full SWE-bench lite experiments and follow our exact setup as described in the paper. Please see this [README](https://github.com/OpenAutoCoder/Agentless/blob/main/README_swebenchlite.md)
 
 ## 🙀 Localization 
 
