@@ -9,6 +9,7 @@
     <big><a href="#-setup">🐈Setup</a></big> |
     <big><a href="#-localization">🙀Localization</a></big> |
     <big><a href="#-repair">😼Repair</a></big> |
+    <big><a href="#-comparison">🧶Comparison</a></big> | 
     <big><a href="#-artifacts">🐈‍⬛Artifacts</a></big> |
     <big><a href="#-citation">📝Citation</a></big> |
     <big><a href="#-acknowledgement">😽Acknowledgement</a></big>
@@ -19,6 +20,8 @@
 **Agentless** is an *agentless* approach to automatically solve software development problems. To solve each issue, **Agentless** follows a simple two phase process: localization and repair.
 - 🙀 Localization: **Agentless** employs a hierarchical process to first localize the fault to specific files, then to relevant classes or functions, and finally to fine-grained edit locations
 - 😼 Repair : **Agentless** takes the edit locations and generates multiple candidate patches in a simple diff format, performs test filtering, and re-ranks all remaining patches to selects one to submit
+
+As of July 1st 2024, **Agentless** is the best open-source approach on SWE-bench lite with 82 fixes (27.3%) and costing on average $0.34 per issue.
 
 ## 🐈 Setup
 
@@ -211,6 +214,14 @@ python agentless/repair/rerank.py --patch_folder results/repair --num_samples 10
 In this case, we use `--num_samples 10` to pick from the 10 samples we generated previously, `--deduplicate` to apply normalization to each patch for better voting, and `--plausible` to select patches that can pass the previous regression tests (*warning: this feature is not yet implemented*)
 
 This command will produced the `all_preds.jsonl` that contains the final selected patch for each instance_id which you can then directly use your favorite way of testing SWE-bench for evaluation!
+
+## 🧶 Comparison
+
+Below shows the comparison graph between **Agentless** and the best open-source agent-based approaches on SWE-bench lite
+
+<p align="center">
+<img src="./resources/comparison_graph.pdf" style="width:75%; margin-left: auto; margin-right: auto;">
+</p>
 
 ## 🐈‍⬛ Artifacts
 
