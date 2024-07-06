@@ -220,7 +220,7 @@ This command will produced the `all_preds.jsonl` that contains the final selecte
 Below shows the comparison graph between **Agentless** and the best open-source agent-based approaches on SWE-bench lite
 
 <p align="center">
-<img src="./resources/comparison_graph.pdf" style="width:75%; margin-left: auto; margin-right: auto;">
+<img src="./resources/comparison_graph.png" style="width:75%; margin-left: auto; margin-right: auto;">
 </p>
 
 ## 🐈‍⬛ Artifacts
