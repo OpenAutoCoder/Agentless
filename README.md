@@ -6,22 +6,25 @@
 </p>
 
 <p align="center">
+    <big><a href="#-news">😽News</a></big> |
     <big><a href="#-setup">🐈Setup</a></big> |
     <big><a href="#-localization">🙀Localization</a></big> |
     <big><a href="#-repair">😼Repair</a></big> |
     <big><a href="#-comparison">🧶Comparison</a></big> | 
     <big><a href="#-artifacts">🐈‍⬛Artifacts</a></big> |
     <big><a href="#-citation">📝Citation</a></big> |
-    <big><a href="#-acknowledgement">😽Acknowledgement</a></big>
+    <big><a href="#-acknowledgement">😻Acknowledgement</a></big>
 </p>
+
+## 😽 News 
+
+- *July 1st, 2024*: We just released OpenAutoCoder-Agentless 1.0! **Agentless** currently is the best open-source approach on SWE-bench lite with 82 fixes (27.3%) and costing on average $0.34 per issue.
 
 ## 😺 About 
 
 **Agentless** is an *agentless* approach to automatically solve software development problems. To solve each issue, **Agentless** follows a simple two phase process: localization and repair.
 - 🙀 Localization: **Agentless** employs a hierarchical process to first localize the fault to specific files, then to relevant classes or functions, and finally to fine-grained edit locations
 - 😼 Repair : **Agentless** takes the edit locations and generates multiple candidate patches in a simple diff format, performs test filtering, and re-ranks all remaining patches to selects one to submit
-
-As of July 1st 2024, **Agentless** is the best open-source approach on SWE-bench lite with 82 fixes (27.3%) and costing on average $0.34 per issue.
 
 ## 🐈 Setup
 
@@ -245,7 +248,7 @@ You can download the complete artifacts of **Agentless** in our [v0.1.0 release]
 > 
 > The first two authors contributed equally to this work, with author order determined via [*Nigiri*](https://senseis.xmp.net/?Nigiri)
 
-## 😽 Acknowledgement 
+## 😻 Acknowledgement 
 
 * [SWE-bench](https://www.swebench.com/)
 * [Aider](https://github.com/paul-gauthier/aider)
