@@ -99,7 +99,7 @@ These commands generate 21 samples each (1 greedy and 20 via temperature samplin
 
 The above two commands will combine to generate 42 samples in total for each bug. 
 
-Finally, we perform majority voting to select the final patch to solve each issue (from the the 42 samples). Run the following command:
+Finally, we perform majority voting to select the final patch to solve each issue (from the 42 samples). Run the following command:
 
 ```shell
 python agentless/repair/rerank.py --patch_folder results/repair_run_1,results/repair_run_2 --num_samples 42 --deduplicate --plausible
