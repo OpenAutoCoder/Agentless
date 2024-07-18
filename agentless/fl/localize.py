@@ -73,6 +73,8 @@ def localize(args):
                 d["instance_id"],
                 structure,
                 problem_statement,
+                args.model,
+                args.backend,
             )
             found_files, additional_artifact_loc_file, file_traj = fl.localize(
                 mock=args.mock
@@ -101,6 +103,8 @@ def localize(args):
                     d["instance_id"],
                     structure,
                     problem_statement,
+                    args.model,
+                    args.backend,
                 )
 
                 additional_artifact_loc_related = []
@@ -128,6 +132,8 @@ def localize(args):
                 instance_id,
                 structure,
                 problem_statement,
+                args.model,
+                args.backend,
             )
             coarse_found_locs = {}
             for i, pred_file in enumerate(pred_files):
@@ -264,6 +270,10 @@ def main():
     parser.add_argument(
         "--mock", action="store_true", help="Mock run to compute prompt tokens."
     )
+    parser.add_argument(
+        "--model", type=str, default="gpt-4o-2024-05-13", choices=["gpt-4o-2024-05-13"]
+    )
+    parser.add_argument("--backend", type=str, default="openai", choices=["openai"])
 
     args = parser.parse_args()
 

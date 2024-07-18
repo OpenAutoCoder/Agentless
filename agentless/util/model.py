@@ -19,7 +19,7 @@ class DecoderBase(ABC):
         self.max_new_tokens = max_new_tokens
 
     @abstractmethod
-    def codegen(self, message: str, num_samples: int = 1) -> List[str]:
+    def codegen(self, message: str, num_samples: int = 1) -> List[dict]:
         pass
 
     @abstractmethod
@@ -37,7 +37,9 @@ class OpenAIChatDecoder(DecoderBase):
     def __init__(self, name: str, **kwargs) -> None:
         super().__init__(name, **kwargs)
 
-    def codegen(self, message: str, num_samples: int = 1) -> List[str]:
+    def codegen(self, message: str, num_samples: int = 1) -> List[dict]:
+        if self.temperature == 0:
+            assert num_samples == 1
         batch_size = min(self.batch_size, num_samples)
 
         config = create_chatgpt_config(
