@@ -13,6 +13,7 @@ from agentless.util.api_requests import (
     num_tokens_from_messages,
     request_chatgpt_engine,
 )
+from agentless.util.model import make_model
 from agentless.util.postprocess_data import (
     check_code_differ_by_just_empty_lines,
     check_syntax,
@@ -395,89 +396,73 @@ def repair(args):
 
         logging.info(f"prompting with message:\n{message}")
 
-        sample_responses = None
-
-        def get_response(count):
-            nonlocal sample_responses
-            if count == 0:
-                if args.skip_greedy:
-                    return {
-                        "response": "",
-                        "usage": {
-                            "completion_tokens": 0,
-                            "prompt_tokens": 0,
-                        },
-                    }
-                if args.mock:
-                    return {
-                        "response": "",
-                        "usage": {
-                            "prompt_tokens": num_tokens_from_messages(
-                                message, "gpt-4o-2024-05-13"
-                            ),
-                        },
-                    }
-                config = create_chatgpt_config(
-                    message=message,
-                    max_tokens=1024,
-                    temperature=0,  # greedy first
-                    batch_size=1,
-                    model=args.model,  # use gpt-4o for now.
-                )
-
-                greedy_response = request_chatgpt_engine(config)
-                return {
-                    "response": greedy_response.choices[0].message.content,
+        sample_responses = []
+        # Using early stopping will cost more since the input tokens will be charged multiple times.
+        # For now we disable it.
+        assert args.stop_at_n_unique_valid_samples == -1
+        # get greedy sample
+        model = make_model(
+            model=args.model,
+            backend=args.backend,
+            max_tokens=1024,
+            temperature=0,
+            batch_size=1,
+        )
+        if args.skip_greedy:
+            greedy_traj = {
+                "response": "",
+                "usage": {
+                    "completion_tokens": 0,
+                    "prompt_tokens": 0,
+                },
+            }
+        else:
+            if args.mock:
+                greedy_traj = {
+                    "response": "",
                     "usage": {
-                        "completion_tokens": greedy_response.usage.completion_tokens,
-                        "prompt_tokens": greedy_response.usage.prompt_tokens,
+                        "prompt_tokens": num_tokens_from_messages(message, args.model),
                     },
                 }
-            elif args.stop_at_n_unique_valid_samples == -1:
-                # No early-stopping, let's get all samples at a time
-                assert args.max_samples > 1
-                if args.mock:
-                    return {
-                        "response": "",
-                        "usage": {
-                            "prompt_tokens": num_tokens_from_messages(
-                                message, "gpt-4o-2024-05-13"
-                            )
-                            if count == 1
-                            else 0,
-                        },
-                    }
-                if sample_responses is not None:
-                    # Directly return earlier samples
-                    return {
-                        "response": sample_responses.choices[count - 1].message.content,
-                        "usage": {
-                            "completion_tokens": 0,
-                            "prompt_tokens": 0,
-                        },
-                    }
-                assert count == 1
-                config = create_chatgpt_config(
-                    message=message,
-                    max_tokens=1024,
-                    temperature=0.8,
-                    batch_size=args.max_samples - 1,  # minus the 1 greedy sample
-                    model=args.model,  # use gpt-4o for now.
-                )
+            else:
+                greedy_traj = model.codegen(message, num_samples=1)[0]
+        sample_responses.append(greedy_traj)
+        # get temperature samples
+        model = make_model(
+            model=args.model,
+            backend=args.backend,
+            max_tokens=1024,
+            temperature=0.8,
+            batch_size=args.max_samples - 1,  # minus the 1 greedy sample
+        )
 
-                sample_responses = request_chatgpt_engine(config)
-                return {
-                    "response": sample_responses.choices[count - 1].message.content,
-                    "usage": {
-                        "completion_tokens": sample_responses.usage.completion_tokens,
-                        "prompt_tokens": sample_responses.usage.prompt_tokens,
-                    },
-                }
+        if args.mock:
+            first_traj = {
+                "response": "",
+                "usage": {
+                    "prompt_tokens": num_tokens_from_messages(message, args.model),
+                },
+            }
+            later_traj = {
+                "response": "",
+                "usage": {"prompt_tokens": 0},
+            }
+            if args.max_samples - 1:
+                sample_trajs = [first_traj] + [later_traj] * (args.max_samples - 2)
+            else:
+                sample_trajs = []
+        else:
+            if args.max_samples - 1:
+                sample_trajs = model.codegen(message, num_samples=args.max_samples - 1)
+            else:
+                sample_trajs = []
+
+        sample_responses.extend(sample_trajs)
 
         count = 0
         while count < args.max_samples:
             print(f"trying the {count + 1}-th sample ...")
-            ret = get_response(count)
+            ret = sample_responses[count]
             count += 1
             traj.append(
                 {
@@ -705,6 +690,7 @@ def main():
     parser.add_argument(
         "--model", type=str, default="gpt-4o-2024-05-13", choices=["gpt-4o-2024-05-13"]
     )
+    parser.add_argument("--backend", type=str, default="openai", choices=["openai"])
     parser.add_argument("--output_folder", type=str, required=True)
     parser.add_argument(
         "--only_correct", action="store_true"
