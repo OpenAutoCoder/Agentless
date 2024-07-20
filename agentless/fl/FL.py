@@ -5,11 +5,14 @@ from agentless.repair.repair import construct_topn_file_context
 from agentless.util.compress_file import get_skeleton
 from agentless.util.postprocess_data import extract_code_blocks, extract_locs_for_files
 from agentless.util.preprocess_data import (
+    correct_file_paths,
     get_full_file_paths_and_classes_and_functions,
     get_repo_files,
     line_wrap_content,
     show_project_structure,
 )
+
+MAX_CONTEXT_LENGTH = 128000
 
 
 class FL(ABC):
@@ -212,17 +215,30 @@ Return just the locations.
 """
 
     def __init__(
-        self, instance_id, structure, problem_statement, model_name, backend, **kwargs
+        self,
+        instance_id,
+        structure,
+        problem_statement,
+        model_name,
+        backend,
+        logger,
+        match_partial_paths,
+        **kwargs,
     ):
         super().__init__(instance_id, structure, problem_statement)
         self.max_tokens = 300
         self.model_name = model_name
         self.backend = backend
+        self.logger = logger
+        self.match_partial_paths = match_partial_paths
 
     def _parse_model_return_lines(self, content: str) -> list[str]:
-        return content.strip().split("\n")
+        if content:
+            return content.strip().split("\n")
 
-    def localize(self, top_n=1, mock=False) -> tuple[list, list, list, any]:
+    def localize(
+        self, top_n=1, mock=False, match_partial_paths=False
+    ) -> tuple[list, list, list, any]:
         # lazy import, not sure if this is actually better?
         from agentless.util.api_requests import num_tokens_from_messages
         from agentless.util.model import make_model
@@ -236,12 +252,11 @@ Return just the locations.
         print(f"prompting with message:\n{message}")
         print("=" * 80)
         if mock:
+            self.logger.info("Skipping querying model since mock=True")
             traj = {
                 "prompt": message,
                 "usage": {
-                    "prompt_tokens": num_tokens_from_messages(
-                        message, "gpt-4o-2024-05-13"
-                    ),
+                    "prompt_tokens": num_tokens_from_messages(message, self.model_name),
                 },
             }
             return [], {"raw_output_loc": ""}, traj
@@ -249,6 +264,7 @@ Return just the locations.
         model = make_model(
             model=self.model_name,
             backend=self.backend,
+            logger=self.logger,
             max_tokens=self.max_tokens,
             temperature=0,
             batch_size=1,
@@ -262,13 +278,8 @@ Return just the locations.
             self.structure
         )
 
-        for file_content in files:
-            file = file_content[0]
-            if file in model_found_files:
-                found_files.append(file)
-
         # sort based on order of appearance in model_found_files
-        found_files = sorted(found_files, key=lambda x: model_found_files.index(x))
+        found_files = correct_file_paths(model_found_files, files, match_partial_paths)
 
         print(raw_output)
 
@@ -307,7 +318,7 @@ Return just the locations.
                     raise ValueError(f"File {file_name} does not exist.")
 
             file_contents = "".join(contents)
-            if num_tokens_from_messages(file_contents, "gpt-4o-2024-05-13") < 128000:
+            if num_tokens_from_messages(file_contents, model) < MAX_CONTEXT_LENGTH:
                 break
             else:
                 max_num_files -= 1
@@ -319,12 +330,11 @@ Return just the locations.
         print(f"prompting with message:\n{message}")
         print("=" * 80)
         if mock:
+            self.logger.info("Skipping querying model since mock=True")
             traj = {
                 "prompt": message,
                 "usage": {
-                    "prompt_tokens": num_tokens_from_messages(
-                        message, "gpt-4o-2024-05-13"
-                    ),
+                    "prompt_tokens": num_tokens_from_messages(message, self.model_name),
                 },
             }
             return [], {"raw_output_loc": ""}, traj
@@ -332,6 +342,7 @@ Return just the locations.
         model = make_model(
             model=self.model_name,
             backend=self.backend,
+            loggger=self.logger,
             max_tokens=self.max_tokens,
             temperature=0,
             batch_size=1,
@@ -368,11 +379,29 @@ Return just the locations.
         message = template.format(
             problem_statement=self.problem_statement, file_contents=file_contents
         )
-        assert num_tokens_from_messages(message, "gpt-4o-2024-05-13") < 128000
-        logging.info(f"prompting with message:\n{message}")
-        logging.info("=" * 80)
+
+        def message_too_long(message):
+            return (
+                num_tokens_from_messages(message, self.model_name) >= MAX_CONTEXT_LENGTH
+            )
+
+        while message_too_long(message) and len(contents) > 1:
+            self.logger.info(f"reducing to \n{len(contents)} files")
+            contents = contents[:-1]
+            file_contents = "".join(contents)
+            message = template.format(
+                problem_statement=self.problem_statement, file_contents=file_contents
+            )  # Recreate message
+
+        if message_too_long(message):
+            raise ValueError(
+                "The remaining file content is too long to fit within the context length"
+            )
+        self.logger.info(f"prompting with message:\n{message}")
+        self.logger.info("=" * 80)
 
         if mock:
+            self.logger.info("Skipping querying model since mock=True")
             traj = {
                 "prompt": message,
                 "usage": {
@@ -387,6 +416,7 @@ Return just the locations.
         model = make_model(
             model=self.model_name,
             backend=self.backend,
+            logger=self.logger,
             max_tokens=self.max_tokens,
             temperature=0,
             batch_size=1,
@@ -394,18 +424,19 @@ Return just the locations.
         traj = model.codegen(message, num_samples=1)[0]
         traj["prompt"] = message
         raw_output = traj["response"]
+
         model_found_locs = extract_code_blocks(raw_output)
         model_found_locs_separated = extract_locs_for_files(
             model_found_locs, file_names
         )
 
-        logging.info(f"==== raw output ====")
-        logging.info(raw_output)
-        logging.info("=" * 80)
-        logging.info(f"==== extracted locs ====")
+        self.logger.info(f"==== raw output ====")
+        self.logger.info(raw_output)
+        self.logger.info("=" * 80)
+        self.logger.info(f"==== extracted locs ====")
         for loc in model_found_locs_separated:
-            logging.info(loc)
-        logging.info("=" * 80)
+            self.logger.info(loc)
+        self.logger.info("=" * 80)
 
         print(raw_output)
 
@@ -445,16 +476,15 @@ Return just the locations.
         message = template.format(
             problem_statement=self.problem_statement, file_contents=topn_content
         )
-        logging.info(f"prompting with message:\n{message}")
-        logging.info("=" * 80)
-        assert num_tokens_from_messages(message, "gpt-4o-2024-05-13") < 128000
+        self.logger.info(f"prompting with message:\n{message}")
+        self.logger.info("=" * 80)
+        assert num_tokens_from_messages(message, self.model_name) < MAX_CONTEXT_LENGTH
         if mock:
+            self.logger.info("Skipping querying model since mock=True")
             traj = {
                 "prompt": message,
                 "usage": {
-                    "prompt_tokens": num_tokens_from_messages(
-                        message, "gpt-4o-2024-05-13"
-                    ),
+                    "prompt_tokens": num_tokens_from_messages(message, self.model_name),
                 },
             }
             return [], {"raw_output_loc": ""}, traj
@@ -462,6 +492,7 @@ Return just the locations.
         model = make_model(
             model=self.model_name,
             backend=self.backend,
+            logger=self.logger,
             max_tokens=self.max_tokens,
             temperature=temperature,
             batch_size=num_samples,
@@ -490,16 +521,16 @@ Return just the locations.
             )
             model_found_locs_separated_in_samples.append(model_found_locs_separated)
 
-            logging.info(f"==== raw output ====")
-            logging.info(raw_output)
-            logging.info("=" * 80)
+            self.logger.info(f"==== raw output ====")
+            self.logger.info(raw_output)
+            self.logger.info("=" * 80)
             print(raw_output)
             print("=" * 80)
-            logging.info(f"==== extracted locs ====")
+            self.logger.info(f"==== extracted locs ====")
             for loc in model_found_locs_separated:
-                logging.info(loc)
-            logging.info("=" * 80)
-        logging.info("==== Input coarse_locs")
+                self.logger.info(loc)
+            self.logger.info("=" * 80)
+        self.logger.info("==== Input coarse_locs")
         coarse_info = ""
         for fn, found_locs in coarse_locs.items():
             coarse_info += f"### {fn}\n"
@@ -507,7 +538,7 @@ Return just the locations.
                 coarse_info += found_locs + "\n"
             else:
                 coarse_info += "\n".join(found_locs) + "\n"
-        logging.info("\n" + coarse_info)
+        self.logger.info("\n" + coarse_info)
         if len(model_found_locs_separated_in_samples) == 1:
             model_found_locs_separated_in_samples = (
                 model_found_locs_separated_in_samples[0]

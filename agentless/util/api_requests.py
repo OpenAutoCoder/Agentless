@@ -1,4 +1,5 @@
-import signal
+import concurrent.futures
+import logging
 import time
 from typing import Dict, Union
 
@@ -57,31 +58,51 @@ def handler(signum, frame):
     raise Exception("end of time")
 
 
-def request_chatgpt_engine(config):
+def request_chatgpt_engine(config, logger, max_retries=40, timeout=100):
     ret = None
-    while ret is None:
+    retries = 0
+    while ret is None and retries < max_retries:
         try:
-            signal.signal(signal.SIGALRM, handler)
-            signal.alarm(100)
+            # Attempt to get the completion
+            start_time = time.time()
+            logger.info("Creating API request")
+
             ret = client.chat.completions.create(**config)
-            signal.alarm(0)
-        except openai._exceptions.BadRequestError as e:
-            print(e)
-            signal.alarm(0)
-        except openai._exceptions.RateLimitError as e:
-            print("Rate limit exceeded. Waiting...")
-            print(e)
-            signal.alarm(0)
-            time.sleep(5)
-        except openai._exceptions.APIConnectionError as e:
-            print("API connection error. Waiting...")
-            signal.alarm(0)
-            time.sleep(5)
-        except Exception as e:
-            print("Unknown error. Waiting...")
-            print(e)
-            signal.alarm(0)
-            time.sleep(1)
+
+            # Check for timeout manually
+            if (time.time() - start_time) > timeout:
+                logger.info("Request timed out")
+                raise TimeoutError("Request timed out")
+
+        except openai.OpenAIError as e:
+            if isinstance(e, openai.BadRequestError):
+                logger.info("Request invalid")
+                print(e)
+                logger.info(e)
+                raise Exception("Invalid API Request")
+                return None  # BadRequestError should not be retried
+            elif isinstance(e, openai.RateLimitError):
+                print("Rate limit exceeded. Waiting...")
+                logger.info("Rate limit exceeded. Waiting...")
+                print(e)
+                logger.info(e)
+                time.sleep(5)
+            elif isinstance(e, openai.APIConnectionError):
+                print("API connection error. Waiting...")
+                logger.info("API connection error. Waiting...")
+                print(e)
+                logger.info(e)
+                time.sleep(5)
+            else:
+                print("Unknown error. Waiting...")
+                logger.info("Unknown error. Waiting...")
+                print(e)
+                logger.info(e)
+                time.sleep(1)
+
+        retries += 1
+
+    logger.info(f"API response {ret}")
     return ret
 
 
@@ -116,17 +137,22 @@ def create_anthropic_config(
     return config
 
 
-def request_anthropic_engine(client, config):
+def request_anthropic_engine(client, config, logger, max_retries=40, timeout=100):
     ret = None
-    while ret is None:
+    retries = 0
+
+    while ret is None and retries < max_retries:
         try:
-            signal.signal(signal.SIGALRM, handler)
-            signal.alarm(100)
+            start_time = time.time()
             ret = client.messages.create(**config)
-            signal.alarm(0)
         except Exception as e:
-            print("Unknown error. Waiting...")
-            print(e)
-            signal.alarm(0)
+            logger.error("Unknown error. Waiting...", exc_info=True)
+            # Check if the timeout has been exceeded
+            if time.time() - start_time >= timeout:
+                logger.warning("Request timed out. Retrying...")
+            else:
+                logger.warning("Retrying after an unknown error...")
             time.sleep(10)
+        retries += 1
+
     return ret
