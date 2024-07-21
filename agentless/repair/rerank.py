@@ -110,114 +110,107 @@ class SetEncoder(json.JSONEncoder):
 
 
 def majority_voting(args):
-    all_pred = []
-
-    for instance_id in execution_results:
-        patch_keys = [
-            execution_results[instance_id][i]["normalized_patch"]
-            for i in range(args.num_samples)
-        ]
-        plausible = [
-            execution_results[instance_id][i]["plausible"]
-            for i in range(args.num_samples)
-        ]
-
-        raw_patches = [
-            execution_results[instance_id][i]["patch"]
-            for i in range(args.num_samples)
-            for i in range(args.num_samples)
-        ]
-
-        if args.plausible:
-            patch_ids = list(
-                i
-                for i in range(args.num_samples)
-                if patch_keys[i].strip() and plausible[i]
-            )
-        else:
-            patch_ids = list(
-                i for i in range(args.num_samples) if patch_keys[i].strip()
-            )
-
-        if not patch_ids:
-            # just vote on all patches
-            if not all([x.strip() == "" for x in raw_patches]):
-                vote = Counter()
-                first_appear_idx = dict()
-                valid_indices = []
-                for i in range(args.num_samples):
-                    sample = get_sample(instance_id, i)
-                    patch_key = sample["normalized_patch"]
-                    if patch_key != "":
-                        valid_indices.append(i)
-                        vote[patch_key] += 1
-                        if patch_key not in first_appear_idx:
-                            first_appear_idx[patch_key] = i
-
-                maj_selected_id = max(
-                    valid_indices,
-                    key=lambda i: (
-                        vote[patch_keys[i]],
-                        -first_appear_idx[patch_keys[i]],
-                    ),
+    with open(args.output_file, "w") as f:
+        for instance_id in execution_results:
+            if len(execution_results[instance_id]) < args.num_samples:
+                print(
+                    f"There were only {len(execution_results[instance_id])} patches for {instance_id} instead of the full {args.num_samples}"
                 )
-                patch = get_sample(instance_id, maj_selected_id)["patch"]
-                all_pred.append(
-                    {
+
+            patch_keys = [
+                execution_results[instance_id][i]["normalized_patch"]
+                for i in range(len(execution_results[instance_id]))
+            ]
+            plausible = [
+                execution_results[instance_id][i]["plausible"]
+                for i in range(len(execution_results[instance_id]))
+            ]
+            raw_patches = [
+                execution_results[instance_id][i]["patch"]
+                for i in range(len(execution_results[instance_id]))
+            ]
+
+            if args.plausible:
+                patch_ids = [
+                    i
+                    for i in range(len(execution_results[instance_id]))
+                    if patch_keys[i].strip() and plausible[i]
+                ]
+            else:
+                patch_ids = [
+                    i
+                    for i in range(len(execution_results[instance_id]))
+                    if patch_keys[i].strip()
+                ]
+
+            if not patch_ids:
+                # just vote on all patches
+                if not all([x.strip() == "" for x in raw_patches]):
+                    vote = Counter()
+                    first_appear_idx = dict()
+                    valid_indices = []
+                    for i in range(len(execution_results[instance_id])):
+                        sample = get_sample(instance_id, i)
+                        patch_key = sample["normalized_patch"]
+                        if patch_key != "":
+                            valid_indices.append(i)
+                            vote[patch_key] += 1
+                            if patch_key not in first_appear_idx:
+                                first_appear_idx[patch_key] = i
+                    maj_selected_id = max(
+                        valid_indices,
+                        key=lambda i: (
+                            vote[patch_keys[i]],
+                            -first_appear_idx[patch_keys[i]],
+                        ),
+                    )
+                    patch = get_sample(instance_id, maj_selected_id)["patch"]
+                    result = {
                         "model_name_or_path": "agentless",
                         "instance_id": instance_id,
                         "model_patch": patch,
                     }
-                )
-            else:
-                all_pred.append(
-                    {
+                else:
+                    print(f"No raw patches valid for {instance_id}")
+                    result = {
                         "model_name_or_path": "agentless",
                         "instance_id": instance_id,
                         "model_patch": "",
                     }
-                )
-            continue
+                f.write(json.dumps(result) + "\n")
+                continue
 
-        vote = Counter()
-        first_appear_idx = dict()
-        for i in patch_ids:
-            sample = get_sample(instance_id, i)
-            patch_key, patch = (
-                sample["normalized_patch"],
-                sample["patch"],
+            vote = Counter()
+            first_appear_idx = dict()
+            for i in patch_ids:
+                sample = get_sample(instance_id, i)
+                patch_key, patch = sample["normalized_patch"], sample["patch"]
+                vote[patch_key] += 1
+                if patch_key not in first_appear_idx:
+                    first_appear_idx[patch_key] = i
+
+            maj_selected_id = max(
+                patch_ids,
+                key=lambda i: (vote[patch_keys[i]], -first_appear_idx[patch_keys[i]]),
             )
-            vote[patch_key] += 1
-            if patch_key not in first_appear_idx:
-                first_appear_idx[patch_key] = i
-        ### pure majority voting
-        maj_selected_id = max(
-            patch_ids,
-            key=lambda i: (vote[patch_keys[i]], -first_appear_idx[patch_keys[i]]),
-        )
 
-        if args.target is not None and instance_id == args.target:
-            for patch in vote:
-                print(
-                    "=" * 20,
-                    vote[patch],
-                    "=" * 20,
-                )
-                print(patch)
-                print("=" * 50)
+            if args.target is not None and instance_id == args.target:
+                for patch in vote:
+                    print(
+                        "=" * 20,
+                        vote[patch],
+                        "=" * 20,
+                    )
+                    print(patch)
+                    print("=" * 50)
 
-        sample = get_sample(instance_id, maj_selected_id)
-        all_pred.append(
-            {
+            sample = get_sample(instance_id, maj_selected_id)
+            result = {
                 "model_name_or_path": "agentless",
                 "instance_id": instance_id,
                 "model_patch": sample["patch"],
             }
-        )
-
-    with open("all_preds.jsonl", "w") as f:
-        for pred in all_pred:
-            f.write(json.dumps(pred) + "\n")
+            f.write(json.dumps(result) + "\n")
 
 
 def normalize_patches(args):
@@ -255,6 +248,7 @@ def main():
     parser.add_argument("--num_samples", type=int, default=11)
     parser.add_argument("--deduplicate", action="store_true")
     parser.add_argument("--plausible", action="store_true")
+    parser.add_argument("--output_file", type=str, default="all_preds.jsonl")
     args = parser.parse_args()
 
     # first normalize

@@ -1,4 +1,6 @@
 import json
+import logging
+import os
 
 import pandas as pd
 
@@ -57,3 +59,30 @@ def combine_by_instance_id(data):
     return [
         {**{"instance_id": iid}, **details} for iid, details in combined_data.items()
     ]
+
+
+def setup_logger(log_file):
+    logger = logging.getLogger(log_file)
+    logger.setLevel(logging.DEBUG)
+
+    fh = logging.FileHandler(log_file)
+    fh.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    fh.setFormatter(formatter)
+
+    logger.addHandler(fh)
+    return logger
+
+
+def load_existing_instance_ids(output_file):
+    instance_ids = set()
+    if os.path.exists(output_file):
+        with open(output_file, "r") as f:
+            for line in f:
+                try:
+                    data = json.loads(line.strip())
+                    instance_ids.add(data["instance_id"])
+                except json.JSONDecodeError:
+                    continue
+    return instance_ids
