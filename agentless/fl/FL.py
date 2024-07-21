@@ -249,7 +249,9 @@ Return just the locations.
             problem_statement=self.problem_statement,
             structure=show_project_structure(self.structure).strip(),
         ).strip()
+        self.logger.info(f"prompting with message:\n{message}")
         print(f"prompting with message:\n{message}")
+        self.logger.info("=" * 80)
         print("=" * 80)
         if mock:
             self.logger.info("Skipping querying model since mock=True")
@@ -281,6 +283,7 @@ Return just the locations.
         # sort based on order of appearance in model_found_files
         found_files = correct_file_paths(model_found_files, files, match_partial_paths)
 
+        self.logger.info(raw_output)
         print(raw_output)
 
         return (

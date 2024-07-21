@@ -58,21 +58,15 @@ def handler(signum, frame):
     raise Exception("end of time")
 
 
-def request_chatgpt_engine(config, logger, max_retries=40, timeout=100):
+def request_chatgpt_engine(config, logger, max_retries=40):
     ret = None
     retries = 0
     while ret is None and retries < max_retries:
         try:
             # Attempt to get the completion
-            start_time = time.time()
             logger.info("Creating API request")
 
             ret = client.chat.completions.create(**config)
-
-            # Check for timeout manually
-            if (time.time() - start_time) > timeout:
-                logger.info("Request timed out")
-                raise TimeoutError("Request timed out")
 
         except openai.OpenAIError as e:
             if isinstance(e, openai.BadRequestError):
@@ -80,7 +74,6 @@ def request_chatgpt_engine(config, logger, max_retries=40, timeout=100):
                 print(e)
                 logger.info(e)
                 raise Exception("Invalid API Request")
-                return None  # BadRequestError should not be retried
             elif isinstance(e, openai.RateLimitError):
                 print("Rate limit exceeded. Waiting...")
                 logger.info("Rate limit exceeded. Waiting...")

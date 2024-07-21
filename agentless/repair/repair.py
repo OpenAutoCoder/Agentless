@@ -688,7 +688,9 @@ def main():
         default="gpt-4o-2024-05-13",
         choices=["gpt-4o-2024-05-13", "deepseek-coder", "gpt-4o-mini-2024-07-18"],
     )
-    parser.add_argument("--backend", type=str, default="openai", choices=["openai"])
+    parser.add_argument(
+        "--backend", type=str, default="openai", choices=["openai", "deepseek"]
+    )
     parser.add_argument("--output_folder", type=str, required=True)
     parser.add_argument(
         "--only_correct", action="store_true"
@@ -711,6 +713,10 @@ def main():
     )
 
     args = parser.parse_args()
+
+    assert (not "deepseek" in args.model) or (
+        args.backend == "deepseek"
+    ), "Must specify `--backend deepseek` if using a DeepSeek model"
 
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)

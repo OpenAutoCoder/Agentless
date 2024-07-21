@@ -329,7 +329,9 @@ def main():
         default="gpt-4o-2024-05-13",
         choices=["gpt-4o-2024-05-13", "deepseek-coder", "gpt-4o-mini-2024-07-18"],
     )
-    parser.add_argument("--backend", type=str, default="openai", choices=["openai"])
+    parser.add_argument(
+        "--backend", type=str, default="openai", choices=["openai", "deepseek"]
+    )
 
     args = parser.parse_args()
 
@@ -352,6 +354,10 @@ def main():
     assert not (
         (not args.file_level) and (not args.start_file)
     ), "Must use either file_level or start_file"
+
+    assert (not "deepseek" in args.model) or (
+        args.backend == "deepseek"
+    ), "Must specify `--backend deepseek` if using a DeepSeek model"
 
     os.makedirs(os.path.join(args.output_folder, "localization_logs"), exist_ok=True)
     os.makedirs(args.output_folder, exist_ok=True)
