@@ -1,19 +1,13 @@
 import argparse
 import concurrent.futures
-import copy
 import json
-import logging
 import os
 from difflib import unified_diff
 
 from datasets import load_dataset
 from tqdm import tqdm
 
-from agentless.util.api_requests import (
-    create_chatgpt_config,
-    num_tokens_from_messages,
-    request_chatgpt_engine,
-)
+from agentless.util.api_requests import num_tokens_from_messages
 from agentless.util.model import make_model
 from agentless.util.postprocess_data import (
     check_code_differ_by_just_empty_lines,

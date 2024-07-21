@@ -1,6 +1,5 @@
 import argparse
 import json
-import logging
 import os
 from collections import Counter, OrderedDict
 from pathlib import Path
