@@ -1,7 +1,6 @@
 import argparse
 import concurrent.futures
 import json
-import logging
 import os
 
 from datasets import load_dataset

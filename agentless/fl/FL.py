@@ -1,4 +1,3 @@
-import logging
 from abc import ABC, abstractmethod
 
 from agentless.repair.repair import construct_topn_file_context
