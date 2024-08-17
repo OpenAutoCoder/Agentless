@@ -39,6 +39,9 @@ if __name__ == "__main__":
     if args.run_top_n > 0:
         swe_bench_data = swe_bench_data.select(range(args.run_top_n))
     
+    # print the number of bugs in the dataset
+    print(f"Number of instances in {args.dataset_id} {args.split_name} filtered by {args.repo_filter} is {len(swe_bench_data)}")
+    
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
     
