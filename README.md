@@ -31,12 +31,9 @@
 First create the environment 
 
 ```shell
-git clone https://github.com/OpenAutoCoder/Agentless.git
+git clone https://github.com/sauravpanda/Agentless.git
 cd Agentless
-
-conda create -n agentless python=3.11 
-conda activate agentless
-pip install -r requirements.txt
+poetry install
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 ```
 

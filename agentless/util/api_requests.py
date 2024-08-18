@@ -1,7 +1,7 @@
 import time
 from typing import Dict, Union
 
-import openai
+from kaizen.llms.provider import LLMProvider
 import tiktoken
 
 
