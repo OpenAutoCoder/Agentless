@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from apps.agentless.util.api_requests import create_chatgpt_config, request_chatgpt_engine
+from Agentless.agentless.util.api_requests import create_chatgpt_config, request_chatgpt_engine
 
 
 class DecoderBase(ABC):

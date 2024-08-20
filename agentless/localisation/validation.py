@@ -1,7 +1,7 @@
 import json
 import os
 
-from apps.agentless.localisation.localize import get_test_steps, localize
+from Agentless.agentless.localisation.localize import get_test_steps, localize
 
 tools = os.listdir(
     "datasets/datasets/required_tools"

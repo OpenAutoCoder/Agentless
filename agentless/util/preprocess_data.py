@@ -1,11 +1,9 @@
 import json
 import os
 
-from apps.agentless.util.parse_global_var import parse_global_var_from_code
-from apps.agentless.get_repo_structure.get_repo_structure import (
-    get_project_structure_from_scratch,
-    parse_python_file,
-)
+from Agentless.agentless.get_repo_structure.get_repo_structure import parse_python_file, \
+    get_project_structure_from_scratch
+from Agentless.agentless.util.parse_global_var import parse_global_var_from_code
 
 
 def line_wrap_content(

@@ -4,14 +4,11 @@ import os
 from abc import ABC, abstractmethod
 from typing import Tuple, List, Any, Dict
 
-from apps.agentless.util.compress_file import get_skeleton
-from apps.agentless.util.postprocess_data import extract_code_blocks, extract_locs_for_files
-from apps.agentless.util.preprocess_data import (
-    get_full_file_paths_and_classes_and_functions,
-    get_repo_files,
-    line_wrap_content,
-    show_project_structure, transfer_arb_locs_to_locs,
-)
+from Agentless.agentless.util.compress_file import get_skeleton
+from Agentless.agentless.util.model import make_model
+from Agentless.agentless.util.postprocess_data import extract_code_blocks, extract_locs_for_files
+from Agentless.agentless.util.preprocess_data import transfer_arb_locs_to_locs, line_wrap_content, \
+    show_project_structure, get_full_file_paths_and_classes_and_functions, get_repo_files
 from apps.helper import read_file
 
 
@@ -247,7 +244,6 @@ Return only the locations.
         return final_examples
 
     def localize(self, current, top_n=1) -> tuple[list[Any], dict[str, Any], Any]:
-        from apps.agentless.util.model import make_model
 
         found_files = []
         examples = self.extract_examples(current)
@@ -292,8 +288,6 @@ Return only the locations.
         )
 
     def localize_function_from_compressed_files(self, file_names):
-        from apps.agentless.util.api_requests import num_tokens_from_messages
-        from apps.agentless.util.model import make_model
 
         file_contents = get_repo_files(self.structure, file_names)
         compressed_file_contents = {
@@ -348,8 +342,6 @@ Return only the locations.
             temperature: float = 0.0,
             num_samples: int = 1,
     ):
-        from apps.agentless.util.api_requests import num_tokens_from_messages
-        from apps.agentless.util.model import make_model
 
         file_contents = get_repo_files(self.structure, file_names)
         topn_content, file_loc_intervals = construct_topn_file_context(

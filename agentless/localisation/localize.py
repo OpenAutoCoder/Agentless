@@ -6,14 +6,9 @@ from langchain_core.documents import Document
 
 from langchain_community.graphs.graph_document import Node, Relationship, GraphDocument
 
-from apps.agentless.localisation.FL import LLMFL
-from apps.agentless.util.preprocess_data import (
-    filter_none_python,
-    filter_out_test_files,
-)
-from apps.agentless.get_repo_structure.get_repo_structure import (
-    get_project_structure_from_scratch,
-)
+from Agentless.agentless.get_repo_structure.get_repo_structure import get_project_structure_from_scratch
+from Agentless.agentless.localisation.FL import LLMFL
+from Agentless.agentless.util.preprocess_data import filter_none_python, filter_out_test_files
 from apps.helper import read_file
 from apps.services.neo4jDB.graphDB_dataAccess import create_graph_database_connection
 from apps.services.open_ia_llm import OpenIA_LLM, get_graph_with_schema
