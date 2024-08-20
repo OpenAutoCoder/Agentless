@@ -151,7 +151,7 @@ def localize_instance(
         (
             found_edit_locs,
             additional_artifact_loc_edit_location,
-            edit_loc_traj,
+            edit_loc_traj, final_status
         ) = fl.localize_line_from_coarse_function_locs(
             pred_files,
             coarse_found_locs,
@@ -163,6 +163,8 @@ def localize_instance(
             temperature=args.temperature,
             num_samples=args.num_samples,
         )
+        if not final_status:
+            return
         additional_artifact_loc_edit_location = [additional_artifact_loc_edit_location]
 
     with open(args.output_file, "a") as f:
@@ -186,7 +188,12 @@ def localize_instance(
 
 
 def localize(args):
-    swe_bench_data = load_dataset("princeton-nlp/SWE-bench_Lite", split="test")
+    swe_bench_data = load_dataset("exploiter345/SWE-bench_Verified_50", split="test")
+    # swe_bench_data = swe_bench_data.filter(lambda x : x["repo"] == "django/django")
+    # add support to only iterate over a subset of the dataset
+    if args.run_top_n > 0:
+        swe_bench_data = swe_bench_data.select(range(args.run_top_n))
+
     start_file_locs = load_jsonl(args.start_file) if args.start_file else None
     existing_instance_ids = (
         load_existing_instance_ids(args.output_file) if args.skip_existing else set()
@@ -213,7 +220,6 @@ def localize(args):
                 for bug in swe_bench_data
             ]
             concurrent.futures.wait(futures)
-
 
 def merge(args):
     """Merge predicted locations."""
@@ -296,8 +302,10 @@ def main():
     parser.add_argument("--top_n", type=int, default=3)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--num_samples", type=int, default=1)
+    parser.add_argument("--run_top_n", type=int, default=-1)
     parser.add_argument("--compress", action="store_true")
     parser.add_argument("--merge", action="store_true")
+    parser.add_argument("--no_merge", action="store_false", dest="merge")
     parser.add_argument("--add_space", action="store_true")
     parser.add_argument("--no_line_number", action="store_true")
     parser.add_argument("--sticky_scroll", action="store_true")
@@ -325,11 +333,11 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4o-2024-05-13",
-        choices=["gpt-4o-2024-05-13", "deepseek-coder", "gpt-4o-mini-2024-07-18"],
+        default="claude-3-5-sonnet-20240620",
+        choices=["gpt-4o-2024-05-13", "gpt-4o-mini","deepseek-coder", "gpt-4o-mini-2024-07-18", "claude-3-5-sonnet-20240620"],
     )
     parser.add_argument(
-        "--backend", type=str, default="openai", choices=["openai", "deepseek"]
+        "--backend", type=str, default="anthropic", choices=["openai", "deepseek", "anthropic"]
     )
 
     args = parser.parse_args()

@@ -11,7 +11,7 @@ from agentless.util.preprocess_data import (
     show_project_structure,
 )
 
-MAX_CONTEXT_LENGTH = 128000
+MAX_CONTEXT_LENGTH = 128_000
 
 
 class FL(ABC):
@@ -480,7 +480,9 @@ Return just the locations.
         )
         self.logger.info(f"prompting with message:\n{message}")
         self.logger.info("=" * 80)
-        assert num_tokens_from_messages(message, self.model_name) < MAX_CONTEXT_LENGTH
+        if num_tokens_from_messages(message, self.model_name) >= MAX_CONTEXT_LENGTH:
+            self.logger.info(f"Skipping querying model since message is too long")
+            return (None,None,None,False)
         if mock:
             self.logger.info("Skipping querying model since mock=True")
             traj = {
@@ -549,5 +551,5 @@ Return just the locations.
         return (
             model_found_locs_separated_in_samples,
             {"raw_output_loc": raw_outputs},
-            traj,
+            traj, True
         )

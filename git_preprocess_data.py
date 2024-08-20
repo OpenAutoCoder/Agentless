@@ -13,11 +13,16 @@ from get_repo_structure.get_repo_structure import (
 
 def save_project_structure(args):
     bug, output_folder = args
+    # if the file exists, skip
+    fpath = os.path.join(output_folder, f"{bug['instance_id']}.json")
+    if os.path.exists(fpath):
+        print(f"Skipping {bug['instance_id']} as it already exists")
+        return
     d = get_project_structure_from_scratch(
         bug["repo"], bug["base_commit"], bug["instance_id"], "playground"
     )
     # save the project structure as json dict to the output folder
-    with open(os.path.join(output_folder, f"{bug['instance_id']}.json"), "w") as f:
+    with open(fpath, "w") as f:
         json.dump(d, f)
     print(f"Saved project structure for {bug['instance_id']}")
 
@@ -25,7 +30,7 @@ def save_project_structure(args):
 if __name__ == "__main__":
     # use parser
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_id", type=str, default="princeton-nlp/SWE-bench_Verified")
+    parser.add_argument("--dataset_id", type=str, default="exploiter345/SWE-bench_Verified_50")
     parser.add_argument("--split_name", type=str, default="test")
     parser.add_argument("--output_folder", type=str, default="playground")
     parser.add_argument("--run_top_n", type=int, default=1)
@@ -41,7 +46,7 @@ if __name__ == "__main__":
     
     # print the number of bugs in the dataset
     print(f"Number of instances in {args.dataset_id} {args.split_name} filtered by {args.repo_filter} is {len(swe_bench_data)}")
-    
+
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
     
