@@ -99,12 +99,38 @@ These commands generate 21 samples each (1 greedy and 20 via temperature samplin
 
 The above two commands will combine to generate 42 samples in total for each bug. 
 
+## 😼 Patch selection:
+
+To run patch selection with regression tests see the setup for regression tests below. Otherwise skip to `Running patch selection`:
+
+### Setup for running regression tests:
+First make sure to add the SWE_bench submodule to the path and set PATH_TO_PATCHES to the path to a jsonl file containing 
+model_patches (the exact file doesn't matter since the `--testing` argument will overwrite the patches passed so that the tests run in the original repository).
+
+To generate the set of regression tests which pass in the base repository first run.
+```shell
+python agentless/repair/rerank.py --patch_folder PATH_TO_PATCHES \
+                                    --num_samples 1 \
+                                    --output_file results/get_passing_tests/get_passing_tests.jsonl \
+                                    --plausible \
+                                    --testing \
+                                    --run_all_tests
+```
+
+to evaluate all the PASS_TO_PASS tests in the base repository. To get the set of these tests which passed run:
+
+```shell
+python agentless/test/instances_to_eval.py --output_jsonl_path successful_tests.jsonl --input_folder_path logs/run_evaluation/regression_tests_get_passing_tests_0
+```
+
+### Running patch selection:
+
 Finally, we perform majority voting to select the final patch to solve each issue (from the 42 samples). Run the following command:
 
 ```shell
-python agentless/repair/rerank.py --patch_folder results/repair_run_1,results/repair_run_2 --num_samples 42 --deduplicate --plausible
+python agentless/repair/rerank.py --patch_folder results/repair_run_1,results/repair_run_2 --num_samples 42 --deduplicate --plausible --output_file results/reproduce_original_agentless/all_preds.jsonl
 ```
 
-In this case, we use `--num_samples 42` to pick from the 42 samples we generated previously, `--deduplicate` to apply normalization to each patch for better voting, and `--plausible` to select patches that can pass the previous regression tests (*warning: this feature is not yet implemented*)
+In this case, we use `--num_samples 42` to pick from the 42 samples we generated previously, `--deduplicate` to apply normalization to each patch for better voting, and `--plausible` to select patches that can pass the previous regression tests. If the regression tests have not been set up omit the `--plausible` flag.
 
 This command will produced the `all_preds.jsonl` that contains the final selected patch for each instance_id which you can then directly use your favorite way of testing SWE-bench for evaluation!
