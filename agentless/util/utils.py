@@ -3,6 +3,7 @@ import logging
 import os
 from collections import defaultdict
 
+
 def load_jsonl(filepath):
     """
     Load a JSONL file from the given filepath.
