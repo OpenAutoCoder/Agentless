@@ -7,6 +7,7 @@ class CompressTransformer(cst.CSTTransformer):
     replacement_string = '"$$FUNC_BODY_REPLACEMENT_STRING$$"'
 
     def __init__(self, keep_constant=True):
+        super().__init__()
         self.keep_constant = keep_constant
 
     def leave_Module(

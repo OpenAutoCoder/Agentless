@@ -1,21 +1,19 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from agentless.util.api_requests import create_chatgpt_config, request_chatgpt_engine
+from apps.agentless.util.api_requests import create_chatgpt_config, request_chatgpt_engine
 
 
 class DecoderBase(ABC):
     def __init__(
         self,
         name: str,
-        logger,
         batch_size: int = 1,
         temperature: float = 0.8,
         max_new_tokens: int = 1024,
     ) -> None:
         print("Initializing a decoder model: {} ...".format(name))
         self.name = name
-        self.logger = logger
         self.batch_size = batch_size
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
@@ -36,8 +34,8 @@ class DecoderBase(ABC):
 
 
 class OpenAIChatDecoder(DecoderBase):
-    def __init__(self, name: str, logger, **kwargs) -> None:
-        super().__init__(name, logger, **kwargs)
+    def __init__(self, name: str, **kwargs) -> None:
+        super().__init__(name, **kwargs)
 
     def codegen(self, message: str, num_samples: int = 1) -> List[dict]:
         if self.temperature == 0:
@@ -51,16 +49,8 @@ class OpenAIChatDecoder(DecoderBase):
             batch_size=batch_size,
             model=self.name,
         )
-        ret = request_chatgpt_engine(config, self.logger)
-        if ret:
-            responses = [choice.message.content for choice in ret.choices]
-            completion_tokens = ret.usage.completion_tokens
-            prompt_tokens = ret.usage.prompt_tokens
-        else:
-            responses = [""]
-            completion_tokens = 0
-            prompt_tokens = 0
-
+        ret = request_chatgpt_engine(config)
+        responses = [choice.message.content for choice in ret.choices]
         # The nice thing is, when we generate multiple samples from the same input (message),
         # the input tokens are only charged once according to openai API.
         # Therefore, we assume the request cost is only counted for the first sample.
@@ -71,8 +61,8 @@ class OpenAIChatDecoder(DecoderBase):
             {
                 "response": responses[0],
                 "usage": {
-                    "completion_tokens": completion_tokens,
-                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": ret.usage.completion_tokens,
+                    "prompt_tokens": ret.usage.prompt_tokens,
                 },
             }
         ]
@@ -92,76 +82,16 @@ class OpenAIChatDecoder(DecoderBase):
         return False
 
 
-class DeepSeekChatDecoder(DecoderBase):
-    def __init__(self, name: str, logger, **kwargs) -> None:
-        super().__init__(name, logger, **kwargs)
-
-    def codegen(self, message: str, num_samples: int = 1) -> List[dict]:
-        if self.temperature == 0:
-            assert num_samples == 1
-
-        trajs = []
-        for _ in range(num_samples):
-            config = create_chatgpt_config(
-                message=message,
-                max_tokens=self.max_new_tokens,
-                temperature=self.temperature,
-                batch_size=1,
-                model=self.name,
-            )
-            ret = request_chatgpt_engine(
-                config, self.logger, base_url="https://api.deepseek.com"
-            )
-            if ret:
-                trajs.append(
-                    {
-                        "response": ret.choices[0].message.content,
-                        "usage": {
-                            "completion_tokens": ret.usage.completion_tokens,
-                            "prompt_tokens": ret.usage.prompt_tokens,
-                        },
-                    }
-                )
-            else:
-                trajs.append(
-                    {
-                        "response": "",
-                        "usage": {
-                            "completion_tokens": 0,
-                            "prompt_tokens": 0,
-                        },
-                    }
-                )
-
-        return trajs
-
-    def is_direct_completion(self) -> bool:
-        return False
-
-
 def make_model(
     model: str,
-    backend: str,
-    logger,
     batch_size: int = 1,
     max_tokens: int = 1024,
     temperature: float = 0.0,
 ):
-    if backend == "openai":
-        return OpenAIChatDecoder(
-            name=model,
-            logger=logger,
-            batch_size=batch_size,
-            max_new_tokens=max_tokens,
-            temperature=temperature,
-        )
-    elif backend == "deepseek":
-        return DeepSeekChatDecoder(
-            name=model,
-            logger=logger,
-            batch_size=batch_size,
-            max_new_tokens=max_tokens,
-            temperature=temperature,
-        )
-    else:
-        raise NotImplementedError
+    return OpenAIChatDecoder(
+        name=model,
+        batch_size=batch_size,
+        max_new_tokens=max_tokens,
+        temperature=temperature,
+    )
+

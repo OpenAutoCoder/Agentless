@@ -1,8 +1,8 @@
 import json
 import os
 
-from agentless.util.parse_global_var import parse_global_var_from_code
-from get_repo_structure.get_repo_structure import (
+from apps.agentless.util.parse_global_var import parse_global_var_from_code
+from apps.agentless.get_repo_structure.get_repo_structure import (
     get_project_structure_from_scratch,
     parse_python_file,
 )
@@ -11,8 +11,6 @@ from get_repo_structure.get_repo_structure import (
 def line_wrap_content(
     content: str,
     context_intervals=None,
-    add_space=False,
-    no_line_number=False,
     sticky_scroll=False,
 ):
     """add n| to each line, where n increases"""
@@ -28,10 +26,6 @@ def line_wrap_content(
 
     prev_scopes = []
     line_format = "{line}"
-    if not no_line_number:
-        line_format = (
-            "{line_number}|{line}" if not add_space else "{line_number}| {line} "
-        )
     for interval in context_intervals:
         min_line, max_line = interval
 
@@ -656,104 +650,6 @@ def get_repo_files(structure, filepaths: list[str]):
     return file_contents
 
 
-def correct_file_paths(model_found_files, files, include_partial_paths=True):
-    found_files = []
-    if model_found_files:
-        for model_file in model_found_files:
-            found_match = False
-            # Check if any model found file is a subset of the current file path
-            for file_content in files:
-                file = file_content[0]
-                if model_file == file:
-                    found_files.append(file)
-                    found_match = True
-            if include_partial_paths and not found_match:
-                for file_content in files:
-                    file = file_content[0]
-                    if file.endswith(model_file):
-                        found_files.append(file)
-                        break  # No need to check further, we found a match
-        return found_files
-    else:
-        return []
-
-
-def test_correct_file_paths():
-    # Test case 1: Exact match
-    model_files1 = ["data.txt", "analysis/report.pdf"]
-    files1 = [("data.txt",), ("notes.txt",), ("report/report.pdf",)]
-    result1 = correct_file_paths(model_files1, files1)
-    assert result1 == ["data.txt"], f"Expected ['data.txt'], but got {result1}"
-
-    # Test case 2: Subdirectories in model files
-    model_files2 = ["subdir/data.txt", "notes/info.txt"]
-    files2 = [
-        ("work/subdir/data.txt",),
-        ("notes/info.txt",),
-        ("extras/notes/info.txt",),
-    ]
-    result2 = correct_file_paths(model_files2, files2)
-    assert result2 == [
-        "work/subdir/data.txt",
-        "notes/info.txt",
-    ], f"Expected ['work/subdir/data.txt', 'notes/info.txt'], but got {result2}"
-
-    # Test case 3: No match
-    model_files3 = ["missing.txt"]
-    files3 = [("data.txt",), ("notes.txt",), ("analysis/report.pdf",)]
-    result3 = correct_file_paths(model_files3, files3)
-    assert result3 == [], f"Expected [], but got {result3}"
-
-    # Test case 4: Multiple potential matches but only first match counts
-    model_files4 = ["report.doc"]
-    files4 = [("work/report.doc",), ("work/rr/report.docg",)]
-    result4 = correct_file_paths(model_files4, files4)
-    assert result4 == [
-        "work/report.doc"
-    ], f"Expected ['work/report.doc'], but got {result4}"
-
-    # Test case 5: Model file is a subset
-    model_files5 = ["data"]
-    files5 = [("project/data_analysis/data.txt",), ("data/config.yaml",)]
-    result5 = correct_file_paths(model_files5, files5)
-    assert result5 == [], f"Expected [], but got {result5}"
-
-    # Test case 6: File without any folders with two matches
-    model_files6 = ["data.txt"]
-    files6 = [("project/data_analysis/data.txt",), ("data/config.yaml",), ("data.txt",)]
-    result6 = correct_file_paths(model_files6, files6)
-    assert result6 == ["data.txt"], f"Expected ['data.txt'], but got {result6}"
-
-    # Test case 7: File without any folders with only a subdirectory match
-    model_files7 = ["data.txt"]
-    files7 = [("project/data_analysis/data.txt",), ("data/config.yaml",)]
-    result7 = correct_file_paths(model_files7, files7)
-    assert result7 == [
-        "project/data_analysis/data.txt"
-    ], f"Expected ['project/data_analysis/data.txt'], but got {result7}"
-
-    print("All test cases passed!")
-
-
-def test_merge():
-    # Example usage:
-    input_tuples = [(1, 3), (2, 4), (5, 7), (6, 8)]
-    merged_tuples = merge_intervals(input_tuples)
-    assert merged_tuples == [(1, 4), (5, 8)]
-
-    input_tuples = [(1, 5), (2, 3)]
-    merged_tuples = merge_intervals(input_tuples)
-    assert merged_tuples == [(1, 5)]
-
-    input_tuples = [(1, 1)]
-    merged_tuples = merge_intervals(input_tuples)
-    assert merged_tuples == [(1, 1)]
-
-    input_tuples = [(1, 1), (2, 3)]
-    merged_tuples = merge_intervals(input_tuples)
-    assert merged_tuples == [(1, 1), (2, 3)]
-
-
 def test_merge():
     # Example usage:
     input_tuples = [(1, 3), (2, 4), (5, 7), (6, 8)]
@@ -797,5 +693,4 @@ eight
 
 if __name__ == "__main__":
     test_merge()
-    test_correct_file_paths()
     # test_interval_display()
