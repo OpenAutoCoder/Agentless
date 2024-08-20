@@ -5,6 +5,8 @@ import os
 import openai
 import anthropic
 import tiktoken
+import google.generativeai as genai
+
 
 
 def num_tokens_from_messages(message, model="gpt-3.5-turbo-0301"):
@@ -99,6 +101,20 @@ def request_chatgpt_engine(config, logger, base_url=None, max_retries=40, timeou
     logger.info(f"API response {ret}")
     return ret
 
+
+def request_gemini_engine(config, logger, base_url=None, max_retries=40, timeout=100):
+    ret = None
+    try:
+        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        model=genai.GenerativeModel(model_name=config["model"],
+                                    system_instruction=config["system_message"])
+        chat = model.start_chat(history=[])
+        ret = chat.send_message(config["message"])
+    except Exception as e:
+        logger.info("Can't run Gemini engine")
+        print(e)
+    return ret
+        
 
 def request_anthropic_engine(config, logger, base_url=None, max_retries=40, timeout=100):
     ret = None

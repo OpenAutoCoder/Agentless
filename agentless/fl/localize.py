@@ -334,10 +334,10 @@ def main():
         "--model",
         type=str,
         default="claude-3-5-sonnet-20240620",
-        choices=["gpt-4o-2024-05-13", "gpt-4o-mini","deepseek-coder", "gpt-4o-mini-2024-07-18", "claude-3-5-sonnet-20240620"],
+        choices=["gpt-4o-2024-05-13", "gpt-4o-mini","deepseek-coder", "gpt-4o-mini-2024-07-18", "claude-3-5-sonnet-20240620", "gemini-1.5-flash"],
     )
     parser.add_argument(
-        "--backend", type=str, default="anthropic", choices=["openai", "deepseek", "anthropic"]
+        "--backend", type=str, default="anthropic", choices=["openai", "deepseek", "anthropic", "gemini"]
     )
 
     args = parser.parse_args()
