@@ -1,230 +1,25 @@
 import argparse
 import json
 import os
-from collections import Counter, OrderedDict
+from collections import defaultdict, Counter
 from pathlib import Path
 
-from tqdm import tqdm
-
-from agentless.util.postprocess_data import extract_python_blocks, normalize_patch
-from agentless.util.utils import load_json, load_jsonl
+from Agentless.agentless.util.postprocess_data import normalize_patch
+from Agentless.agentless.util.utils import load_jsonl
+from Agentless.agentless.test.run_tests import run_tests
+from Agentless.agentless.util.regression_tests import remove_duplicates, load_existing_results, get_execution_result_files
 
 execution_results = dict()
-
-
-def _load_results(args):
-    global execution_results
-
-    roots = [Path(folder) for folder in args.patch_folder.split(",")]
-
-    # assumes interval
-    intervals = [(0, int(args.num_samples / len(roots)) - 1) for _ in range(len(roots))]
-
-    for index, root in enumerate(roots):
-        interval = intervals[index]
-        for i in range(interval[0], interval[1] + 1):
-            patches = load_jsonl(root / f"output_{i}_normalized.jsonl")
-            print(
-                f"Loaded {len(patches)} patches from {root / f'output_{i}_normalized.jsonl'}"
-            )
-            for patch in patches[:300]:
-                try:
-                    execution_results.setdefault(patch["instance_id"], []).append(
-                        {
-                            "normalized_patch": patch["normalized_patch"].strip(),
-                            "patch": patch["model_patch"],
-                            "plausible": True,  # default to TRUE for now, TODO: add plausible execution.
-                        }
-                    )
-                except:
-                    print(i)
-                    print(patch)
-                    exit(-1)
-
-
-def get_sample(instance_id, sample_id) -> tuple[str, bool]:
-    """Returns the diff and pass status."""
-    return execution_results[instance_id][sample_id]
-
-
-def get_all_patches(instance_id, num_samples, deduplicate) -> list[str]:
-    """Returns all unique patches."""
-    patches = [execution_results[instance_id][i]["patch"] for i in range(num_samples)]
-    if deduplicate:
-        patch_keys = [
-            execution_results[instance_id][i]["normalized_patch"]
-            for i in range(num_samples)
-        ]
-    else:
-        patch_keys = [
-            execution_results[instance_id][i]["patch"] for i in range(num_samples)
-        ]
-    unique_patches = set()
-    patch_ids = []
-    for i in range(num_samples):
-        patch_key = patch_keys[i].strip()
-        if patch_key and patch_key not in unique_patches:
-            unique_patches.add(patch_key)
-            patch_ids.append(i)
-    return [(id, patches[id]) for id in patch_ids]
-
-
-def get_all_patches_num(instance_id, num_samples, deduplicate) -> list[str]:
-    """Returns all unique patches with number."""
-    # print(f"{len(execution_results)}")
-    patches = [execution_results[instance_id][i]["patch"] for i in range(num_samples)]
-    if deduplicate:
-        patch_keys = [
-            execution_results[instance_id][i]["normalized_patch"]
-            for i in range(num_samples)
-        ]
-    else:
-        patch_keys = [
-            execution_results[instance_id][i]["patch"] for i in range(num_samples)
-        ]
-    unique_patches = {}
-    total_patch_num = {}
-    patch_ids = []
-    for i in range(num_samples):
-        if patch_keys[i] and patch_keys[i] not in unique_patches:
-            unique_patches[patch_keys[i]] = i
-            patch_ids.append(i)
-            total_patch_num[i] = 0
-        if patch_keys[i]:
-            total_patch_num[unique_patches[patch_keys[i]]] += 1
-
-    return [(id, patches[id], total_patch_num[id]) for id in patch_ids]
-
-
-######
-
-import json
-
-
-class SetEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, set):
-            return list(obj)
-        return json.JSONEncoder.default(self, obj)
-
-
-def majority_voting(args):
-    with open(args.output_file, "w") as f:
-        for instance_id in execution_results:
-            if len(execution_results[instance_id]) < args.num_samples:
-                print(
-                    f"There were only {len(execution_results[instance_id])} patches for {instance_id} instead of the full {args.num_samples}"
-                )
-
-            patch_keys = [
-                execution_results[instance_id][i]["normalized_patch"]
-                for i in range(len(execution_results[instance_id]))
-            ]
-            plausible = [
-                execution_results[instance_id][i]["plausible"]
-                for i in range(len(execution_results[instance_id]))
-            ]
-            raw_patches = [
-                execution_results[instance_id][i]["patch"]
-                for i in range(len(execution_results[instance_id]))
-            ]
-
-            if args.plausible:
-                patch_ids = [
-                    i
-                    for i in range(len(execution_results[instance_id]))
-                    if patch_keys[i].strip() and plausible[i]
-                ]
-            else:
-                patch_ids = [
-                    i
-                    for i in range(len(execution_results[instance_id]))
-                    if patch_keys[i].strip()
-                ]
-
-            if not patch_ids:
-                # just vote on all patches
-                if not all([x.strip() == "" for x in raw_patches]):
-                    vote = Counter()
-                    first_appear_idx = dict()
-                    valid_indices = []
-                    for i in range(len(execution_results[instance_id])):
-                        sample = get_sample(instance_id, i)
-                        patch_key = sample["normalized_patch"]
-                        if patch_key != "":
-                            valid_indices.append(i)
-                            vote[patch_key] += 1
-                            if patch_key not in first_appear_idx:
-                                first_appear_idx[patch_key] = i
-                    maj_selected_id = max(
-                        valid_indices,
-                        key=lambda i: (
-                            vote[patch_keys[i]],
-                            -first_appear_idx[patch_keys[i]],
-                        ),
-                    )
-                    patch = get_sample(instance_id, maj_selected_id)["patch"]
-                    result = {
-                        "model_name_or_path": "agentless",
-                        "instance_id": instance_id,
-                        "model_patch": patch,
-                    }
-                else:
-                    print(f"No raw patches valid for {instance_id}")
-                    result = {
-                        "model_name_or_path": "agentless",
-                        "instance_id": instance_id,
-                        "model_patch": "",
-                    }
-                f.write(json.dumps(result) + "\n")
-                continue
-
-            vote = Counter()
-            first_appear_idx = dict()
-            for i in patch_ids:
-                sample = get_sample(instance_id, i)
-                patch_key, patch = sample["normalized_patch"], sample["patch"]
-                vote[patch_key] += 1
-                if patch_key not in first_appear_idx:
-                    first_appear_idx[patch_key] = i
-
-            maj_selected_id = max(
-                patch_ids,
-                key=lambda i: (vote[patch_keys[i]], -first_appear_idx[patch_keys[i]]),
-            )
-
-            if args.target is not None and instance_id == args.target:
-                for patch in vote:
-                    print(
-                        "=" * 20,
-                        vote[patch],
-                        "=" * 20,
-                    )
-                    print(patch)
-                    print("=" * 50)
-
-            sample = get_sample(instance_id, maj_selected_id)
-            result = {
-                "model_name_or_path": "agentless",
-                "instance_id": instance_id,
-                "model_patch": sample["patch"],
-            }
-            f.write(json.dumps(result) + "\n")
-
 
 def normalize_patches(args):
     # separate the patch folders
     output_folders = [Path(folder) for folder in args.patch_folder.split(",")]
     num_folders = len(output_folders)
-    # output_folder = Path(args.patch_folder)
     selected_ids = list(range(int(args.num_samples / num_folders)))
-
-    # print(num_folders, output_folders)
 
     for output_folder in output_folders:
         for i in selected_ids:
             if os.path.exists(output_folder / f"output_{i}_normalized.jsonl"):
-                # skip
                 continue
             patches = load_jsonl(output_folder / f"output_{i}_processed.jsonl")
             for d in patches:
@@ -239,6 +34,175 @@ def normalize_patches(args):
                 for d in patches:
                     f.write(json.dumps(d) + "\n")
 
+def order_normalized_patches(data, folder_path, args):
+    result = {}
+    os.makedirs(folder_path, exist_ok=True)
+    jsonl_file_path = os.path.join(folder_path, "ordered_normalized_patches.jsonl")
+
+    grouped_by_instance = defaultdict(list)
+    for entry in data:
+        instance_id = entry["instance_id"]
+        grouped_by_instance[instance_id].append(entry)
+
+    with open(jsonl_file_path, 'w') as jsonl_file:
+        for instance_id, entries in grouped_by_instance.items():
+            patch_counter = Counter()
+            patch_example = {}
+
+            for entry in entries:
+                if args.deduplicate:
+                    normalized_patch = entry["normalized_patch"].strip()
+                else:
+                    normalized_patch = entry["model_patch"].strip()
+
+                model_patch = entry["model_patch"]
+                patch_counter[normalized_patch] += 1
+                if normalized_patch not in patch_example:
+                    patch_example[normalized_patch] = model_patch
+
+            sorted_patches = [
+                {
+                    "normalized_patch": patch,
+                    "frequency": count,
+                    "patch": patch_example[patch],
+                    "instance_id": instance_id
+                }
+                for patch, count in patch_counter.most_common() if patch != ""
+            ]
+
+            if sorted_patches == []:
+                sorted_patches = [
+                    {
+                        "normalized_patch": patch,
+                        "frequency": count,
+                        "patch": patch_example[patch],
+                        "instance_id": instance_id
+                    }
+                    for patch, count in patch_counter.most_common()
+                ]
+
+            result[instance_id] = sorted_patches
+            jsonl_file.write(json.dumps({instance_id: sorted_patches}) + "\n")
+
+    return result
+
+def _select_patches(args):
+    global execution_results
+
+    execution_results_files = get_execution_result_files(os.path.dirname(args.output_file))
+    print(f"getting previously evaluated patches from {execution_results_files}")
+    total_number_of_results = 0
+    for execution_file in execution_results_files:
+        additional_results = load_existing_results(execution_file)
+        for key in additional_results.keys():
+            total_number_of_results += len(additional_results[key])
+        execution_results.update(additional_results)
+    print(f"{total_number_of_results} execution results already found")
+
+    # Get all the patches
+    max_patches = 0
+    roots = [Path(folder) for folder in args.patch_folder.split(",")]
+    intervals = [(0, int(args.num_samples / len(roots)) - 1) for _ in range(len(roots))]
+    initial_patches = []
+    for index, root in enumerate(roots):
+        interval = intervals[index]
+        for i in range(interval[0], interval[1] + 1):
+            max_patches += 1
+            initial_patches.extend(remove_duplicates(load_jsonl(root / f"output_{i}_normalized.jsonl")))
+
+    # Sort the patches for each instance id
+    ordered_normalized_patches = order_normalized_patches(initial_patches, os.path.dirname(args.output_file), args)
+    patches_with_only_ones = 0
+    for key in ordered_normalized_patches.keys():
+        if ordered_normalized_patches[key][0]["frequency"] == 1:
+            patches_with_only_ones += 1
+    print("Instances with no duplicate patches: ", patches_with_only_ones)
+
+    for i in range(max_patches):
+        # Get the patches for the instance_id
+        patches = []
+        for key in ordered_normalized_patches.keys():
+            if len(ordered_normalized_patches[key]) > i:
+                patches.append(ordered_normalized_patches[key][i])
+
+        # Filter the normalized patches based on if they were already evaluated
+        # For plausible add them if the normalized_patch isn't in the past execution results
+        # for testing patches add them
+        previously_evaluated_normalized_patches = {}
+        patches_to_evaluate = []
+        for patch in patches:
+            previously_evaluated_normalized_dicts = execution_results.get(patch.get("instance_id"), [])
+            found_previous_passing = False
+            for entry in previously_evaluated_normalized_dicts:
+                if entry["plausible"]:
+                    previously_evaluated_normalized_patches[patch["instance_id"]] = entry
+                    found_previous_passing = True
+                    print(f"a more frequent plausible patch has already been found for iteration {i} and instance {patch['instance_id']}")
+            if not found_previous_passing:
+                patches_to_evaluate.append(patch)
+            
+        run_id = f"regression_tests_{args.output_file.replace('.jsonl','').split('/')[-1]}_{i}"
+
+        instance_ids = [patch["instance_id"] for patch in patches_to_evaluate]
+        patches = [patch["patch"] for patch in patches_to_evaluate]
+
+        if args.plausible:
+            print(args.instance_ids)
+            instance_to_resolved = run_tests(
+                    instance_ids,
+                    patches,
+                    args.num_workers,
+                    run_id,
+                    args.regression_tests,
+                    args.instance_ids,
+                    args.timeout,
+                    not args.testing,
+                    args.apply_test_patch,
+                    args.run_all_tests
+            )
+        else:
+            instance_to_resolved = {}
+            for instance in instance_ids:
+                instance_to_resolved[instance] = True
+
+        for patch in patches_to_evaluate:
+            if patch["instance_id"] in instance_to_resolved:
+                is_plausible = instance_to_resolved[patch["instance_id"]]
+                new_patch = patch
+                if not args.deduplicate:
+                    new_patch["model_patch"] = new_patch["normalized_patch"]
+                new_patch["plausible"] = is_plausible
+                execution_results.setdefault(patch["instance_id"], []).append(patch)
+            else:
+                is_plausible = False
+                new_patch = patch
+                if not args.deduplicate:
+                    new_patch["model_patch"] = new_patch["normalized_patch"]
+                new_patch["plausible"] = is_plausible
+                execution_results.setdefault(patch["instance_id"], []).append(patch)
+
+        jsonl_filename = args.output_file.replace(".jsonl",f"_{i}_ordered_regression_results.jsonl")
+        with open(jsonl_filename, 'w') as jsonl_file:
+            for instance_id, results in execution_results.items():
+                for result in results:
+                    if result["plausible"]:
+                        jsonl_file.write(json.dumps({"instance_id": instance_id, **result}) + "\n")
+                        break
+
+    with open(args.output_file, 'w') as jsonl_file:
+        for instance_id, results in execution_results.items():
+            found_plausible = False
+            for result in results:
+                if result["plausible"] and (not found_plausible):
+                    jsonl_file.write(json.dumps({"instance_id": instance_id, **result}) + "\n")
+                    found_plausible = True
+
+            if (not found_plausible):
+                print("couldn't find a plausible case")
+                for result in results:
+                    jsonl_file.write(json.dumps({"instance_id": instance_id, **result}) + "\n")
+                    break
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -247,17 +211,21 @@ def main():
     parser.add_argument("--num_samples", type=int, default=11)
     parser.add_argument("--deduplicate", action="store_true")
     parser.add_argument("--plausible", action="store_true")
-    parser.add_argument("--output_file", type=str, default="all_preds.jsonl")
+    parser.add_argument("--testing", action="store_true", help = "If true don't apply the model patch")
+    parser.add_argument("--run_all_tests", action="store_true", help = "Instead of just running the passing tests, runs all the PASS_TO_PASS tests")
+    parser.add_argument("--apply_test_patch", action="store_true", help = "If true we apply the patch to include the tests added with the new patch")
+    parser.add_argument("--output_file", type=str, default="results/all_preds.jsonl")
+    parser.add_argument("--regression_tests", type=str, default="successful_tests.jsonl")
+    parser.add_argument("--num_workers", type=int, default=12)
+    parser.add_argument("--timeout", type=int, default=1200, help="Timeout for running tests in seconds")
+    parser.add_argument("--instance_ids", nargs="+", type=str, help="Instance IDs to run (space separated)")
     args = parser.parse_args()
 
     # first normalize
     normalize_patches(args)
-    # then load results
-    _load_results(args)
-    # then rerank
-    majority_voting(args)
 
+    # then load and run regression tests on the results
+    _select_patches(args)
 
 if __name__ == "__main__":
     main()
-#
