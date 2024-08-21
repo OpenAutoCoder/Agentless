@@ -539,7 +539,6 @@ class QdrantDB(VectorDB):
 
 # Example usage
 if __name__ == "__main__":
-
     # Load mock codefiles
     mock_codefiles_path = os.path.join(os.path.dirname(__file__), 'mock_codefiles.json')
     with open(mock_codefiles_path, 'r') as f:
