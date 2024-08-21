@@ -39,7 +39,7 @@ class GeminiChatDecoder(DecoderBase):
     def __init__(self, name: str, logger, **kwargs) -> None:
         super().__init__(name, logger, **kwargs)
     
-    def codegen(self, message: str, num_samples: int = 1) -> List[dict]:
+    def codegen(self, message: str, num_samples: int = 1, system_message: str = "You are a helpful assistant.") -> List[dict]:
         if self.temperature == 0:
             assert num_samples == 1
         assert num_samples == 1, "Gemini does not support batching"
@@ -47,7 +47,7 @@ class GeminiChatDecoder(DecoderBase):
             "model": self.name,
             "max_tokens": self.max_new_tokens,
             "temperature": self.temperature,
-            "system_message": "You are a helpful assistant.",
+            "system_message": system_message,
             # "n": batch_size,
             "message": message
         }
