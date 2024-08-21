@@ -13,6 +13,7 @@ import os
 import sys
 from collections import defaultdict
 from datasets import load_dataset
+from typing import List
 
 
 def load_jsonl(filepath):
@@ -40,7 +41,7 @@ def get_affected_files(patch_string):
     return list(affected_files)
 
 
-def get_retrieval_eval_results(swe_bench_data, pred_jsonl_path):
+def get_retrieval_eval_results(swe_bench_data, pred_jsonl_path, top_k_list: List[int] = [1,3,5,7,10]):
     """
     Runs retrieval evaluation on the given dataset.
     """
@@ -51,6 +52,7 @@ def get_retrieval_eval_results(swe_bench_data, pred_jsonl_path):
     pred_data = load_jsonl(pred_jsonl_path)
     avg_recall = 0
     count = 0
+    avg_recalls = {k : 0 for k in top_k_list}
     for pred in pred_data:
         instance_id = pred["instance_id"]
         lite_dataset = swe_bench_data.filter(lambda x: x["instance_id"] in [instance_id])
@@ -59,16 +61,21 @@ def get_retrieval_eval_results(swe_bench_data, pred_jsonl_path):
         gt_patch = lite_dataset[0]["patch"]
         pred_files = pred["found_files"]
         gt_files = get_affected_files(gt_patch)
-        # get the recall.
-        intersection = set(pred_files) & set(gt_files)
-        recall = len(intersection) / len(gt_files)
-        avg_recall += recall
+        for _k in top_k_list:
+            pred_files_k = pred_files[:_k]
+            
+            # get the recall.
+            intersection = set(pred_files_k) & set(gt_files)
+            recall_at_k = len(intersection) / len(set(gt_files))
+            avg_recalls[_k] += recall_at_k
         count += 1
     if count == 0:
         print("No instances found in the dataset.")
-        return 1.0, 0
-    avg_recall /= count
-    return avg_recall, count
+        return {k: 0 for k in top_k_list}, 0
+    # Calculate average recall for each k
+    avg_recalls = {k: recall / count for k, recall in avg_recalls.items()}
+    
+    return avg_recalls, count
 
 
 if __name__ == "__main__":
@@ -85,6 +92,7 @@ if __name__ == "__main__":
     # load the dataset 
     swe_bench_data = load_dataset(args.dataset_id, split=args.split_name)
 
-    avg_recall, count = get_retrieval_eval_results(swe_bench_data, args.preds_path)
-    print(f"Average recall: {avg_recall}")
+    avg_recalls, count = get_retrieval_eval_results(swe_bench_data, args.preds_path)
+    for k, recall in avg_recalls.items():
+        print(f"Average recall@{k}: {recall:.4f}")
     print(f"Count: {count}")
