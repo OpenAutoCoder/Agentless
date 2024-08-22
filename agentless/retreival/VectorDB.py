@@ -196,9 +196,9 @@ class QdrantDB(VectorDB):
         
         return {"message": "Data uploaded to Qdrant"}
     
-    def _get_existing_shas(self) -> List[str]:
+    def _get_existing_points(self) -> List[Dict[str, str]]:
         """
-        Get all the file shas that already exist in the vector database.
+        Get all the file shas and file paths that already exist in the vector database.
         """
         try:
             search_result = self.client.search(
@@ -206,7 +206,7 @@ class QdrantDB(VectorDB):
                 query_vector=[0] * self.vector_size,
                 limit=100000
             )
-            return [hit.payload['file_sha'] for hit in search_result]
+            return [{'file_sha': hit.payload['file_sha'], 'file_path': hit.payload['file_path']} for hit in search_result]
         except Exception as e:
             print(f"Error in _get_existing_shas: {type(e).__name__}")
             print(f"Error message: {str(e)}")
@@ -230,21 +230,23 @@ class QdrantDB(VectorDB):
         # Get a dictionary of file shas
         file_shas = get_file_shas(code_files)
 
-        # Get all existing shas from the database
-        existing_shas = set(self._get_existing_shas())
+        # Get all existing points from the database
+        existing_points = self._get_existing_points()
 
-        # Create a set of new file SHAs
-        new_file_shas = set(file_shas.values())
-       
-        # Find the SHAs that don't exist in the database
-        shas_to_add = new_file_shas - existing_shas
+        # Create a set of tuples (file_path, sha) for existing points
+        existing_file_path_sha_pairs = {(point['file_path'], point['file_sha']) for point in existing_points}
 
+        # Create a set of tuples (file_path, sha) for new files
+        new_file_path_sha_pairs = {(file_path, file_shas[file_path]) for file_path in code_files}
+
+        # Find the pairs that don't exist in the database
+        pairs_to_add = new_file_path_sha_pairs - existing_file_path_sha_pairs
 
         # Filter the code_files dictionary
         filtered_files = {
             file_path: content
             for file_path, content in code_files.items()
-            if file_shas[file_path] in shas_to_add
+            if (file_path, file_shas[file_path]) in pairs_to_add
         }
 
         filtered_out = set(code_files.keys()) - set(filtered_files.keys())
@@ -318,7 +320,7 @@ class QdrantDB(VectorDB):
                 try:
                     response = openai.embeddings.create(
                         input=[chunk['chunk_content'] for chunk in batch],
-                        model="text-embedding-ada-002"
+                        model="text-embedding-3-large"
                     )
                     new_embeddings = [data.embedding for data in response.data]
                     
