@@ -207,6 +207,7 @@ class DeepSeekChatDecoder(DecoderBase):
         super().__init__(name, logger, **kwargs)
 
     def codegen(self, message: str, num_samples: int = 1) -> List[dict]:
+        import os 
         if self.temperature == 0:
             assert num_samples == 1
 
@@ -220,7 +221,7 @@ class DeepSeekChatDecoder(DecoderBase):
                 model=self.name,
             )
             ret = request_chatgpt_engine(
-                config, self.logger, base_url="https://api.deepseek.com"
+                config, self.logger, api_key=os.environ.get("DEEPSEEK_API_KEY", None),base_url="https://api.deepseek.com"
             )
             if ret:
                 trajs.append(
