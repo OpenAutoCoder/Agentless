@@ -28,11 +28,7 @@ def rerank_files(query: str, code_files: Dict[str, str]) -> Dict[str, str]:
     if not code_files:
         print("Warning: No code files provided for reranking. Returning empty dictionary.")
         return {}
-
-    
-    # Print the filenames before reranking
-    print("Filenames before reranking:", list(code_files.keys()))
-
+   
     # Prepare the documents for reranking
     documents = list(code_files.values())
     filenames = list(code_files.keys())
@@ -46,9 +42,6 @@ def rerank_files(query: str, code_files: Dict[str, str]) -> Dict[str, str]:
 
     # Create a reranked dictionary of filenames and contents
     reranked_files = {filenames[r.index]: documents[r.index] for r in reranked_results.results}
-
-    # Print the filenames after reranking
-    print("Filenames after reranking:", list(reranked_files.keys()))
 
     return reranked_files
 
