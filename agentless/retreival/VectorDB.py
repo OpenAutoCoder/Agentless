@@ -430,7 +430,7 @@ class QdrantDB(VectorDB):
                 'chunk_number': data_item['chunk_number'],
             }
             if self.include_chunk_content:
-                payload['chunk_content'] = data_item['chunk_content']
+                payload['chunk_content'] = data_item['chunk_content']   
 
             return models.PointStruct(
                 id=str(uuid.uuid4()),  # Generate a new UUID for each point
@@ -497,14 +497,16 @@ class QdrantDB(VectorDB):
         file_scores = {}
         for hit in search_result:
             file_path = hit.payload.get('file_path')
-            if file_path not in file_scores or hit.score > file_scores[file_path]['score']:
-                file_scores[file_path] = {
-                    'score': hit.score,
-                    'chunk_number': hit.payload.get('chunk_number'),
-                    'file_sha': hit.payload.get('file_sha'),
-                }
-                if self.include_chunk_content:
-                    file_scores[file_path]['chunk_content'] = hit.payload.get('chunk_content')
+            # Only process files that are in the codebase_dict
+            if file_path in self.codebase_dict:
+                if file_path not in file_scores or hit.score > file_scores[file_path]['score']:
+                    file_scores[file_path] = {
+                        'score': hit.score,
+                        'chunk_number': hit.payload.get('chunk_number'),
+                        'file_sha': hit.payload.get('file_sha'),
+                    }
+                    if self.include_chunk_content:
+                        file_scores[file_path]['chunk_content'] = hit.payload.get('chunk_content')
 
         # Sort the results by score and return the top_n
         ranked_results = sorted(
