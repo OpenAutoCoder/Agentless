@@ -2,16 +2,7 @@ import os
 import subprocess
 from typing import List, Dict, Union, Tuple
 from tree_sitter import Language, Parser, Node
-from typing import Union, List
 import logging
-from agentless.retreival.TextChunker.count_tokens import count_tokens
-
-def return_simple_line_numbers_with_code(code: str) -> str:
-    code_lines = code.split('\n')
-    code_with_line_numbers = [f"Line {i + 1}: {line}" for i, line in enumerate(code_lines)]
-    joined_lines = "\n".join(code_with_line_numbers)
-    return joined_lines
-
 
 class CodeParser:
     # Added a CACHE_DIR class attribute for caching

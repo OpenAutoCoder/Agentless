@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from agentless.retreival.TextChunker.CodeParser import CodeParser, count_tokens
+from agentless.retreival.TextChunker.CodeParser import CodeParser
+from agentless.retreival.TextChunker.count_tokens import count_tokens
 
 class Chunker(ABC):
     def __init__(self, encoding_name="gpt-4"):
