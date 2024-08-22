@@ -19,15 +19,11 @@ from agentless.retreival.TextChunker.count_tokens import count_tokens
 from agentless.retreival.TextChunker.Chunker import CodeChunker
 from agentless.retreival.TextChunker.Chunker import ChunkDictionary
 import logging
+from agentless.retreival.config import EMBEDDINGS_DIR
 
 
 # Add this near the top of your file, after the imports
 logging.getLogger("qdrant_client").setLevel(logging.WARNING)
-
-
-EMBEDDINGS_DIR = Path(__file__).parent / "embeddings"
-if not EMBEDDINGS_DIR.exists():
-    EMBEDDINGS_DIR.mkdir(parents=True)
 
 
 COST_PER_TOKEN = 0.0000001
