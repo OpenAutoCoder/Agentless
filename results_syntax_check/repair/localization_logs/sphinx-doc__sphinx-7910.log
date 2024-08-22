@@ -1,0 +1,2675 @@
+2024-08-22 14:01:15,738 - INFO - ================ repairing sphinx-doc__sphinx-7910 ================
+2024-08-22 14:01:16,836 - INFO - prompting with message:
+We are currently solving the following issue within our repository. Here is the issue text:
+--- BEGIN ISSUE ---
+Decorated __init__ doesn't show up in docs
+Subject: Decorated __init__ won't be documented. I'm working on [tensorpack](github.com/ppwwyyxx/tensorpack)
+
+### Problem
+- I have `napoleon_include_init_with_doc = True`, so `__init__` will be documented. But if I decorate the `__init__` method, it will not show up in docs.
+I decorate it with `functools.wraps`, so the decorated object still has the same `__doc__`.
+I've found that the bug is due to this commit: https://github.com/sphinx-doc/sphinx/commit/bbfd0d058aecf85bd3b711a846c83e2fe00fa136
+I've printed the relevant variables in that function:
+```
+qualname='DistributedTrainerReplicated.__init__'
+name='__init__'
+obj.__doc__ has contents
+```
+And the root cause of the issue is in this line of code:
+```python
+cls = obj.__globals__[cls_path]
+```
+Because `obj` now is not the method itself, but a decorated method, its `__globals__` does not contain the class anymore. This makes sphinx think it's not a method, i.e. `cls_is_owner=False`.
+
+
+### Environment info
+- OS: <Unix/Linux/Mac/Win/other with version>: ArchLinux
+- Python version: 3.6
+- Sphinx version:1.6.5
+
+
+--- END ISSUE ---
+
+
+Below are some code segments, each from a relevant file. One or more of these files may contain bugs.
+
+--- BEGIN FILE ---
+```
+### sphinx/domains/python.py
+...
+
+        Return (fully qualified name of the thing, classname if any).
+
+        If inside a class, the current class name is handled intelligently:
+        * it is stripped from the displayed name if present
+        * it is added to the full name (return value) if not present
+        """
+        m = py_sig_re.match(sig)
+        if m is None:
+            raise ValueError
+        prefix, name, arglist, retann = m.groups()
+
+        # determine module and class name (if applicable), as well as full name
+        modname = self.options.get('module', self.env.ref_context.get('py:module'))
+        classname = self.env.ref_context.get('py:class')
+        if classname:
+            add_module = False
+            if prefix and (prefix == classname or
+                           prefix.startswith(classname + ".")):
+                fullname = prefix + name
+                # class name is given again in the signature
+...
+
+
+### sphinx/util/inspect.py
+...
+
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    try:
+        return inspect.unwrap(obj)
+    except ValueError:
+        # might be a mock object
+        return obj
+
+
+def unwrap_all(obj: Any, *, stop: Callable = None) -> Any:
+    """
+    Get an original object from wrapped object (unwrapping partials, wrapped
+    functions, and other decorators).
+    """
+    while True:
+        if stop and stop(obj):
+            return obj
+        elif ispartial(obj):
+            obj = obj.func
+        elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+            obj = obj.__wrapped__
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+        else:
+            return obj
+
+
+def isenumclass(x: Any) -> bool:
+    """Check if the object is subclass of enum."""
+    return inspect.isclass(x) and issubclass(x, enum.Enum)
+
+
+def isenumattribute(x: Any) -> bool:
+    """Check if the object is attribute of enum."""
+    return isinstance(x, enum.Enum)
+...
+```
+--- END FILE ---
+
+Please first localize the bug based on the issue statement, and then generate *SEARCH/REPLACE* edits to fix the issue.
+
+Every *SEARCH/REPLACE* edit must use this format:
+1. The file path
+2. The start of search block: <<<<<<< SEARCH
+3. A contiguous chunk of lines to search for in the existing source code
+4. The dividing line: =======
+5. The lines to replace into the source code
+6. The end of the replace block: >>>>>>> REPLACE
+
+Here is an example:
+
+```python
+### mathweb/flask/app.py
+<<<<<<< SEARCH
+from flask import Flask
+=======
+import math
+from flask import Flask
+>>>>>>> REPLACE
+```
+
+Please note that the *SEARCH/REPLACE* edit REQUIRES PROPER INDENTATION. If you would like to add the line '        print(x)', you must fully write that out, with all those spaces before the code!
+Wrap the *SEARCH/REPLACE* edit in blocks ```python...```.
+2024-08-22 14:01:16,845 - INFO - Creating API request
+2024-08-22 14:01:20,074 - INFO - API response ChatCompletion(id='chatcmpl-9z9DhImMHED1kH9ThivKqoADsqdpe', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the problem arises from the fact that when the `__init__` method is decorated, it loses its original context, specifically the class it belongs to, which leads to Sphinx not being able to document it correctly. The relevant code in `sphinx/domains/python.py` is trying to access the class through `obj.__globals__`, but since `obj` is now a decorated function, it does not have the expected `__globals__` structure.\n\nTo fix this, we need to ensure that Sphinx can correctly identify the class of the decorated `__init__` method. One way to do this is to modify the way Sphinx retrieves the class from the decorated method.\n\nHere is the proposed change:\n\n```python\n### sphinx/domains/python.py\n<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE\n```\n\nThis change uses the `unwrap` function to get the original method from the decorated one, allowing Sphinx to access the correct `__globals__` and retrieve the class information properly.', refusal=None, role='assistant', function_call=None, tool_calls=None))], created=1724360477, model='gpt-4o-mini-2024-07-18', object='chat.completion', service_tier=None, system_fingerprint='fp_48196bc67a', usage=CompletionUsage(completion_tokens=230, prompt_tokens=1055, total_tokens=1285))
+2024-08-22 14:01:20,095 - INFO - Creating API request
+2024-08-22 14:01:25,590 - INFO - API response ChatCompletion(id='chatcmpl-9z9Dk0XXsFn1NTlKc8UeZONn9govg', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the problem arises because the decorated `__init__` method is not recognized as a method of its class, which leads to improper documentation generation in Sphinx. The primary concern is that the `__globals__` attribute of the decorated method does not reference the class, leading to `cls_is_owner=False`.\n\nTo address this, we can modify the Sphinx code to ensure that it correctly unwraps decorated methods to access their original functions, thus allowing proper documentation of the `__init__` method.\n\nHere is the necessary *SEARCH/REPLACE* edit:\n\n```python\n### sphinx/domains/python.py\n<<<<<<< SEARCH\ncls = obj.__globals__[cls_path]\n=======\n# Unwrap the object to get the original method\noriginal_obj = inspect.unwrap(obj)\ncls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE\n```\n\nThis change will ensure that the original method is retrieved from the decorated version, thus allowing Sphinx to find the correct class in the `__globals__` attribute.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=1, logprobs=None, message=ChatCompletionMessage(content='To fix the issue regarding the documentation of decorated `__init__` methods, we need to ensure that when `__init__` is decorated, Sphinx can still correctly identify its class context. The problem arises because the decorated `__init__` method does not retain proper access to its class\'s globals.\n\nWe can modify the `unwrap` function in `sphinx/util/inspect.py` to include additional logic to handle this specific case.\n\nHere\'s the proposed fix:\n\n```python\n### sphinx/util/inspect.py\n<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n    """Get an original object from wrapped object (wrapped functions)."""\n    try:\n        return inspect.unwrap(obj)\n=======\ndef unwrap(obj: Any) -> Any:\n    """Get an original object from wrapped object (wrapped functions)."""\n    # Check if obj is a function and if it has a __wrapped__ attribute\n    if hasattr(obj, \'__wrapped__\'):\n        original = obj.__wrapped__\n        if inspect.isfunction(original) or inspect.isclass(original):\n            return original\n    try:\n        return inspect.unwrap(obj)\n>>>>>>> REPLACE\n```\n\nThis modification to the `unwrap` function checks if the object being unwrapped has a `__wrapped__` attribute. If it does, we return the `__wrapped__` object, which helps in cases where the method is decorated. This change should help Sphinx correctly identify the original function and its associated class context in the documentation generation process.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=2, logprobs=None, message=ChatCompletionMessage(content="To address the issue described, we need to modify how Sphinx handles decorated methods in the `sphinx/domains/python.py` module. Specifically, we should ensure that when Sphinx tries to retrieve the class from the `__globals__` of the decorated method, it appropriately unwraps the method first.\n\nHere's the proposed fix:\n\n```python\n### sphinx/domains/python.py\n<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE\n```\n\nThis change ensures that we first unwrap the decorated method to access its original function, which retains the correct `__globals__` context and references the class correctly.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=3, logprobs=None, message=ChatCompletionMessage(content="Based on the issue statement and the provided code segments, the problem appears to stem from the handling of decorated methods in Sphinx, particularly in the `sphinx/domains/python.py` file, where Sphinx tries to determine the class of a method. Since the decorated method does not retain the correct `__globals__`, Sphinx cannot find the class and thus does not document the method correctly.\n\nThe relevant part of the code is where Sphinx tries to determine the class name from the method's globals. To fix this issue, we would want to ensure that when Sphinx encounters a decorated function, it correctly identifies its original function so that it can find the class.\n\nA potential solution involves using the `inspect.unwrap` functionality to revert the wrapped function back to its original state before accessing `__globals__`, which would ensure the correct class can be located.\n\nHere are the suggested edits:\n\n```python\n### sphinx/domains/python.py\n<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method\n        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method\n>>>>>>> REPLACE\n```\n\nThis modification uses `inspect.unwrap` to retrieve the original function from the decorated version, allowing Sphinx to correctly access the `__globals__` of the original method, which contains the class information.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=4, logprobs=None, message=ChatCompletionMessage(content="Based on your issue statement, the problem arises from the decorator modifying the `__globals__` attribute of the `__init__` method, causing Sphinx to not recognize it properly as a method of the class. The likely solution would involve ensuring that the `cls` variable can still reference the original class even when `__init__` is decorated.\n\nGiven this, we can modify the `unwrap` function to ensure that it can always retrieve the original function from the decorated version, allowing Sphinx to correctly identify the `__init__` method and its associated class.\n\nHere are the proposed changes:\n\n```python\n### sphinx/util/inspect.py\n<<<<<<< SEARCH\n        return obj\n=======\n        return unwrap(obj)  # Ensure we can unwrap to get original function\n>>>>>>> REPLACE\n```\n\nNow let's look for the relevant section of code that may need to be adjusted in the `sphinx/domains/python.py` file. The idea is to ensure that when trying to access the class, we can make use of the unwrapped version of the method:\n\n```python\n### sphinx/domains/python.py\n<<<<<<< SEARCH\n            if prefix and (prefix == classname or\n=======\n            # Unwrap the object to find the original function\n            original_obj = inspect.unwrap(obj)\n            if prefix and (prefix == classname or \n>>>>>>> REPLACE\n```\n\nThis approach aims to ensure that the original `__init__` method can still be accessed, allowing `cls` to be correctly identified even when `__init__` has been decorated.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=5, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the problem arises from how the Sphinx documentation generator deals with decorated methods. Specifically, the `__globals__` attribute of the decorated method does not point to the class, which causes Sphinx to misidentify the method and ultimately skip documentation for `__init__`.\n\nTo address this, we need to ensure that the original `__init__` function is referenced correctly when decorated. This could involve modifying the behavior of how the decorators handle the original function to maintain its original context.\n\nAfter reviewing the provided code segments, it seems that the function `unwrap` from `sphinx/util/inspect.py` could be enhanced to better handle the case when a method is wrapped. We want to ensure that `unwrap` can correctly find the original method even when it\'s decorated.\n\nHere\'s the search/replace edit that addresses this issue:\n\n```python\n### sphinx/util/inspect.py\n<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    """Get an original object from wrapped object (wrapped functions)."""\n    if hasattr(obj, \'__wrapped__\'):\n        return obj.__wrapped__\n>>>>>>> REPLACE\n```\n\nThis modification ensures that when we call `unwrap`, it first checks if the object has the `__wrapped__` attribute, which is set by decorators like `functools.wraps`. This allows Sphinx to retrieve the original method correctly, even if it has been decorated.\n\nThis change should help Sphinx correctly document the decorated `__init__` methods in the classes, resolving the issue reported in the repository.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=6, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, it appears that the problem lies in the handling of decorated methods in Sphinx. The `__globals__` attribute of a decorated method does not point to the original class, which causes issues when Sphinx tries to document the `__init__` method.\n\nTo fix this, we can modify the `unwrap` function to ensure that it retrieves the original function correctly, keeping in mind its association with the class. We need to ensure that decorated functions can still be traced back to their class context.\n\nHere is a potential solution that modifies the `unwrap` function to check for the class context properly when dealing with decorated methods.\n\n```python\n### sphinx/util/inspect.py\n<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE\n        # might be a mock object\n        return obj\n```\nAnd then we can add a check in the `unwrap_all` function to ensure we can track back to the original class if needed. This can be done to handle the specific case for decorated methods.\n\nHere is the second change:\n\n```python\n### sphinx/util/inspect.py\n<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, \'__self__\') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, \'__name__\'):\n                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"\n>>>>>>> REPLACE\n```\n\nThese changes will help to ensure that decorated methods are properly handled and that their class context is preserved, allowing Sphinx to document them correctly.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=7, logprobs=None, message=ChatCompletionMessage(content="Based on the issue statement, the root cause of the problem lies in how the `__init__` method is being decorated, which affects Sphinx's ability to correctly identify it as a method of its class. The code snippet indicated in the issue shows that Sphinx is trying to access the class through `obj.__globals__`, but since `obj` is a decorated method, this does not return the class as expected.\n\nTo fix this, we need to ensure that the decorator preserves more of the original function's context so that Sphinx can correctly identify the class. The existing `unwrap` and `unwrap_all` methods in `sphinx/util/inspect.py` are intended to handle wrapped functions. We can modify the logic in `unwrap_all` to check for class methods and static methods more thoroughly, ensuring that we don't miss the context of the class when unwrapping.\n\nHere is the suggested change:\n\n```python\n### sphinx/util/inspect.py\n<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE\n```\n\nThis change adds logic to check the `__self__` attribute of class or static methods, which allows us to retrieve the original method from the class dictionary. This should help Sphinx to correctly identify the context of the decorated `__init__` method.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=8, logprobs=None, message=ChatCompletionMessage(content="Based on the issue statement, the bug arises from the handling of decorated methods in Sphinx. Specifically, the current implementation does not correctly retrieve the class of a decorated `__init__` method because it uses `obj.__globals__`, which does not contain the original class when the method is decorated. \n\nTo address this, we can modify the logic to handle decorated methods by unwrapping the method to get to the original function before accessing its `__globals__`. \n\nHere's how to implement the fix:\n\n```python\n### sphinx/domains/python.py\n<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE\n```\n\nThis change unwraps the decorated method before trying to access its global variables, allowing Sphinx to correctly find and document the `__init__` method even when it is decorated.", refusal=None, role='assistant', function_call=None, tool_calls=None))], created=1724360480, model='gpt-4o-mini-2024-07-18', object='chat.completion', service_tier=None, system_fingerprint='fp_48196bc67a', usage=CompletionUsage(completion_tokens=2496, prompt_tokens=1055, total_tokens=3551))
+2024-08-22 14:01:25,591 - INFO - raw output:
+Based on the issue statement, the problem arises from the fact that when the `__init__` method is decorated, it loses its original context, specifically the class it belongs to, which leads to Sphinx not being able to document it correctly. The relevant code in `sphinx/domains/python.py` is trying to access the class through `obj.__globals__`, but since `obj` is now a decorated function, it does not have the expected `__globals__` structure.
+
+To fix this, we need to ensure that Sphinx can correctly identify the class of the decorated `__init__` method. One way to do this is to modify the way Sphinx retrieves the class from the decorated method.
+
+Here is the proposed change:
+
+```python
+### sphinx/domains/python.py
+<<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+```
+
+This change uses the `unwrap` function to get the original method from the decorated one, allowing Sphinx to access the correct `__globals__` and retrieve the class information properly.
+2024-08-22 14:01:25,592 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,592 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,592 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:01:25,592 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,592 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:01:25,592 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,596 - INFO - extracted patch:
+2024-08-22 14:01:25,596 - INFO - 
+2024-08-22 14:01:25,596 - INFO - raw output:
+Based on the issue statement, the problem arises because the decorated `__init__` method is not recognized as a method of its class, which leads to improper documentation generation in Sphinx. The primary concern is that the `__globals__` attribute of the decorated method does not reference the class, leading to `cls_is_owner=False`.
+
+To address this, we can modify the Sphinx code to ensure that it correctly unwraps decorated methods to access their original functions, thus allowing proper documentation of the `__init__` method.
+
+Here is the necessary *SEARCH/REPLACE* edit:
+
+```python
+### sphinx/domains/python.py
+<<<<<<< SEARCH
+cls = obj.__globals__[cls_path]
+=======
+# Unwrap the object to get the original method
+original_obj = inspect.unwrap(obj)
+cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+```
+
+This change will ensure that the original method is retrieved from the decorated version, thus allowing Sphinx to find the correct class in the `__globals__` attribute.
+2024-08-22 14:01:25,596 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,597 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\ncls = obj.__globals__[cls_path]\n=======\n# Unwrap the object to get the original method\noriginal_obj = inspect.unwrap(obj)\ncls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,597 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:01:25,597 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,597 - INFO - <<<<<<< SEARCH
+cls = obj.__globals__[cls_path]
+=======
+# Unwrap the object to get the original method
+original_obj = inspect.unwrap(obj)
+cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:01:25,597 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,602 - INFO - extracted patch:
+2024-08-22 14:01:25,602 - INFO - 
+2024-08-22 14:01:25,602 - INFO - raw output:
+To fix the issue regarding the documentation of decorated `__init__` methods, we need to ensure that when `__init__` is decorated, Sphinx can still correctly identify its class context. The problem arises because the decorated `__init__` method does not retain proper access to its class's globals.
+
+We can modify the `unwrap` function in `sphinx/util/inspect.py` to include additional logic to handle this specific case.
+
+Here's the proposed fix:
+
+```python
+### sphinx/util/inspect.py
+<<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    try:
+        return inspect.unwrap(obj)
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    # Check if obj is a function and if it has a __wrapped__ attribute
+    if hasattr(obj, '__wrapped__'):
+        original = obj.__wrapped__
+        if inspect.isfunction(original) or inspect.isclass(original):
+            return original
+    try:
+        return inspect.unwrap(obj)
+>>>>>>> REPLACE
+```
+
+This modification to the `unwrap` function checks if the object being unwrapped has a `__wrapped__` attribute. If it does, we return the `__wrapped__` object, which helps in cases where the method is decorated. This change should help Sphinx correctly identify the original function and its associated class context in the documentation generation process.
+2024-08-22 14:01:25,602 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,602 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    try:\n        return inspect.unwrap(obj)\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    # Check if obj is a function and if it has a __wrapped__ attribute\n    if hasattr(obj, '__wrapped__'):\n        original = obj.__wrapped__\n        if inspect.isfunction(original) or inspect.isclass(original):\n            return original\n    try:\n        return inspect.unwrap(obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,602 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:01:25,602 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,602 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    try:
+        return inspect.unwrap(obj)
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    # Check if obj is a function and if it has a __wrapped__ attribute
+    if hasattr(obj, '__wrapped__'):
+        original = obj.__wrapped__
+        if inspect.isfunction(original) or inspect.isclass(original):
+            return original
+    try:
+        return inspect.unwrap(obj)
+>>>>>>> REPLACE
+2024-08-22 14:01:25,602 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,604 - INFO - extracted patch:
+2024-08-22 14:01:25,604 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -120,6 +120,11 @@
+ 
+ def unwrap(obj: Any) -> Any:
+     """Get an original object from wrapped object (wrapped functions)."""
++    # Check if obj is a function and if it has a __wrapped__ attribute
++    if hasattr(obj, '__wrapped__'):
++        original = obj.__wrapped__
++        if inspect.isfunction(original) or inspect.isclass(original):
++            return original
+     try:
+         return inspect.unwrap(obj)
+     except ValueError:
+2024-08-22 14:01:25,604 - INFO - raw output:
+To address the issue described, we need to modify how Sphinx handles decorated methods in the `sphinx/domains/python.py` module. Specifically, we should ensure that when Sphinx tries to retrieve the class from the `__globals__` of the decorated method, it appropriately unwraps the method first.
+
+Here's the proposed fix:
+
+```python
+### sphinx/domains/python.py
+<<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+```
+
+This change ensures that we first unwrap the decorated method to access its original function, which retains the correct `__globals__` context and references the class correctly.
+2024-08-22 14:01:25,604 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,604 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,604 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:01:25,605 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,605 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:01:25,605 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,608 - INFO - extracted patch:
+2024-08-22 14:01:25,608 - INFO - 
+2024-08-22 14:01:25,608 - INFO - raw output:
+Based on the issue statement and the provided code segments, the problem appears to stem from the handling of decorated methods in Sphinx, particularly in the `sphinx/domains/python.py` file, where Sphinx tries to determine the class of a method. Since the decorated method does not retain the correct `__globals__`, Sphinx cannot find the class and thus does not document the method correctly.
+
+The relevant part of the code is where Sphinx tries to determine the class name from the method's globals. To fix this issue, we would want to ensure that when Sphinx encounters a decorated function, it correctly identifies its original function so that it can find the class.
+
+A potential solution involves using the `inspect.unwrap` functionality to revert the wrapped function back to its original state before accessing `__globals__`, which would ensure the correct class can be located.
+
+Here are the suggested edits:
+
+```python
+### sphinx/domains/python.py
+<<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method
+        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method
+>>>>>>> REPLACE
+```
+
+This modification uses `inspect.unwrap` to retrieve the original function from the decorated version, allowing Sphinx to correctly access the `__globals__` of the original method, which contains the class information.
+2024-08-22 14:01:25,608 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,608 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method\n        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,608 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:01:25,608 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,608 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method
+        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method
+>>>>>>> REPLACE
+2024-08-22 14:01:25,608 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,611 - INFO - extracted patch:
+2024-08-22 14:01:25,611 - INFO - 
+2024-08-22 14:01:25,611 - INFO - raw output:
+Based on your issue statement, the problem arises from the decorator modifying the `__globals__` attribute of the `__init__` method, causing Sphinx to not recognize it properly as a method of the class. The likely solution would involve ensuring that the `cls` variable can still reference the original class even when `__init__` is decorated.
+
+Given this, we can modify the `unwrap` function to ensure that it can always retrieve the original function from the decorated version, allowing Sphinx to correctly identify the `__init__` method and its associated class.
+
+Here are the proposed changes:
+
+```python
+### sphinx/util/inspect.py
+<<<<<<< SEARCH
+        return obj
+=======
+        return unwrap(obj)  # Ensure we can unwrap to get original function
+>>>>>>> REPLACE
+```
+
+Now let's look for the relevant section of code that may need to be adjusted in the `sphinx/domains/python.py` file. The idea is to ensure that when trying to access the class, we can make use of the unwrapped version of the method:
+
+```python
+### sphinx/domains/python.py
+<<<<<<< SEARCH
+            if prefix and (prefix == classname or
+=======
+            # Unwrap the object to find the original function
+            original_obj = inspect.unwrap(obj)
+            if prefix and (prefix == classname or 
+>>>>>>> REPLACE
+```
+
+This approach aims to ensure that the original `__init__` method can still be accessed, allowing `cls` to be correctly identified even when `__init__` has been decorated.
+2024-08-22 14:01:25,611 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,611 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        return obj\n=======\n        return unwrap(obj)  # Ensure we can unwrap to get original function\n>>>>>>> REPLACE"
+  ],
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n            if prefix and (prefix == classname or\n=======\n            # Unwrap the object to find the original function\n            original_obj = inspect.unwrap(obj)\n            if prefix and (prefix == classname or\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,612 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:01:25,612 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,612 - INFO - <<<<<<< SEARCH
+        return obj
+=======
+        return unwrap(obj)  # Ensure we can unwrap to get original function
+>>>>>>> REPLACE
+2024-08-22 14:01:25,612 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,613 - INFO - extracted patch:
+2024-08-22 14:01:25,613 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -124,7 +124,7 @@
+         return inspect.unwrap(obj)
+     except ValueError:
+         # might be a mock object
+-        return obj
++        return unwrap(obj)  # Ensure we can unwrap to get original function
+ 
+ 
+ def unwrap_all(obj: Any, *, stop: Callable = None) -> Any:
+2024-08-22 14:01:25,613 - INFO - raw output:
+Based on the issue statement, the problem arises from how the Sphinx documentation generator deals with decorated methods. Specifically, the `__globals__` attribute of the decorated method does not point to the class, which causes Sphinx to misidentify the method and ultimately skip documentation for `__init__`.
+
+To address this, we need to ensure that the original `__init__` function is referenced correctly when decorated. This could involve modifying the behavior of how the decorators handle the original function to maintain its original context.
+
+After reviewing the provided code segments, it seems that the function `unwrap` from `sphinx/util/inspect.py` could be enhanced to better handle the case when a method is wrapped. We want to ensure that `unwrap` can correctly find the original method even when it's decorated.
+
+Here's the search/replace edit that addresses this issue:
+
+```python
+### sphinx/util/inspect.py
+<<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+```
+
+This modification ensures that when we call `unwrap`, it first checks if the object has the `__wrapped__` attribute, which is set by decorators like `functools.wraps`. This allows Sphinx to retrieve the original method correctly, even if it has been decorated.
+
+This change should help Sphinx correctly document the decorated `__init__` methods in the classes, resolving the issue reported in the repository.
+2024-08-22 14:01:25,613 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,613 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    if hasattr(obj, '__wrapped__'):\n        return obj.__wrapped__\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,613 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:01:25,613 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,614 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+2024-08-22 14:01:25,614 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,615 - INFO - extracted patch:
+2024-08-22 14:01:25,615 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -119,6 +119,9 @@
+ 
+ 
+ def unwrap(obj: Any) -> Any:
++    """Get an original object from wrapped object (wrapped functions)."""
++    if hasattr(obj, '__wrapped__'):
++        return obj.__wrapped__
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+2024-08-22 14:01:25,615 - INFO - raw output:
+Based on the issue statement, it appears that the problem lies in the handling of decorated methods in Sphinx. The `__globals__` attribute of a decorated method does not point to the original class, which causes issues when Sphinx tries to document the `__init__` method.
+
+To fix this, we can modify the `unwrap` function to ensure that it retrieves the original function correctly, keeping in mind its association with the class. We need to ensure that decorated functions can still be traced back to their class context.
+
+Here is a potential solution that modifies the `unwrap` function to check for the class context properly when dealing with decorated methods.
+
+```python
+### sphinx/util/inspect.py
+<<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+        # might be a mock object
+        return obj
+```
+And then we can add a check in the `unwrap_all` function to ensure we can track back to the original class if needed. This can be done to handle the specific case for decorated methods.
+
+Here is the second change:
+
+```python
+### sphinx/util/inspect.py
+<<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+```
+
+These changes will help to ensure that decorated methods are properly handled and that their class context is preserved, allowing Sphinx to document them correctly.
+2024-08-22 14:01:25,616 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,616 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,616 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:01:25,616 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,616 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:01:25,616 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,616 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:01:25,616 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,618 - INFO - extracted patch:
+2024-08-22 14:01:25,618 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:01:25,618 - INFO - raw output:
+Based on the issue statement, the root cause of the problem lies in how the `__init__` method is being decorated, which affects Sphinx's ability to correctly identify it as a method of its class. The code snippet indicated in the issue shows that Sphinx is trying to access the class through `obj.__globals__`, but since `obj` is a decorated method, this does not return the class as expected.
+
+To fix this, we need to ensure that the decorator preserves more of the original function's context so that Sphinx can correctly identify the class. The existing `unwrap` and `unwrap_all` methods in `sphinx/util/inspect.py` are intended to handle wrapped functions. We can modify the logic in `unwrap_all` to check for class methods and static methods more thoroughly, ensuring that we don't miss the context of the class when unwrapping.
+
+Here is the suggested change:
+
+```python
+### sphinx/util/inspect.py
+<<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+```
+
+This change adds logic to check the `__self__` attribute of class or static methods, which allows us to retrieve the original method from the class dictionary. This should help Sphinx to correctly identify the context of the decorated `__init__` method.
+2024-08-22 14:01:25,618 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,618 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,618 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:01:25,618 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,618 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:01:25,618 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,619 - INFO - extracted patch:
+2024-08-22 14:01:25,619 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:01:25,620 - INFO - raw output:
+Based on the issue statement, the bug arises from the handling of decorated methods in Sphinx. Specifically, the current implementation does not correctly retrieve the class of a decorated `__init__` method because it uses `obj.__globals__`, which does not contain the original class when the method is decorated. 
+
+To address this, we can modify the logic to handle decorated methods by unwrapping the method to get to the original function before accessing its `__globals__`. 
+
+Here's how to implement the fix:
+
+```python
+### sphinx/domains/python.py
+<<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+```
+
+This change unwraps the decorated method before trying to access its global variables, allowing Sphinx to correctly find and document the `__init__` method even when it is decorated.
+2024-08-22 14:01:25,620 - INFO - === file_to_commands: ===
+2024-08-22 14:01:25,620 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:25,620 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:01:25,620 - INFO - === edit_commands: ===
+2024-08-22 14:01:25,620 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:01:25,620 - INFO - 
+----------------------------------------
+2024-08-22 14:01:25,622 - INFO - extracted patch:
+2024-08-22 14:01:25,622 - INFO - 
+2024-08-22 14:04:19,541 - INFO - === file_to_commands: ===
+2024-08-22 14:04:19,541 - INFO - === file_to_commands: ===
+2024-08-22 14:04:19,541 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:19,541 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:19,541 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:04:19,541 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:04:19,541 - INFO - === edit_commands: ===
+2024-08-22 14:04:19,541 - INFO - === edit_commands: ===
+2024-08-22 14:04:19,541 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:04:19,541 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:04:19,541 - INFO - 
+----------------------------------------
+2024-08-22 14:04:19,541 - INFO - 
+----------------------------------------
+2024-08-22 14:04:19,543 - INFO - extracted patch:
+2024-08-22 14:04:19,543 - INFO - extracted patch:
+2024-08-22 14:04:19,543 - INFO - 
+2024-08-22 14:04:19,543 - INFO - 
+2024-08-22 14:04:49,300 - INFO - === file_to_commands: ===
+2024-08-22 14:04:49,300 - INFO - === file_to_commands: ===
+2024-08-22 14:04:49,300 - INFO - === file_to_commands: ===
+2024-08-22 14:04:49,301 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\ncls = obj.__globals__[cls_path]\n=======\n# Unwrap the object to get the original method\noriginal_obj = inspect.unwrap(obj)\ncls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:49,301 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\ncls = obj.__globals__[cls_path]\n=======\n# Unwrap the object to get the original method\noriginal_obj = inspect.unwrap(obj)\ncls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:49,301 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\ncls = obj.__globals__[cls_path]\n=======\n# Unwrap the object to get the original method\noriginal_obj = inspect.unwrap(obj)\ncls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:49,301 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:04:49,301 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:04:49,301 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:04:49,301 - INFO - === edit_commands: ===
+2024-08-22 14:04:49,301 - INFO - === edit_commands: ===
+2024-08-22 14:04:49,301 - INFO - === edit_commands: ===
+2024-08-22 14:04:49,301 - INFO - <<<<<<< SEARCH
+cls = obj.__globals__[cls_path]
+=======
+# Unwrap the object to get the original method
+original_obj = inspect.unwrap(obj)
+cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:04:49,301 - INFO - <<<<<<< SEARCH
+cls = obj.__globals__[cls_path]
+=======
+# Unwrap the object to get the original method
+original_obj = inspect.unwrap(obj)
+cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:04:49,301 - INFO - <<<<<<< SEARCH
+cls = obj.__globals__[cls_path]
+=======
+# Unwrap the object to get the original method
+original_obj = inspect.unwrap(obj)
+cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:04:49,301 - INFO - 
+----------------------------------------
+2024-08-22 14:04:49,301 - INFO - 
+----------------------------------------
+2024-08-22 14:04:49,301 - INFO - 
+----------------------------------------
+2024-08-22 14:04:49,302 - INFO - extracted patch:
+2024-08-22 14:04:49,302 - INFO - extracted patch:
+2024-08-22 14:04:49,302 - INFO - extracted patch:
+2024-08-22 14:04:49,302 - INFO - 
+2024-08-22 14:04:49,302 - INFO - 
+2024-08-22 14:04:49,302 - INFO - 
+2024-08-22 14:05:22,521 - INFO - === file_to_commands: ===
+2024-08-22 14:05:22,521 - INFO - === file_to_commands: ===
+2024-08-22 14:05:22,521 - INFO - === file_to_commands: ===
+2024-08-22 14:05:22,521 - INFO - === file_to_commands: ===
+2024-08-22 14:05:22,522 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    try:\n        return inspect.unwrap(obj)\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    # Check if obj is a function and if it has a __wrapped__ attribute\n    if hasattr(obj, '__wrapped__'):\n        original = obj.__wrapped__\n        if inspect.isfunction(original) or inspect.isclass(original):\n            return original\n    try:\n        return inspect.unwrap(obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:22,522 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    try:\n        return inspect.unwrap(obj)\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    # Check if obj is a function and if it has a __wrapped__ attribute\n    if hasattr(obj, '__wrapped__'):\n        original = obj.__wrapped__\n        if inspect.isfunction(original) or inspect.isclass(original):\n            return original\n    try:\n        return inspect.unwrap(obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:22,522 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    try:\n        return inspect.unwrap(obj)\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    # Check if obj is a function and if it has a __wrapped__ attribute\n    if hasattr(obj, '__wrapped__'):\n        original = obj.__wrapped__\n        if inspect.isfunction(original) or inspect.isclass(original):\n            return original\n    try:\n        return inspect.unwrap(obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:22,522 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    try:\n        return inspect.unwrap(obj)\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    # Check if obj is a function and if it has a __wrapped__ attribute\n    if hasattr(obj, '__wrapped__'):\n        original = obj.__wrapped__\n        if inspect.isfunction(original) or inspect.isclass(original):\n            return original\n    try:\n        return inspect.unwrap(obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:22,522 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:05:22,522 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:05:22,522 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:05:22,522 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:05:22,522 - INFO - === edit_commands: ===
+2024-08-22 14:05:22,522 - INFO - === edit_commands: ===
+2024-08-22 14:05:22,522 - INFO - === edit_commands: ===
+2024-08-22 14:05:22,522 - INFO - === edit_commands: ===
+2024-08-22 14:05:22,522 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    try:
+        return inspect.unwrap(obj)
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    # Check if obj is a function and if it has a __wrapped__ attribute
+    if hasattr(obj, '__wrapped__'):
+        original = obj.__wrapped__
+        if inspect.isfunction(original) or inspect.isclass(original):
+            return original
+    try:
+        return inspect.unwrap(obj)
+>>>>>>> REPLACE
+2024-08-22 14:05:22,522 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    try:
+        return inspect.unwrap(obj)
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    # Check if obj is a function and if it has a __wrapped__ attribute
+    if hasattr(obj, '__wrapped__'):
+        original = obj.__wrapped__
+        if inspect.isfunction(original) or inspect.isclass(original):
+            return original
+    try:
+        return inspect.unwrap(obj)
+>>>>>>> REPLACE
+2024-08-22 14:05:22,522 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    try:
+        return inspect.unwrap(obj)
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    # Check if obj is a function and if it has a __wrapped__ attribute
+    if hasattr(obj, '__wrapped__'):
+        original = obj.__wrapped__
+        if inspect.isfunction(original) or inspect.isclass(original):
+            return original
+    try:
+        return inspect.unwrap(obj)
+>>>>>>> REPLACE
+2024-08-22 14:05:22,522 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    try:
+        return inspect.unwrap(obj)
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    # Check if obj is a function and if it has a __wrapped__ attribute
+    if hasattr(obj, '__wrapped__'):
+        original = obj.__wrapped__
+        if inspect.isfunction(original) or inspect.isclass(original):
+            return original
+    try:
+        return inspect.unwrap(obj)
+>>>>>>> REPLACE
+2024-08-22 14:05:22,522 - INFO - 
+----------------------------------------
+2024-08-22 14:05:22,522 - INFO - 
+----------------------------------------
+2024-08-22 14:05:22,522 - INFO - 
+----------------------------------------
+2024-08-22 14:05:22,522 - INFO - 
+----------------------------------------
+2024-08-22 14:05:22,523 - INFO - extracted patch:
+2024-08-22 14:05:22,523 - INFO - extracted patch:
+2024-08-22 14:05:22,523 - INFO - extracted patch:
+2024-08-22 14:05:22,523 - INFO - extracted patch:
+2024-08-22 14:05:22,523 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -120,6 +120,11 @@
+ 
+ def unwrap(obj: Any) -> Any:
+     """Get an original object from wrapped object (wrapped functions)."""
++    # Check if obj is a function and if it has a __wrapped__ attribute
++    if hasattr(obj, '__wrapped__'):
++        original = obj.__wrapped__
++        if inspect.isfunction(original) or inspect.isclass(original):
++            return original
+     try:
+         return inspect.unwrap(obj)
+     except ValueError:
+2024-08-22 14:05:22,523 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -120,6 +120,11 @@
+ 
+ def unwrap(obj: Any) -> Any:
+     """Get an original object from wrapped object (wrapped functions)."""
++    # Check if obj is a function and if it has a __wrapped__ attribute
++    if hasattr(obj, '__wrapped__'):
++        original = obj.__wrapped__
++        if inspect.isfunction(original) or inspect.isclass(original):
++            return original
+     try:
+         return inspect.unwrap(obj)
+     except ValueError:
+2024-08-22 14:05:22,523 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -120,6 +120,11 @@
+ 
+ def unwrap(obj: Any) -> Any:
+     """Get an original object from wrapped object (wrapped functions)."""
++    # Check if obj is a function and if it has a __wrapped__ attribute
++    if hasattr(obj, '__wrapped__'):
++        original = obj.__wrapped__
++        if inspect.isfunction(original) or inspect.isclass(original):
++            return original
+     try:
+         return inspect.unwrap(obj)
+     except ValueError:
+2024-08-22 14:05:22,523 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -120,6 +120,11 @@
+ 
+ def unwrap(obj: Any) -> Any:
+     """Get an original object from wrapped object (wrapped functions)."""
++    # Check if obj is a function and if it has a __wrapped__ attribute
++    if hasattr(obj, '__wrapped__'):
++        original = obj.__wrapped__
++        if inspect.isfunction(original) or inspect.isclass(original):
++            return original
+     try:
+         return inspect.unwrap(obj)
+     except ValueError:
+2024-08-22 14:05:54,859 - INFO - === file_to_commands: ===
+2024-08-22 14:05:54,859 - INFO - === file_to_commands: ===
+2024-08-22 14:05:54,859 - INFO - === file_to_commands: ===
+2024-08-22 14:05:54,859 - INFO - === file_to_commands: ===
+2024-08-22 14:05:54,859 - INFO - === file_to_commands: ===
+2024-08-22 14:05:54,860 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:54,860 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:54,860 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:54,860 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:54,860 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        cls = unwrap(obj).__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:54,860 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:05:54,860 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:05:54,860 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:05:54,860 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:05:54,860 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:05:54,860 - INFO - === edit_commands: ===
+2024-08-22 14:05:54,860 - INFO - === edit_commands: ===
+2024-08-22 14:05:54,860 - INFO - === edit_commands: ===
+2024-08-22 14:05:54,860 - INFO - === edit_commands: ===
+2024-08-22 14:05:54,860 - INFO - === edit_commands: ===
+2024-08-22 14:05:54,860 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:05:54,860 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:05:54,860 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:05:54,860 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:05:54,860 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        cls = unwrap(obj).__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:05:54,860 - INFO - 
+----------------------------------------
+2024-08-22 14:05:54,860 - INFO - 
+----------------------------------------
+2024-08-22 14:05:54,860 - INFO - 
+----------------------------------------
+2024-08-22 14:05:54,860 - INFO - 
+----------------------------------------
+2024-08-22 14:05:54,860 - INFO - 
+----------------------------------------
+2024-08-22 14:05:54,861 - INFO - extracted patch:
+2024-08-22 14:05:54,861 - INFO - extracted patch:
+2024-08-22 14:05:54,861 - INFO - extracted patch:
+2024-08-22 14:05:54,861 - INFO - extracted patch:
+2024-08-22 14:05:54,861 - INFO - extracted patch:
+2024-08-22 14:05:54,861 - INFO - 
+2024-08-22 14:05:54,861 - INFO - 
+2024-08-22 14:05:54,861 - INFO - 
+2024-08-22 14:05:54,861 - INFO - 
+2024-08-22 14:05:54,861 - INFO - 
+2024-08-22 14:06:32,108 - INFO - === file_to_commands: ===
+2024-08-22 14:06:32,108 - INFO - === file_to_commands: ===
+2024-08-22 14:06:32,108 - INFO - === file_to_commands: ===
+2024-08-22 14:06:32,108 - INFO - === file_to_commands: ===
+2024-08-22 14:06:32,108 - INFO - === file_to_commands: ===
+2024-08-22 14:06:32,108 - INFO - === file_to_commands: ===
+2024-08-22 14:06:32,108 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method\n        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:32,108 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method\n        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:32,108 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method\n        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:32,108 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method\n        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:32,108 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method\n        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:32,108 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method\n        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:32,108 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:06:32,108 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:06:32,108 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:06:32,108 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:06:32,108 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:06:32,108 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:06:32,108 - INFO - === edit_commands: ===
+2024-08-22 14:06:32,108 - INFO - === edit_commands: ===
+2024-08-22 14:06:32,108 - INFO - === edit_commands: ===
+2024-08-22 14:06:32,108 - INFO - === edit_commands: ===
+2024-08-22 14:06:32,108 - INFO - === edit_commands: ===
+2024-08-22 14:06:32,108 - INFO - === edit_commands: ===
+2024-08-22 14:06:32,108 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method
+        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method
+>>>>>>> REPLACE
+2024-08-22 14:06:32,108 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method
+        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method
+>>>>>>> REPLACE
+2024-08-22 14:06:32,108 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method
+        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method
+>>>>>>> REPLACE
+2024-08-22 14:06:32,108 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method
+        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method
+>>>>>>> REPLACE
+2024-08-22 14:06:32,108 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method
+        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method
+>>>>>>> REPLACE
+2024-08-22 14:06:32,108 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        original_obj = inspect.unwrap(obj)  # Unwrap the object to get the original method
+        cls = original_obj.__globals__[cls_path]  # Now access globals from the unwrapped method
+>>>>>>> REPLACE
+2024-08-22 14:06:32,108 - INFO - 
+----------------------------------------
+2024-08-22 14:06:32,108 - INFO - 
+----------------------------------------
+2024-08-22 14:06:32,108 - INFO - 
+----------------------------------------
+2024-08-22 14:06:32,108 - INFO - 
+----------------------------------------
+2024-08-22 14:06:32,108 - INFO - 
+----------------------------------------
+2024-08-22 14:06:32,108 - INFO - 
+----------------------------------------
+2024-08-22 14:06:32,110 - INFO - extracted patch:
+2024-08-22 14:06:32,110 - INFO - extracted patch:
+2024-08-22 14:06:32,110 - INFO - extracted patch:
+2024-08-22 14:06:32,110 - INFO - extracted patch:
+2024-08-22 14:06:32,110 - INFO - extracted patch:
+2024-08-22 14:06:32,110 - INFO - extracted patch:
+2024-08-22 14:06:32,110 - INFO - 
+2024-08-22 14:06:32,110 - INFO - 
+2024-08-22 14:06:32,110 - INFO - 
+2024-08-22 14:06:32,110 - INFO - 
+2024-08-22 14:06:32,110 - INFO - 
+2024-08-22 14:06:32,110 - INFO - 
+2024-08-22 14:07:09,471 - INFO - === file_to_commands: ===
+2024-08-22 14:07:09,471 - INFO - === file_to_commands: ===
+2024-08-22 14:07:09,471 - INFO - === file_to_commands: ===
+2024-08-22 14:07:09,471 - INFO - === file_to_commands: ===
+2024-08-22 14:07:09,471 - INFO - === file_to_commands: ===
+2024-08-22 14:07:09,471 - INFO - === file_to_commands: ===
+2024-08-22 14:07:09,471 - INFO - === file_to_commands: ===
+2024-08-22 14:07:09,472 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        return obj\n=======\n        return unwrap(obj)  # Ensure we can unwrap to get original function\n>>>>>>> REPLACE"
+  ],
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n            if prefix and (prefix == classname or\n=======\n            # Unwrap the object to find the original function\n            original_obj = inspect.unwrap(obj)\n            if prefix and (prefix == classname or\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:09,472 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        return obj\n=======\n        return unwrap(obj)  # Ensure we can unwrap to get original function\n>>>>>>> REPLACE"
+  ],
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n            if prefix and (prefix == classname or\n=======\n            # Unwrap the object to find the original function\n            original_obj = inspect.unwrap(obj)\n            if prefix and (prefix == classname or\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:09,472 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        return obj\n=======\n        return unwrap(obj)  # Ensure we can unwrap to get original function\n>>>>>>> REPLACE"
+  ],
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n            if prefix and (prefix == classname or\n=======\n            # Unwrap the object to find the original function\n            original_obj = inspect.unwrap(obj)\n            if prefix and (prefix == classname or\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:09,472 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        return obj\n=======\n        return unwrap(obj)  # Ensure we can unwrap to get original function\n>>>>>>> REPLACE"
+  ],
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n            if prefix and (prefix == classname or\n=======\n            # Unwrap the object to find the original function\n            original_obj = inspect.unwrap(obj)\n            if prefix and (prefix == classname or\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:09,472 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        return obj\n=======\n        return unwrap(obj)  # Ensure we can unwrap to get original function\n>>>>>>> REPLACE"
+  ],
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n            if prefix and (prefix == classname or\n=======\n            # Unwrap the object to find the original function\n            original_obj = inspect.unwrap(obj)\n            if prefix and (prefix == classname or\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:09,472 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        return obj\n=======\n        return unwrap(obj)  # Ensure we can unwrap to get original function\n>>>>>>> REPLACE"
+  ],
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n            if prefix and (prefix == classname or\n=======\n            # Unwrap the object to find the original function\n            original_obj = inspect.unwrap(obj)\n            if prefix and (prefix == classname or\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:09,472 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        return obj\n=======\n        return unwrap(obj)  # Ensure we can unwrap to get original function\n>>>>>>> REPLACE"
+  ],
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n            if prefix and (prefix == classname or\n=======\n            # Unwrap the object to find the original function\n            original_obj = inspect.unwrap(obj)\n            if prefix and (prefix == classname or\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:09,472 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:09,472 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:09,472 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:09,472 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:09,472 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:09,472 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:09,472 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:09,472 - INFO - === edit_commands: ===
+2024-08-22 14:07:09,472 - INFO - === edit_commands: ===
+2024-08-22 14:07:09,472 - INFO - === edit_commands: ===
+2024-08-22 14:07:09,472 - INFO - === edit_commands: ===
+2024-08-22 14:07:09,472 - INFO - === edit_commands: ===
+2024-08-22 14:07:09,472 - INFO - === edit_commands: ===
+2024-08-22 14:07:09,472 - INFO - === edit_commands: ===
+2024-08-22 14:07:09,472 - INFO - <<<<<<< SEARCH
+        return obj
+=======
+        return unwrap(obj)  # Ensure we can unwrap to get original function
+>>>>>>> REPLACE
+2024-08-22 14:07:09,472 - INFO - <<<<<<< SEARCH
+        return obj
+=======
+        return unwrap(obj)  # Ensure we can unwrap to get original function
+>>>>>>> REPLACE
+2024-08-22 14:07:09,472 - INFO - <<<<<<< SEARCH
+        return obj
+=======
+        return unwrap(obj)  # Ensure we can unwrap to get original function
+>>>>>>> REPLACE
+2024-08-22 14:07:09,472 - INFO - <<<<<<< SEARCH
+        return obj
+=======
+        return unwrap(obj)  # Ensure we can unwrap to get original function
+>>>>>>> REPLACE
+2024-08-22 14:07:09,472 - INFO - <<<<<<< SEARCH
+        return obj
+=======
+        return unwrap(obj)  # Ensure we can unwrap to get original function
+>>>>>>> REPLACE
+2024-08-22 14:07:09,472 - INFO - <<<<<<< SEARCH
+        return obj
+=======
+        return unwrap(obj)  # Ensure we can unwrap to get original function
+>>>>>>> REPLACE
+2024-08-22 14:07:09,472 - INFO - <<<<<<< SEARCH
+        return obj
+=======
+        return unwrap(obj)  # Ensure we can unwrap to get original function
+>>>>>>> REPLACE
+2024-08-22 14:07:09,472 - INFO - 
+----------------------------------------
+2024-08-22 14:07:09,472 - INFO - 
+----------------------------------------
+2024-08-22 14:07:09,472 - INFO - 
+----------------------------------------
+2024-08-22 14:07:09,472 - INFO - 
+----------------------------------------
+2024-08-22 14:07:09,472 - INFO - 
+----------------------------------------
+2024-08-22 14:07:09,472 - INFO - 
+----------------------------------------
+2024-08-22 14:07:09,472 - INFO - 
+----------------------------------------
+2024-08-22 14:07:09,473 - INFO - extracted patch:
+2024-08-22 14:07:09,473 - INFO - extracted patch:
+2024-08-22 14:07:09,473 - INFO - extracted patch:
+2024-08-22 14:07:09,473 - INFO - extracted patch:
+2024-08-22 14:07:09,473 - INFO - extracted patch:
+2024-08-22 14:07:09,473 - INFO - extracted patch:
+2024-08-22 14:07:09,473 - INFO - extracted patch:
+2024-08-22 14:07:09,473 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -124,7 +124,7 @@
+         return inspect.unwrap(obj)
+     except ValueError:
+         # might be a mock object
+-        return obj
++        return unwrap(obj)  # Ensure we can unwrap to get original function
+ 
+ 
+ def unwrap_all(obj: Any, *, stop: Callable = None) -> Any:
+2024-08-22 14:07:09,473 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -124,7 +124,7 @@
+         return inspect.unwrap(obj)
+     except ValueError:
+         # might be a mock object
+-        return obj
++        return unwrap(obj)  # Ensure we can unwrap to get original function
+ 
+ 
+ def unwrap_all(obj: Any, *, stop: Callable = None) -> Any:
+2024-08-22 14:07:09,473 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -124,7 +124,7 @@
+         return inspect.unwrap(obj)
+     except ValueError:
+         # might be a mock object
+-        return obj
++        return unwrap(obj)  # Ensure we can unwrap to get original function
+ 
+ 
+ def unwrap_all(obj: Any, *, stop: Callable = None) -> Any:
+2024-08-22 14:07:09,473 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -124,7 +124,7 @@
+         return inspect.unwrap(obj)
+     except ValueError:
+         # might be a mock object
+-        return obj
++        return unwrap(obj)  # Ensure we can unwrap to get original function
+ 
+ 
+ def unwrap_all(obj: Any, *, stop: Callable = None) -> Any:
+2024-08-22 14:07:09,473 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -124,7 +124,7 @@
+         return inspect.unwrap(obj)
+     except ValueError:
+         # might be a mock object
+-        return obj
++        return unwrap(obj)  # Ensure we can unwrap to get original function
+ 
+ 
+ def unwrap_all(obj: Any, *, stop: Callable = None) -> Any:
+2024-08-22 14:07:09,473 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -124,7 +124,7 @@
+         return inspect.unwrap(obj)
+     except ValueError:
+         # might be a mock object
+-        return obj
++        return unwrap(obj)  # Ensure we can unwrap to get original function
+ 
+ 
+ def unwrap_all(obj: Any, *, stop: Callable = None) -> Any:
+2024-08-22 14:07:09,473 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -124,7 +124,7 @@
+         return inspect.unwrap(obj)
+     except ValueError:
+         # might be a mock object
+-        return obj
++        return unwrap(obj)  # Ensure we can unwrap to get original function
+ 
+ 
+ def unwrap_all(obj: Any, *, stop: Callable = None) -> Any:
+2024-08-22 14:07:43,881 - INFO - === file_to_commands: ===
+2024-08-22 14:07:43,881 - INFO - === file_to_commands: ===
+2024-08-22 14:07:43,881 - INFO - === file_to_commands: ===
+2024-08-22 14:07:43,881 - INFO - === file_to_commands: ===
+2024-08-22 14:07:43,881 - INFO - === file_to_commands: ===
+2024-08-22 14:07:43,881 - INFO - === file_to_commands: ===
+2024-08-22 14:07:43,881 - INFO - === file_to_commands: ===
+2024-08-22 14:07:43,881 - INFO - === file_to_commands: ===
+2024-08-22 14:07:43,882 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    if hasattr(obj, '__wrapped__'):\n        return obj.__wrapped__\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:43,882 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    if hasattr(obj, '__wrapped__'):\n        return obj.__wrapped__\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:43,882 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    if hasattr(obj, '__wrapped__'):\n        return obj.__wrapped__\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:43,882 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    if hasattr(obj, '__wrapped__'):\n        return obj.__wrapped__\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:43,882 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    if hasattr(obj, '__wrapped__'):\n        return obj.__wrapped__\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:43,882 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    if hasattr(obj, '__wrapped__'):\n        return obj.__wrapped__\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:43,882 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    if hasattr(obj, '__wrapped__'):\n        return obj.__wrapped__\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:43,882 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\ndef unwrap(obj: Any) -> Any:\n=======\ndef unwrap(obj: Any) -> Any:\n    \"\"\"Get an original object from wrapped object (wrapped functions).\"\"\"\n    if hasattr(obj, '__wrapped__'):\n        return obj.__wrapped__\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:43,882 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:43,882 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:43,882 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:43,882 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:43,882 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:43,882 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:43,882 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:43,882 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:07:43,882 - INFO - === edit_commands: ===
+2024-08-22 14:07:43,882 - INFO - === edit_commands: ===
+2024-08-22 14:07:43,882 - INFO - === edit_commands: ===
+2024-08-22 14:07:43,882 - INFO - === edit_commands: ===
+2024-08-22 14:07:43,882 - INFO - === edit_commands: ===
+2024-08-22 14:07:43,882 - INFO - === edit_commands: ===
+2024-08-22 14:07:43,882 - INFO - === edit_commands: ===
+2024-08-22 14:07:43,882 - INFO - === edit_commands: ===
+2024-08-22 14:07:43,882 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+2024-08-22 14:07:43,882 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+2024-08-22 14:07:43,882 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+2024-08-22 14:07:43,882 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+2024-08-22 14:07:43,882 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+2024-08-22 14:07:43,882 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+2024-08-22 14:07:43,882 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+2024-08-22 14:07:43,882 - INFO - <<<<<<< SEARCH
+def unwrap(obj: Any) -> Any:
+=======
+def unwrap(obj: Any) -> Any:
+    """Get an original object from wrapped object (wrapped functions)."""
+    if hasattr(obj, '__wrapped__'):
+        return obj.__wrapped__
+>>>>>>> REPLACE
+2024-08-22 14:07:43,883 - INFO - 
+----------------------------------------
+2024-08-22 14:07:43,883 - INFO - 
+----------------------------------------
+2024-08-22 14:07:43,883 - INFO - 
+----------------------------------------
+2024-08-22 14:07:43,883 - INFO - 
+----------------------------------------
+2024-08-22 14:07:43,883 - INFO - 
+----------------------------------------
+2024-08-22 14:07:43,883 - INFO - 
+----------------------------------------
+2024-08-22 14:07:43,883 - INFO - 
+----------------------------------------
+2024-08-22 14:07:43,883 - INFO - 
+----------------------------------------
+2024-08-22 14:07:43,883 - INFO - extracted patch:
+2024-08-22 14:07:43,883 - INFO - extracted patch:
+2024-08-22 14:07:43,883 - INFO - extracted patch:
+2024-08-22 14:07:43,883 - INFO - extracted patch:
+2024-08-22 14:07:43,883 - INFO - extracted patch:
+2024-08-22 14:07:43,883 - INFO - extracted patch:
+2024-08-22 14:07:43,883 - INFO - extracted patch:
+2024-08-22 14:07:43,883 - INFO - extracted patch:
+2024-08-22 14:07:43,883 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -119,6 +119,9 @@
+ 
+ 
+ def unwrap(obj: Any) -> Any:
++    """Get an original object from wrapped object (wrapped functions)."""
++    if hasattr(obj, '__wrapped__'):
++        return obj.__wrapped__
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+2024-08-22 14:07:43,883 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -119,6 +119,9 @@
+ 
+ 
+ def unwrap(obj: Any) -> Any:
++    """Get an original object from wrapped object (wrapped functions)."""
++    if hasattr(obj, '__wrapped__'):
++        return obj.__wrapped__
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+2024-08-22 14:07:43,883 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -119,6 +119,9 @@
+ 
+ 
+ def unwrap(obj: Any) -> Any:
++    """Get an original object from wrapped object (wrapped functions)."""
++    if hasattr(obj, '__wrapped__'):
++        return obj.__wrapped__
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+2024-08-22 14:07:43,883 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -119,6 +119,9 @@
+ 
+ 
+ def unwrap(obj: Any) -> Any:
++    """Get an original object from wrapped object (wrapped functions)."""
++    if hasattr(obj, '__wrapped__'):
++        return obj.__wrapped__
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+2024-08-22 14:07:43,883 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -119,6 +119,9 @@
+ 
+ 
+ def unwrap(obj: Any) -> Any:
++    """Get an original object from wrapped object (wrapped functions)."""
++    if hasattr(obj, '__wrapped__'):
++        return obj.__wrapped__
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+2024-08-22 14:07:43,883 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -119,6 +119,9 @@
+ 
+ 
+ def unwrap(obj: Any) -> Any:
++    """Get an original object from wrapped object (wrapped functions)."""
++    if hasattr(obj, '__wrapped__'):
++        return obj.__wrapped__
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+2024-08-22 14:07:43,883 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -119,6 +119,9 @@
+ 
+ 
+ def unwrap(obj: Any) -> Any:
++    """Get an original object from wrapped object (wrapped functions)."""
++    if hasattr(obj, '__wrapped__'):
++        return obj.__wrapped__
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+2024-08-22 14:07:43,883 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -119,6 +119,9 @@
+ 
+ 
+ def unwrap(obj: Any) -> Any:
++    """Get an original object from wrapped object (wrapped functions)."""
++    if hasattr(obj, '__wrapped__'):
++        return obj.__wrapped__
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+2024-08-22 14:08:21,101 - INFO - === file_to_commands: ===
+2024-08-22 14:08:21,101 - INFO - === file_to_commands: ===
+2024-08-22 14:08:21,101 - INFO - === file_to_commands: ===
+2024-08-22 14:08:21,101 - INFO - === file_to_commands: ===
+2024-08-22 14:08:21,101 - INFO - === file_to_commands: ===
+2024-08-22 14:08:21,101 - INFO - === file_to_commands: ===
+2024-08-22 14:08:21,101 - INFO - === file_to_commands: ===
+2024-08-22 14:08:21,101 - INFO - === file_to_commands: ===
+2024-08-22 14:08:21,101 - INFO - === file_to_commands: ===
+2024-08-22 14:08:21,102 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:21,102 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:21,102 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:21,102 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:21,102 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:21,102 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:21,102 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:21,102 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:21,102 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n    except ValueError:\n=======\n    except (ValueError, AttributeError):\n>>>>>>> REPLACE",
+    "<<<<<<< SEARCH\n            obj = obj.__wrapped__\n=======\n            obj = inspect.unwrap(obj)\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Attempt to get the class from the wrapped method\n                cls = obj.__self__.__class__\n                # Ensure the original class context is maintained\n                if hasattr(cls, '__name__'):\n                    obj.__qualname__ = f\"{cls.__name__}.{obj.__name__}\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:21,102 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:21,102 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:21,102 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:21,102 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:21,102 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:21,102 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:21,102 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:21,102 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:21,102 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:21,102 - INFO - === edit_commands: ===
+2024-08-22 14:08:21,102 - INFO - === edit_commands: ===
+2024-08-22 14:08:21,102 - INFO - === edit_commands: ===
+2024-08-22 14:08:21,102 - INFO - === edit_commands: ===
+2024-08-22 14:08:21,102 - INFO - === edit_commands: ===
+2024-08-22 14:08:21,102 - INFO - === edit_commands: ===
+2024-08-22 14:08:21,102 - INFO - === edit_commands: ===
+2024-08-22 14:08:21,102 - INFO - === edit_commands: ===
+2024-08-22 14:08:21,102 - INFO - === edit_commands: ===
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+    except ValueError:
+=======
+    except (ValueError, AttributeError):
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - <<<<<<< SEARCH
+            obj = obj.__wrapped__
+=======
+            obj = inspect.unwrap(obj)
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Attempt to get the class from the wrapped method
+                cls = obj.__self__.__class__
+                # Ensure the original class context is maintained
+                if hasattr(cls, '__name__'):
+                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+>>>>>>> REPLACE
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,102 - INFO - 
+----------------------------------------
+2024-08-22 14:08:21,103 - INFO - extracted patch:
+2024-08-22 14:08:21,103 - INFO - extracted patch:
+2024-08-22 14:08:21,103 - INFO - extracted patch:
+2024-08-22 14:08:21,103 - INFO - extracted patch:
+2024-08-22 14:08:21,103 - INFO - extracted patch:
+2024-08-22 14:08:21,103 - INFO - extracted patch:
+2024-08-22 14:08:21,103 - INFO - extracted patch:
+2024-08-22 14:08:21,103 - INFO - extracted patch:
+2024-08-22 14:08:21,103 - INFO - extracted patch:
+2024-08-22 14:08:21,103 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:08:21,103 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:08:21,103 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:08:21,103 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:08:21,103 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:08:21,103 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:08:21,103 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:08:21,103 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:08:21,103 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -122,7 +122,7 @@
+     """Get an original object from wrapped object (wrapped functions)."""
+     try:
+         return inspect.unwrap(obj)
+-    except ValueError:
++    except (ValueError, AttributeError):
+         # might be a mock object
+         return obj
+ 
+@@ -138,7 +138,13 @@
+         elif ispartial(obj):
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+-            obj = obj.__wrapped__
++            obj = inspect.unwrap(obj)
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Attempt to get the class from the wrapped method
++                cls = obj.__self__.__class__
++                # Ensure the original class context is maintained
++                if hasattr(cls, '__name__'):
++                    obj.__qualname__ = f"{cls.__name__}.{obj.__name__}"
+         elif isclassmethod(obj):
+             obj = obj.__func__
+         elif isstaticmethod(obj):
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,952 - INFO - === file_to_commands: ===
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - {
+  "'sphinx/util/inspect.py'": [
+    "<<<<<<< SEARCH\n        elif isclassmethod(obj):\n            obj = obj.__func__\n        elif isstaticmethod(obj):\n            obj = obj.__func__\n=======\n        elif isclassmethod(obj) or isstaticmethod(obj):\n            obj = obj.__func__\n            if hasattr(obj, '__self__') and obj.__self__ is not None:\n                # Ensure we preserve the class context for decorated methods\n                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edited_file: 'sphinx/util/inspect.py' ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - === edit_commands: ===
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - <<<<<<< SEARCH
+        elif isclassmethod(obj):
+            obj = obj.__func__
+        elif isstaticmethod(obj):
+            obj = obj.__func__
+=======
+        elif isclassmethod(obj) or isstaticmethod(obj):
+            obj = obj.__func__
+            if hasattr(obj, '__self__') and obj.__self__ is not None:
+                # Ensure we preserve the class context for decorated methods
+                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+>>>>>>> REPLACE
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,953 - INFO - 
+----------------------------------------
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - extracted patch:
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:08:57,954 - INFO - --- sphinx/util/inspect.py
++++ sphinx/util/inspect.py
+@@ -139,10 +139,11 @@
+             obj = obj.func
+         elif inspect.isroutine(obj) and hasattr(obj, '__wrapped__'):
+             obj = obj.__wrapped__
+-        elif isclassmethod(obj):
++        elif isclassmethod(obj) or isstaticmethod(obj):
+             obj = obj.__func__
+-        elif isstaticmethod(obj):
+-            obj = obj.__func__
++            if hasattr(obj, '__self__') and obj.__self__ is not None:
++                # Ensure we preserve the class context for decorated methods
++                obj = obj.__self__.__class__.__dict__.get(obj.__name__, obj)
+         else:
+             return obj
+ 
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,370 - INFO - === file_to_commands: ===
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - {
+  "'sphinx/domains/python.py'": [
+    "<<<<<<< SEARCH\n        cls = obj.__globals__[cls_path]\n=======\n        # Unwrap the object to get the original method\n        original_obj = inspect.unwrap(obj)\n        cls = original_obj.__globals__[cls_path]\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edited_file: 'sphinx/domains/python.py' ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - === edit_commands: ===
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - <<<<<<< SEARCH
+        cls = obj.__globals__[cls_path]
+=======
+        # Unwrap the object to get the original method
+        original_obj = inspect.unwrap(obj)
+        cls = original_obj.__globals__[cls_path]
+>>>>>>> REPLACE
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,371 - INFO - 
+----------------------------------------
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - extracted patch:
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 
+2024-08-22 14:09:32,373 - INFO - 

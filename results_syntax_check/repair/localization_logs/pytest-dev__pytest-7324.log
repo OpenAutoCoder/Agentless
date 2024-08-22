@@ -1,0 +1,2643 @@
+2024-08-22 14:00:50,266 - INFO - ================ repairing pytest-dev__pytest-7324 ================
+2024-08-22 14:00:51,219 - INFO - prompting with message:
+We are currently solving the following issue within our repository. Here is the issue text:
+--- BEGIN ISSUE ---
+Pytest crashes the interpreter on debug build for 3.8+
+Short reproducer
+```py
+>>> Expression.compile("False")
+python: Python/compile.c:3559: compiler_nameop: Assertion `!_PyUnicode_EqualToASCIIString(name, "None") && !_PyUnicode_EqualToASCIIString(name, "True") && !_PyUnicode_EqualToASCIIString(name, "False")' failed.
+[1]    29440 abort (core dumped)  python
+```
+
+Related issue for improvement of this behavior: [bpo-40870](https://bugs.python.org/issue40870)
+
+--- END ISSUE ---
+
+
+Below are some code segments, each from a relevant file. One or more of these files may contain bugs.
+
+--- BEGIN FILE ---
+```
+### src/_pytest/mark/expression.py
+...
+    def __init__(self, code: types.CodeType) -> None:
+        self.code = code
+
+    @classmethod
+    def compile(self, input: str) -> "Expression":
+        """Compile a match expression.
+
+        :param input: The input expression - one line.
+        """
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+        )  # type: types.CodeType
+        return Expression(code)
+
+    def evaluate(self, matcher: Callable[[str], bool]) -> bool:
+        """Evaluate the match expression.
+
+        :param matcher: Given an identifier, should return whether it matches or not.
+                        Should be prepared to handle arbitrary strings as input.
+
+...
+```
+--- END FILE ---
+
+Please first localize the bug based on the issue statement, and then generate *SEARCH/REPLACE* edits to fix the issue.
+
+Every *SEARCH/REPLACE* edit must use this format:
+1. The file path
+2. The start of search block: <<<<<<< SEARCH
+3. A contiguous chunk of lines to search for in the existing source code
+4. The dividing line: =======
+5. The lines to replace into the source code
+6. The end of the replace block: >>>>>>> REPLACE
+
+Here is an example:
+
+```python
+### mathweb/flask/app.py
+<<<<<<< SEARCH
+from flask import Flask
+=======
+import math
+from flask import Flask
+>>>>>>> REPLACE
+```
+
+Please note that the *SEARCH/REPLACE* edit REQUIRES PROPER INDENTATION. If you would like to add the line '        print(x)', you must fully write that out, with all those spaces before the code!
+Wrap the *SEARCH/REPLACE* edit in blocks ```python...```.
+2024-08-22 14:00:51,225 - INFO - Creating API request
+2024-08-22 14:00:55,351 - INFO - API response ChatCompletion(id='chatcmpl-9z9DHnEsu2PxaJiXxqrGVqAYbei80', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the problem arises from the `Expression.compile` method when it attempts to compile an expression that includes the string "False". The assertion failure indicates that the compiler is not handling certain reserved keywords correctly in the debug build of Python 3.8 and above.\n\nTo fix this issue, we can modify the `compile` method to ensure that it does not attempt to compile expressions that contain the keywords "True", "False", or "None". We can add a check before the compilation step to raise an appropriate error if the input expression contains these keywords.\n\nHere is the proposed `SEARCH/REPLACE` edit:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {"True", "False", "None"}:\n            raise ValueError(f"Invalid expression: {input} is a reserved keyword.")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE\n```\n\nThis change adds a check for the reserved keywords and raises a `ValueError` if the input expression is one of them, preventing the assertion failure from occurring during compilation.', refusal=None, role='assistant', function_call=None, tool_calls=None))], created=1724360451, model='gpt-4o-mini-2024-07-18', object='chat.completion', service_tier=None, system_fingerprint='fp_48196bc67a', usage=CompletionUsage(completion_tokens=235, prompt_tokens=585, total_tokens=820))
+2024-08-22 14:00:55,372 - INFO - Creating API request
+2024-08-22 14:01:00,073 - INFO - API response ChatCompletion(id='chatcmpl-9z9DL3Wpp623wvg6w515AJRy0dL7L', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='To address the issue described, the problem appears to be triggered by the `compile` method within the `Expression` class when certain string values are passed (specifically "False"). The assertion in the Python interpreter crashes when those values are used.\n\nTo fix this, we can modify the `compile` method in the `expression.py` file to prevent such string values from being compiled directly. Instead, we can sanitize the input to avoid the problem.\n\nHere are the necessary edits:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {"None", "True", "False"}:\n            raise ValueError(f"Invalid match expression: {input}")\n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE\n```\n\nIn this edit, we add a check at the beginning of the `compile` method to raise a `ValueError` if the input expression is one of the problematic strings ("None", "True", or "False"), preventing the crash from occurring.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=1, logprobs=None, message=ChatCompletionMessage(content='The issue described involves an assertion failure in the `compile` method when the input expression is `"False"`. This is likely due to the fact that the `Expression.compile` method is trying to compile a string that contains reserved keywords in Python, which can trigger the assertion.\n\nTo fix this issue, we can add a check in the `compile` method to ensure that the input expression does not contain any reserved keywords like "True", "False", or "None". If it does, we should raise an appropriate exception before attempting to compile.\n\nHere\'s the proposed edit:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {"True", "False", "None"}:\n            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE\n```\n\nThis change checks if the input expression is one of the reserved keywords and raises a `ValueError` if it is, preventing the assertion failure during the compilation step.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=2, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the crash occurs when the `Expression.compile()` method attempts to compile certain expressions, specifically when the input is `"False"`. The assertion failure indicates that the input being evaluated is directly resulting in a problem within the underlying Python compilation logic.\n\nTo fix this, we can add a validation step in the `compile` method to raise a more informative exception before compiling the expression if it matches any of the problematic values (i.e., "None", "True", "False"). \n\nHere\'s the proposed edit:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in ("None", "True", "False"):\n            raise ValueError(f"Invalid expression: \'{input}\' cannot be compiled.")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE\n```\n\nThis change checks if the input expressions are one of the problematic values before attempting to compile them. If so, it raises a `ValueError` with a clear message indicating the invalidity, preventing the interpreter from crashing.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=3, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the problem arises from how the `compile` function handles certain expressions in Python, particularly when dealing with the keywords "None", "True", and "False". The assertion failure occurs when the `compile` function is called with the string "False" in the context where it expects something different.\n\nTo fix this issue, we need to modify the `compile` method in the `Expression` class to ensure that "False" (along with "None" and "True") is not passed directly to the `compile` function. This can be achieved by either returning an error or handling those specific cases before calling `compile`.\n\nHere\'s the proposed edit to address the issue:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename="<pytest match expression>", mode="eval",\n=======\n        if input in {"None", "True", "False"}:\n            raise ValueError(f"Input expression cannot be \'{input}\'")\n        \n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename="<pytest match expression>", mode="eval",\n>>>>>>> REPLACE\n``` \n\nIn this edit, we add a check to raise a `ValueError` if the input expression is "None", "True", or "False", preventing the problematic assertion from being triggered during the compilation.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=4, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, it appears that the problem arises from the `compile` method in the `Expression` class in the `src/_pytest/mark/expression.py` file. Specifically, the assertion failure when compiling the expression "False" suggests that the `compile` method may not be handling certain literals correctly. \n\nTo address this, we need to modify the `compile` method to ensure that the expression does not include reserved keywords like "None", "True", and "False" in a manner that triggers the assertion failure.\n\nHere is the suggested change in the source code:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        code = compile(\n=======\n        # Check for disallowed literal strings\n        if input in {"True", "False", "None"}:\n            raise ValueError(f"{input} is not a valid match expression.")\n        \n        code = compile(\n>>>>>>> REPLACE\n```\n\nThis edit adds a check before compiling the input expression to ensure that it doesn\'t contain the disallowed literals, which should prevent the crash when the `compile` function is called with those specific strings.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=5, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the problem occurs when using the `Expression.compile` method which internally calls the `compile` function, leading to a crash when trying to compile certain expressions like "False". The issue seems to stem from the handling of specific Python keywords during the compilation.\n\nTo fix this, we should ensure that the input expression does not include reserved keywords like "True", "False", and "None" directly, as these can lead to the assertion failure in the debug build of Python.\n\nI will add a check in the `compile` method to raise an appropriate error if the input expression is one of these reserved keywords.\n\nHere are the necessary edits:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {"True", "False", "None"}:\n            raise ValueError(f"Invalid expression: \'{input}\' cannot be used as a match expression.")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE\n```\n\nThis change will prevent the crash by checking for the input expression before proceeding with the compilation. If an invalid expression is detected, it raises a `ValueError` with a descriptive message.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=6, logprobs=None, message=ChatCompletionMessage(content='The issue described indicates that there is an assertion failure when compiling certain expressions in Python 3.8 and later, specifically involving the expressions "None", "True", and "False". The code in the `compile` method of the `Expression` class is compiling an expression without validating or sanitizing the input.\n\nTo fix this bug, we can add an explicit check for these specific strings before attempting to compile the expression. If the input expression is "None", "True", or "False", we will raise a `ValueError` to prevent the assertion failure.\n\nHere are the proposed changes:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {"None", "True", "False"}:\n            raise ValueError(f"Invalid expression: {input} is not allowed.")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE\n```\n\nThis change introduces a check for the problematic values and raises a `ValueError` if any of them are detected, preventing the assertion failure during compilation.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=7, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, it appears that the problem arises from the `compile` method in the `Expression` class. Specifically, the crash occurs when trying to compile certain expressions (`True`, `False`, and `None`), leading to an assertion failure in the Python interpreter. \n\nTo prevent this assertion failure, we need to ensure that the input to the `compile` method does not contain the specific strings `"True"`, `"False"`, or `"None"`. We can modify the `compile` method to raise a `ValueError` if the input matches these restricted keywords.\n\nHere are the necessary `SEARCH/REPLACE` edits:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {"True", "False", "None"}:\n            raise ValueError(f"Input \'{input}\' is not allowed.")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE\n```\n\nThis change checks if the input matches `"True"`, `"False"`, or `"None"` and raises a `ValueError` with an appropriate message, preventing the crash from occurring during the compilation process.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=8, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the problem arises from the `compile` method where the expression `"False"` is being handled. The assertion failure occurs because the code is incorrectly processing certain string literals that are reserved words in Python, such as "None", "True", and "False".\n\nTo fix this, we should ensure that the `input` expression does not contain these reserved words when being compiled. We can add a check to raise an exception if the input matches any of these keywords.\n\nHere are the necessary `SEARCH/REPLACE` edits to address this issue:\n\n```python\n### src/_pytest/mark/expression.py\n<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {"None", "True", "False"}:\n            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE\n```\n\nThis modification checks if the `input` matches any of the reserved keywords before proceeding with compilation, thus preventing the interpreter crash.', refusal=None, role='assistant', function_call=None, tool_calls=None))], created=1724360455, model='gpt-4o-mini-2024-07-18', object='chat.completion', service_tier=None, system_fingerprint='fp_507c9469a1', usage=CompletionUsage(completion_tokens=2099, prompt_tokens=585, total_tokens=2684))
+2024-08-22 14:01:00,073 - INFO - raw output:
+Based on the issue statement, the problem arises from the `Expression.compile` method when it attempts to compile an expression that includes the string "False". The assertion failure indicates that the compiler is not handling certain reserved keywords correctly in the debug build of Python 3.8 and above.
+
+To fix this issue, we can modify the `compile` method to ensure that it does not attempt to compile expressions that contain the keywords "True", "False", or "None". We can add a check before the compilation step to raise an appropriate error if the input expression contains these keywords.
+
+Here is the proposed `SEARCH/REPLACE` edit:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+```
+
+This change adds a check for the reserved keywords and raises a `ValueError` if the input expression is one of them, preventing the assertion failure from occurring during compilation.
+2024-08-22 14:01:00,073 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,073 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,073 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,073 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,073 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:01:00,073 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,073 - INFO - extracted patch:
+2024-08-22 14:01:00,073 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:01:00,073 - INFO - raw output:
+To address the issue described, the problem appears to be triggered by the `compile` method within the `Expression` class when certain string values are passed (specifically "False"). The assertion in the Python interpreter crashes when those values are used.
+
+To fix this, we can modify the `compile` method in the `expression.py` file to prevent such string values from being compiled directly. Instead, we can sanitize the input to avoid the problem.
+
+Here are the necessary edits:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input}")
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+```
+
+In this edit, we add a check at the beginning of the `compile` method to raise a `ValueError` if the input expression is one of the problematic strings ("None", "True", or "False"), preventing the crash from occurring.
+2024-08-22 14:01:00,073 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,073 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input}\")\n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,075 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,075 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,075 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input}")
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:01:00,075 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,075 - INFO - extracted patch:
+2024-08-22 14:01:00,075 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,8 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input}")
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:01:00,075 - INFO - raw output:
+The issue described involves an assertion failure in the `compile` method when the input expression is `"False"`. This is likely due to the fact that the `Expression.compile` method is trying to compile a string that contains reserved keywords in Python, which can trigger the assertion.
+
+To fix this issue, we can add a check in the `compile` method to ensure that the input expression does not contain any reserved keywords like "True", "False", or "None". If it does, we should raise an appropriate exception before attempting to compile.
+
+Here's the proposed edit:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+```
+
+This change checks if the input expression is one of the reserved keywords and raises a `ValueError` if it is, preventing the assertion failure during the compilation step.
+2024-08-22 14:01:00,075 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,075 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input expression cannot be one of the reserved keywords: {input}\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,075 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,075 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,075 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:01:00,075 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,075 - INFO - extracted patch:
+2024-08-22 14:01:00,075 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:01:00,076 - INFO - raw output:
+Based on the issue statement, the crash occurs when the `Expression.compile()` method attempts to compile certain expressions, specifically when the input is `"False"`. The assertion failure indicates that the input being evaluated is directly resulting in a problem within the underlying Python compilation logic.
+
+To fix this, we can add a validation step in the `compile` method to raise a more informative exception before compiling the expression if it matches any of the problematic values (i.e., "None", "True", "False"). 
+
+Here's the proposed edit:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in ("None", "True", "False"):
+            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+```
+
+This change checks if the input expressions are one of the problematic values before attempting to compile them. If so, it raises a `ValueError` with a clear message indicating the invalidity, preventing the interpreter from crashing.
+2024-08-22 14:01:00,076 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,076 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in (\"None\", \"True\", \"False\"):\n            raise ValueError(f\"Invalid expression: '{input}' cannot be compiled.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,076 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,076 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,076 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in ("None", "True", "False"):
+            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:01:00,076 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,076 - INFO - extracted patch:
+2024-08-22 14:01:00,076 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in ("None", "True", "False"):
++            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:01:00,076 - INFO - raw output:
+Based on the issue statement, the problem arises from how the `compile` function handles certain expressions in Python, particularly when dealing with the keywords "None", "True", and "False". The assertion failure occurs when the `compile` function is called with the string "False" in the context where it expects something different.
+
+To fix this issue, we need to modify the `compile` method in the `Expression` class to ensure that "False" (along with "None" and "True") is not passed directly to the `compile` function. This can be achieved by either returning an error or handling those specific cases before calling `compile`.
+
+Here's the proposed edit to address the issue:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Input expression cannot be '{input}'")
+        
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+>>>>>>> REPLACE
+``` 
+
+In this edit, we add a check to raise a `ValueError` if the input expression is "None", "True", or "False", preventing the problematic assertion from being triggered during the compilation.
+2024-08-22 14:01:00,076 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,076 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Input expression cannot be '{input}'\")\n        \n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,076 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,076 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,076 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Input expression cannot be '{input}'")
+        
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+>>>>>>> REPLACE
+2024-08-22 14:01:00,076 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,076 - INFO - extracted patch:
+2024-08-22 14:01:00,076 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Input expression cannot be '{input}'")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:01:00,076 - INFO - raw output:
+Based on the issue statement, it appears that the problem arises from the `compile` method in the `Expression` class in the `src/_pytest/mark/expression.py` file. Specifically, the assertion failure when compiling the expression "False" suggests that the `compile` method may not be handling certain literals correctly. 
+
+To address this, we need to modify the `compile` method to ensure that the expression does not include reserved keywords like "None", "True", and "False" in a manner that triggers the assertion failure.
+
+Here is the suggested change in the source code:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        code = compile(
+=======
+        # Check for disallowed literal strings
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"{input} is not a valid match expression.")
+        
+        code = compile(
+>>>>>>> REPLACE
+```
+
+This edit adds a check before compiling the input expression to ensure that it doesn't contain the disallowed literals, which should prevent the crash when the `compile` function is called with those specific strings.
+2024-08-22 14:01:00,076 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,076 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        code = compile(\n=======\n        # Check for disallowed literal strings\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"{input} is not a valid match expression.\")\n        \n        code = compile(\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,076 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,076 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,077 - INFO - <<<<<<< SEARCH
+        code = compile(
+=======
+        # Check for disallowed literal strings
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"{input} is not a valid match expression.")
+        
+        code = compile(
+>>>>>>> REPLACE
+2024-08-22 14:01:00,077 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,077 - INFO - extracted patch:
+2024-08-22 14:01:00,077 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -199,6 +199,10 @@
+         :param input: The input expression - one line.
+         """
+         astexpr = expression(Scanner(input))
++        # Check for disallowed literal strings
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"{input} is not a valid match expression.")
++        
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+         )  # type: types.CodeType
+2024-08-22 14:01:00,077 - INFO - raw output:
+Based on the issue statement, the problem occurs when using the `Expression.compile` method which internally calls the `compile` function, leading to a crash when trying to compile certain expressions like "False". The issue seems to stem from the handling of specific Python keywords during the compilation.
+
+To fix this, we should ensure that the input expression does not include reserved keywords like "True", "False", and "None" directly, as these can lead to the assertion failure in the debug build of Python.
+
+I will add a check in the `compile` method to raise an appropriate error if the input expression is one of these reserved keywords.
+
+Here are the necessary edits:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+```
+
+This change will prevent the crash by checking for the input expression before proceeding with the compilation. If an invalid expression is detected, it raises a `ValueError` with a descriptive message.
+2024-08-22 14:01:00,077 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,077 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: '{input}' cannot be used as a match expression.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,077 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,077 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,077 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:01:00,077 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,077 - INFO - extracted patch:
+2024-08-22 14:01:00,077 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:01:00,077 - INFO - raw output:
+The issue described indicates that there is an assertion failure when compiling certain expressions in Python 3.8 and later, specifically involving the expressions "None", "True", and "False". The code in the `compile` method of the `Expression` class is compiling an expression without validating or sanitizing the input.
+
+To fix this bug, we can add an explicit check for these specific strings before attempting to compile the expression. If the input expression is "None", "True", or "False", we will raise a `ValueError` to prevent the assertion failure.
+
+Here are the proposed changes:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+```
+
+This change introduces a check for the problematic values and raises a `ValueError` if any of them are detected, preventing the assertion failure during compilation.
+2024-08-22 14:01:00,077 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,077 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,077 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,077 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,077 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:01:00,077 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,078 - INFO - extracted patch:
+2024-08-22 14:01:00,078 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:01:00,078 - INFO - raw output:
+Based on the issue statement, it appears that the problem arises from the `compile` method in the `Expression` class. Specifically, the crash occurs when trying to compile certain expressions (`True`, `False`, and `None`), leading to an assertion failure in the Python interpreter. 
+
+To prevent this assertion failure, we need to ensure that the input to the `compile` method does not contain the specific strings `"True"`, `"False"`, or `"None"`. We can modify the `compile` method to raise a `ValueError` if the input matches these restricted keywords.
+
+Here are the necessary `SEARCH/REPLACE` edits:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+```
+
+This change checks if the input matches `"True"`, `"False"`, or `"None"` and raises a `ValueError` with an appropriate message, preventing the crash from occurring during the compilation process.
+2024-08-22 14:01:00,078 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,078 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,078 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,078 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,078 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:01:00,078 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,078 - INFO - extracted patch:
+2024-08-22 14:01:00,078 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:01:00,078 - INFO - raw output:
+Based on the issue statement, the problem arises from the `compile` method where the expression `"False"` is being handled. The assertion failure occurs because the code is incorrectly processing certain string literals that are reserved words in Python, such as "None", "True", and "False".
+
+To fix this, we should ensure that the `input` expression does not contain these reserved words when being compiled. We can add a check to raise an exception if the input matches any of these keywords.
+
+Here are the necessary `SEARCH/REPLACE` edits to address this issue:
+
+```python
+### src/_pytest/mark/expression.py
+<<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+```
+
+This modification checks if the `input` matches any of the reserved keywords before proceeding with compilation, thus preventing the interpreter crash.
+2024-08-22 14:01:00,078 - INFO - === file_to_commands: ===
+2024-08-22 14:01:00,078 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:01:00,078 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:01:00,078 - INFO - === edit_commands: ===
+2024-08-22 14:01:00,078 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:01:00,078 - INFO - 
+----------------------------------------
+2024-08-22 14:01:00,079 - INFO - extracted patch:
+2024-08-22 14:01:00,079 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:04:16,928 - INFO - === file_to_commands: ===
+2024-08-22 14:04:16,928 - INFO - === file_to_commands: ===
+2024-08-22 14:04:16,929 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:16,929 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:16,929 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:04:16,929 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:04:16,929 - INFO - === edit_commands: ===
+2024-08-22 14:04:16,929 - INFO - === edit_commands: ===
+2024-08-22 14:04:16,929 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:04:16,929 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:04:16,929 - INFO - 
+----------------------------------------
+2024-08-22 14:04:16,929 - INFO - 
+----------------------------------------
+2024-08-22 14:04:16,930 - INFO - extracted patch:
+2024-08-22 14:04:16,930 - INFO - extracted patch:
+2024-08-22 14:04:16,930 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:04:16,930 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:04:47,662 - INFO - === file_to_commands: ===
+2024-08-22 14:04:47,662 - INFO - === file_to_commands: ===
+2024-08-22 14:04:47,662 - INFO - === file_to_commands: ===
+2024-08-22 14:04:47,663 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input}\")\n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:47,663 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input}\")\n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:47,663 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input}\")\n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:47,663 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:04:47,663 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:04:47,663 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:04:47,663 - INFO - === edit_commands: ===
+2024-08-22 14:04:47,663 - INFO - === edit_commands: ===
+2024-08-22 14:04:47,663 - INFO - === edit_commands: ===
+2024-08-22 14:04:47,663 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input}")
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:04:47,663 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input}")
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:04:47,663 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input}")
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:04:47,663 - INFO - 
+----------------------------------------
+2024-08-22 14:04:47,663 - INFO - 
+----------------------------------------
+2024-08-22 14:04:47,663 - INFO - 
+----------------------------------------
+2024-08-22 14:04:47,663 - INFO - extracted patch:
+2024-08-22 14:04:47,663 - INFO - extracted patch:
+2024-08-22 14:04:47,663 - INFO - extracted patch:
+2024-08-22 14:04:47,663 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,8 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input}")
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:04:47,663 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,8 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input}")
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:04:47,663 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,8 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input}")
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:05:21,040 - INFO - === file_to_commands: ===
+2024-08-22 14:05:21,040 - INFO - === file_to_commands: ===
+2024-08-22 14:05:21,040 - INFO - === file_to_commands: ===
+2024-08-22 14:05:21,040 - INFO - === file_to_commands: ===
+2024-08-22 14:05:21,041 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input expression cannot be one of the reserved keywords: {input}\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:21,041 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input expression cannot be one of the reserved keywords: {input}\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:21,041 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input expression cannot be one of the reserved keywords: {input}\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:21,041 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input expression cannot be one of the reserved keywords: {input}\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:21,041 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:05:21,041 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:05:21,041 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:05:21,041 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:05:21,041 - INFO - === edit_commands: ===
+2024-08-22 14:05:21,041 - INFO - === edit_commands: ===
+2024-08-22 14:05:21,041 - INFO - === edit_commands: ===
+2024-08-22 14:05:21,041 - INFO - === edit_commands: ===
+2024-08-22 14:05:21,041 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:05:21,041 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:05:21,041 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:05:21,041 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:05:21,041 - INFO - 
+----------------------------------------
+2024-08-22 14:05:21,041 - INFO - 
+----------------------------------------
+2024-08-22 14:05:21,041 - INFO - 
+----------------------------------------
+2024-08-22 14:05:21,041 - INFO - 
+----------------------------------------
+2024-08-22 14:05:21,041 - INFO - extracted patch:
+2024-08-22 14:05:21,041 - INFO - extracted patch:
+2024-08-22 14:05:21,041 - INFO - extracted patch:
+2024-08-22 14:05:21,041 - INFO - extracted patch:
+2024-08-22 14:05:21,041 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:05:21,041 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:05:21,041 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:05:21,041 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input expression cannot be one of the reserved keywords: {input}")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:05:52,926 - INFO - === file_to_commands: ===
+2024-08-22 14:05:52,926 - INFO - === file_to_commands: ===
+2024-08-22 14:05:52,926 - INFO - === file_to_commands: ===
+2024-08-22 14:05:52,926 - INFO - === file_to_commands: ===
+2024-08-22 14:05:52,926 - INFO - === file_to_commands: ===
+2024-08-22 14:05:52,927 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in (\"None\", \"True\", \"False\"):\n            raise ValueError(f\"Invalid expression: '{input}' cannot be compiled.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:52,927 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in (\"None\", \"True\", \"False\"):\n            raise ValueError(f\"Invalid expression: '{input}' cannot be compiled.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:52,927 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in (\"None\", \"True\", \"False\"):\n            raise ValueError(f\"Invalid expression: '{input}' cannot be compiled.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:52,927 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in (\"None\", \"True\", \"False\"):\n            raise ValueError(f\"Invalid expression: '{input}' cannot be compiled.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:52,927 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in (\"None\", \"True\", \"False\"):\n            raise ValueError(f\"Invalid expression: '{input}' cannot be compiled.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:52,927 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:05:52,927 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:05:52,927 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:05:52,927 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:05:52,927 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:05:52,927 - INFO - === edit_commands: ===
+2024-08-22 14:05:52,927 - INFO - === edit_commands: ===
+2024-08-22 14:05:52,927 - INFO - === edit_commands: ===
+2024-08-22 14:05:52,927 - INFO - === edit_commands: ===
+2024-08-22 14:05:52,927 - INFO - === edit_commands: ===
+2024-08-22 14:05:52,927 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in ("None", "True", "False"):
+            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:05:52,927 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in ("None", "True", "False"):
+            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:05:52,927 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in ("None", "True", "False"):
+            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:05:52,927 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in ("None", "True", "False"):
+            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:05:52,927 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in ("None", "True", "False"):
+            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:05:52,927 - INFO - 
+----------------------------------------
+2024-08-22 14:05:52,927 - INFO - 
+----------------------------------------
+2024-08-22 14:05:52,927 - INFO - 
+----------------------------------------
+2024-08-22 14:05:52,927 - INFO - 
+----------------------------------------
+2024-08-22 14:05:52,927 - INFO - 
+----------------------------------------
+2024-08-22 14:05:52,927 - INFO - extracted patch:
+2024-08-22 14:05:52,927 - INFO - extracted patch:
+2024-08-22 14:05:52,927 - INFO - extracted patch:
+2024-08-22 14:05:52,927 - INFO - extracted patch:
+2024-08-22 14:05:52,927 - INFO - extracted patch:
+2024-08-22 14:05:52,927 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in ("None", "True", "False"):
++            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:05:52,927 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in ("None", "True", "False"):
++            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:05:52,927 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in ("None", "True", "False"):
++            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:05:52,927 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in ("None", "True", "False"):
++            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:05:52,927 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in ("None", "True", "False"):
++            raise ValueError(f"Invalid expression: '{input}' cannot be compiled.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:06:30,332 - INFO - === file_to_commands: ===
+2024-08-22 14:06:30,332 - INFO - === file_to_commands: ===
+2024-08-22 14:06:30,332 - INFO - === file_to_commands: ===
+2024-08-22 14:06:30,332 - INFO - === file_to_commands: ===
+2024-08-22 14:06:30,332 - INFO - === file_to_commands: ===
+2024-08-22 14:06:30,332 - INFO - === file_to_commands: ===
+2024-08-22 14:06:30,332 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Input expression cannot be '{input}'\")\n        \n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:30,332 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Input expression cannot be '{input}'\")\n        \n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:30,332 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Input expression cannot be '{input}'\")\n        \n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:30,332 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Input expression cannot be '{input}'\")\n        \n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:30,332 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Input expression cannot be '{input}'\")\n        \n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:30,332 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Input expression cannot be '{input}'\")\n        \n        astexpr = expression(Scanner(input))\n        code = compile(\n            astexpr, filename=\"<pytest match expression>\", mode=\"eval\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:30,333 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:06:30,333 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:06:30,333 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:06:30,333 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:06:30,333 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:06:30,333 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:06:30,333 - INFO - === edit_commands: ===
+2024-08-22 14:06:30,333 - INFO - === edit_commands: ===
+2024-08-22 14:06:30,333 - INFO - === edit_commands: ===
+2024-08-22 14:06:30,333 - INFO - === edit_commands: ===
+2024-08-22 14:06:30,333 - INFO - === edit_commands: ===
+2024-08-22 14:06:30,333 - INFO - === edit_commands: ===
+2024-08-22 14:06:30,333 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Input expression cannot be '{input}'")
+        
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+>>>>>>> REPLACE
+2024-08-22 14:06:30,333 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Input expression cannot be '{input}'")
+        
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+>>>>>>> REPLACE
+2024-08-22 14:06:30,333 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Input expression cannot be '{input}'")
+        
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+>>>>>>> REPLACE
+2024-08-22 14:06:30,333 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Input expression cannot be '{input}'")
+        
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+>>>>>>> REPLACE
+2024-08-22 14:06:30,333 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Input expression cannot be '{input}'")
+        
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+>>>>>>> REPLACE
+2024-08-22 14:06:30,333 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Input expression cannot be '{input}'")
+        
+        astexpr = expression(Scanner(input))
+        code = compile(
+            astexpr, filename="<pytest match expression>", mode="eval",
+>>>>>>> REPLACE
+2024-08-22 14:06:30,333 - INFO - 
+----------------------------------------
+2024-08-22 14:06:30,333 - INFO - 
+----------------------------------------
+2024-08-22 14:06:30,333 - INFO - 
+----------------------------------------
+2024-08-22 14:06:30,333 - INFO - 
+----------------------------------------
+2024-08-22 14:06:30,333 - INFO - 
+----------------------------------------
+2024-08-22 14:06:30,333 - INFO - 
+----------------------------------------
+2024-08-22 14:06:30,333 - INFO - extracted patch:
+2024-08-22 14:06:30,333 - INFO - extracted patch:
+2024-08-22 14:06:30,333 - INFO - extracted patch:
+2024-08-22 14:06:30,333 - INFO - extracted patch:
+2024-08-22 14:06:30,333 - INFO - extracted patch:
+2024-08-22 14:06:30,333 - INFO - extracted patch:
+2024-08-22 14:06:30,333 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Input expression cannot be '{input}'")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:06:30,333 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Input expression cannot be '{input}'")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:06:30,333 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Input expression cannot be '{input}'")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:06:30,333 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Input expression cannot be '{input}'")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:06:30,333 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Input expression cannot be '{input}'")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:06:30,333 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Input expression cannot be '{input}'")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:07:08,083 - INFO - === file_to_commands: ===
+2024-08-22 14:07:08,083 - INFO - === file_to_commands: ===
+2024-08-22 14:07:08,083 - INFO - === file_to_commands: ===
+2024-08-22 14:07:08,083 - INFO - === file_to_commands: ===
+2024-08-22 14:07:08,083 - INFO - === file_to_commands: ===
+2024-08-22 14:07:08,083 - INFO - === file_to_commands: ===
+2024-08-22 14:07:08,083 - INFO - === file_to_commands: ===
+2024-08-22 14:07:08,083 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        code = compile(\n=======\n        # Check for disallowed literal strings\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"{input} is not a valid match expression.\")\n        \n        code = compile(\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:08,083 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        code = compile(\n=======\n        # Check for disallowed literal strings\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"{input} is not a valid match expression.\")\n        \n        code = compile(\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:08,083 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        code = compile(\n=======\n        # Check for disallowed literal strings\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"{input} is not a valid match expression.\")\n        \n        code = compile(\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:08,083 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        code = compile(\n=======\n        # Check for disallowed literal strings\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"{input} is not a valid match expression.\")\n        \n        code = compile(\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:08,083 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        code = compile(\n=======\n        # Check for disallowed literal strings\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"{input} is not a valid match expression.\")\n        \n        code = compile(\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:08,083 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        code = compile(\n=======\n        # Check for disallowed literal strings\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"{input} is not a valid match expression.\")\n        \n        code = compile(\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:08,083 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        code = compile(\n=======\n        # Check for disallowed literal strings\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"{input} is not a valid match expression.\")\n        \n        code = compile(\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:08,083 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:08,083 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:08,083 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:08,083 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:08,083 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:08,083 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:08,083 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:08,083 - INFO - === edit_commands: ===
+2024-08-22 14:07:08,083 - INFO - === edit_commands: ===
+2024-08-22 14:07:08,083 - INFO - === edit_commands: ===
+2024-08-22 14:07:08,083 - INFO - === edit_commands: ===
+2024-08-22 14:07:08,083 - INFO - === edit_commands: ===
+2024-08-22 14:07:08,083 - INFO - === edit_commands: ===
+2024-08-22 14:07:08,083 - INFO - === edit_commands: ===
+2024-08-22 14:07:08,083 - INFO - <<<<<<< SEARCH
+        code = compile(
+=======
+        # Check for disallowed literal strings
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"{input} is not a valid match expression.")
+        
+        code = compile(
+>>>>>>> REPLACE
+2024-08-22 14:07:08,083 - INFO - <<<<<<< SEARCH
+        code = compile(
+=======
+        # Check for disallowed literal strings
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"{input} is not a valid match expression.")
+        
+        code = compile(
+>>>>>>> REPLACE
+2024-08-22 14:07:08,083 - INFO - <<<<<<< SEARCH
+        code = compile(
+=======
+        # Check for disallowed literal strings
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"{input} is not a valid match expression.")
+        
+        code = compile(
+>>>>>>> REPLACE
+2024-08-22 14:07:08,083 - INFO - <<<<<<< SEARCH
+        code = compile(
+=======
+        # Check for disallowed literal strings
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"{input} is not a valid match expression.")
+        
+        code = compile(
+>>>>>>> REPLACE
+2024-08-22 14:07:08,083 - INFO - <<<<<<< SEARCH
+        code = compile(
+=======
+        # Check for disallowed literal strings
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"{input} is not a valid match expression.")
+        
+        code = compile(
+>>>>>>> REPLACE
+2024-08-22 14:07:08,083 - INFO - <<<<<<< SEARCH
+        code = compile(
+=======
+        # Check for disallowed literal strings
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"{input} is not a valid match expression.")
+        
+        code = compile(
+>>>>>>> REPLACE
+2024-08-22 14:07:08,083 - INFO - <<<<<<< SEARCH
+        code = compile(
+=======
+        # Check for disallowed literal strings
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"{input} is not a valid match expression.")
+        
+        code = compile(
+>>>>>>> REPLACE
+2024-08-22 14:07:08,083 - INFO - 
+----------------------------------------
+2024-08-22 14:07:08,083 - INFO - 
+----------------------------------------
+2024-08-22 14:07:08,083 - INFO - 
+----------------------------------------
+2024-08-22 14:07:08,083 - INFO - 
+----------------------------------------
+2024-08-22 14:07:08,083 - INFO - 
+----------------------------------------
+2024-08-22 14:07:08,083 - INFO - 
+----------------------------------------
+2024-08-22 14:07:08,083 - INFO - 
+----------------------------------------
+2024-08-22 14:07:08,084 - INFO - extracted patch:
+2024-08-22 14:07:08,084 - INFO - extracted patch:
+2024-08-22 14:07:08,084 - INFO - extracted patch:
+2024-08-22 14:07:08,084 - INFO - extracted patch:
+2024-08-22 14:07:08,084 - INFO - extracted patch:
+2024-08-22 14:07:08,084 - INFO - extracted patch:
+2024-08-22 14:07:08,084 - INFO - extracted patch:
+2024-08-22 14:07:08,084 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -199,6 +199,10 @@
+         :param input: The input expression - one line.
+         """
+         astexpr = expression(Scanner(input))
++        # Check for disallowed literal strings
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"{input} is not a valid match expression.")
++        
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+         )  # type: types.CodeType
+2024-08-22 14:07:08,084 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -199,6 +199,10 @@
+         :param input: The input expression - one line.
+         """
+         astexpr = expression(Scanner(input))
++        # Check for disallowed literal strings
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"{input} is not a valid match expression.")
++        
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+         )  # type: types.CodeType
+2024-08-22 14:07:08,084 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -199,6 +199,10 @@
+         :param input: The input expression - one line.
+         """
+         astexpr = expression(Scanner(input))
++        # Check for disallowed literal strings
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"{input} is not a valid match expression.")
++        
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+         )  # type: types.CodeType
+2024-08-22 14:07:08,084 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -199,6 +199,10 @@
+         :param input: The input expression - one line.
+         """
+         astexpr = expression(Scanner(input))
++        # Check for disallowed literal strings
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"{input} is not a valid match expression.")
++        
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+         )  # type: types.CodeType
+2024-08-22 14:07:08,084 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -199,6 +199,10 @@
+         :param input: The input expression - one line.
+         """
+         astexpr = expression(Scanner(input))
++        # Check for disallowed literal strings
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"{input} is not a valid match expression.")
++        
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+         )  # type: types.CodeType
+2024-08-22 14:07:08,084 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -199,6 +199,10 @@
+         :param input: The input expression - one line.
+         """
+         astexpr = expression(Scanner(input))
++        # Check for disallowed literal strings
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"{input} is not a valid match expression.")
++        
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+         )  # type: types.CodeType
+2024-08-22 14:07:08,084 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -199,6 +199,10 @@
+         :param input: The input expression - one line.
+         """
+         astexpr = expression(Scanner(input))
++        # Check for disallowed literal strings
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"{input} is not a valid match expression.")
++        
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+         )  # type: types.CodeType
+2024-08-22 14:07:42,437 - INFO - === file_to_commands: ===
+2024-08-22 14:07:42,437 - INFO - === file_to_commands: ===
+2024-08-22 14:07:42,437 - INFO - === file_to_commands: ===
+2024-08-22 14:07:42,437 - INFO - === file_to_commands: ===
+2024-08-22 14:07:42,437 - INFO - === file_to_commands: ===
+2024-08-22 14:07:42,437 - INFO - === file_to_commands: ===
+2024-08-22 14:07:42,437 - INFO - === file_to_commands: ===
+2024-08-22 14:07:42,437 - INFO - === file_to_commands: ===
+2024-08-22 14:07:42,438 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: '{input}' cannot be used as a match expression.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:42,438 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: '{input}' cannot be used as a match expression.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:42,438 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: '{input}' cannot be used as a match expression.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:42,438 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: '{input}' cannot be used as a match expression.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:42,438 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: '{input}' cannot be used as a match expression.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:42,438 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: '{input}' cannot be used as a match expression.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:42,438 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: '{input}' cannot be used as a match expression.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:42,438 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Invalid expression: '{input}' cannot be used as a match expression.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:42,438 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:42,438 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:42,438 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:42,438 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:42,438 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:42,438 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:42,438 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:42,438 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:07:42,438 - INFO - === edit_commands: ===
+2024-08-22 14:07:42,438 - INFO - === edit_commands: ===
+2024-08-22 14:07:42,438 - INFO - === edit_commands: ===
+2024-08-22 14:07:42,438 - INFO - === edit_commands: ===
+2024-08-22 14:07:42,438 - INFO - === edit_commands: ===
+2024-08-22 14:07:42,438 - INFO - === edit_commands: ===
+2024-08-22 14:07:42,438 - INFO - === edit_commands: ===
+2024-08-22 14:07:42,438 - INFO - === edit_commands: ===
+2024-08-22 14:07:42,438 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:07:42,438 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:07:42,438 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:07:42,438 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:07:42,438 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:07:42,438 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:07:42,438 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:07:42,438 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:07:42,438 - INFO - 
+----------------------------------------
+2024-08-22 14:07:42,438 - INFO - 
+----------------------------------------
+2024-08-22 14:07:42,438 - INFO - 
+----------------------------------------
+2024-08-22 14:07:42,438 - INFO - 
+----------------------------------------
+2024-08-22 14:07:42,438 - INFO - 
+----------------------------------------
+2024-08-22 14:07:42,438 - INFO - 
+----------------------------------------
+2024-08-22 14:07:42,438 - INFO - 
+----------------------------------------
+2024-08-22 14:07:42,438 - INFO - 
+----------------------------------------
+2024-08-22 14:07:42,438 - INFO - extracted patch:
+2024-08-22 14:07:42,438 - INFO - extracted patch:
+2024-08-22 14:07:42,438 - INFO - extracted patch:
+2024-08-22 14:07:42,438 - INFO - extracted patch:
+2024-08-22 14:07:42,438 - INFO - extracted patch:
+2024-08-22 14:07:42,438 - INFO - extracted patch:
+2024-08-22 14:07:42,438 - INFO - extracted patch:
+2024-08-22 14:07:42,438 - INFO - extracted patch:
+2024-08-22 14:07:42,438 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:07:42,438 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:07:42,438 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:07:42,438 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:07:42,438 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:07:42,438 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:07:42,438 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:07:42,438 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Invalid expression: '{input}' cannot be used as a match expression.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:19,523 - INFO - === file_to_commands: ===
+2024-08-22 14:08:19,523 - INFO - === file_to_commands: ===
+2024-08-22 14:08:19,523 - INFO - === file_to_commands: ===
+2024-08-22 14:08:19,523 - INFO - === file_to_commands: ===
+2024-08-22 14:08:19,523 - INFO - === file_to_commands: ===
+2024-08-22 14:08:19,523 - INFO - === file_to_commands: ===
+2024-08-22 14:08:19,523 - INFO - === file_to_commands: ===
+2024-08-22 14:08:19,523 - INFO - === file_to_commands: ===
+2024-08-22 14:08:19,523 - INFO - === file_to_commands: ===
+2024-08-22 14:08:19,524 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:19,524 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:19,524 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:19,524 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:19,524 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:19,524 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:19,524 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:19,524 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:19,524 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid expression: {input} is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:19,524 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:19,524 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:19,524 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:19,524 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:19,524 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:19,524 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:19,524 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:19,524 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:19,524 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:19,524 - INFO - === edit_commands: ===
+2024-08-22 14:08:19,524 - INFO - === edit_commands: ===
+2024-08-22 14:08:19,524 - INFO - === edit_commands: ===
+2024-08-22 14:08:19,524 - INFO - === edit_commands: ===
+2024-08-22 14:08:19,524 - INFO - === edit_commands: ===
+2024-08-22 14:08:19,524 - INFO - === edit_commands: ===
+2024-08-22 14:08:19,524 - INFO - === edit_commands: ===
+2024-08-22 14:08:19,524 - INFO - === edit_commands: ===
+2024-08-22 14:08:19,524 - INFO - === edit_commands: ===
+2024-08-22 14:08:19,524 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:19,524 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:19,524 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:19,524 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:19,524 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:19,524 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:19,524 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:19,524 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:19,524 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid expression: {input} is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:19,524 - INFO - 
+----------------------------------------
+2024-08-22 14:08:19,524 - INFO - 
+----------------------------------------
+2024-08-22 14:08:19,524 - INFO - 
+----------------------------------------
+2024-08-22 14:08:19,524 - INFO - 
+----------------------------------------
+2024-08-22 14:08:19,524 - INFO - 
+----------------------------------------
+2024-08-22 14:08:19,524 - INFO - 
+----------------------------------------
+2024-08-22 14:08:19,524 - INFO - 
+----------------------------------------
+2024-08-22 14:08:19,524 - INFO - 
+----------------------------------------
+2024-08-22 14:08:19,524 - INFO - 
+----------------------------------------
+2024-08-22 14:08:19,525 - INFO - extracted patch:
+2024-08-22 14:08:19,525 - INFO - extracted patch:
+2024-08-22 14:08:19,525 - INFO - extracted patch:
+2024-08-22 14:08:19,525 - INFO - extracted patch:
+2024-08-22 14:08:19,525 - INFO - extracted patch:
+2024-08-22 14:08:19,525 - INFO - extracted patch:
+2024-08-22 14:08:19,525 - INFO - extracted patch:
+2024-08-22 14:08:19,525 - INFO - extracted patch:
+2024-08-22 14:08:19,525 - INFO - extracted patch:
+2024-08-22 14:08:19,525 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:19,525 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:19,525 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:19,525 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:19,525 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:19,525 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:19,525 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:19,525 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:19,525 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid expression: {input} is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,379 - INFO - === file_to_commands: ===
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"True\", \"False\", \"None\"}:\n            raise ValueError(f\"Input '{input}' is not allowed.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,381 - INFO - === edit_commands: ===
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"True", "False", "None"}:
+            raise ValueError(f"Input '{input}' is not allowed.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - 
+----------------------------------------
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - extracted patch:
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:08:56,382 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"True", "False", "None"}:
++            raise ValueError(f"Input '{input}' is not allowed.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,509 - INFO - === file_to_commands: ===
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,510 - INFO - {
+  "'src/_pytest/mark/expression.py'": [
+    "<<<<<<< SEARCH\n        astexpr = expression(Scanner(input))\n=======\n        if input in {\"None\", \"True\", \"False\"}:\n            raise ValueError(f\"Invalid match expression: {input} is a reserved keyword.\")\n        \n        astexpr = expression(Scanner(input))\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edited_file: 'src/_pytest/mark/expression.py' ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - === edit_commands: ===
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - <<<<<<< SEARCH
+        astexpr = expression(Scanner(input))
+=======
+        if input in {"None", "True", "False"}:
+            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
+        
+        astexpr = expression(Scanner(input))
+>>>>>>> REPLACE
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - 
+----------------------------------------
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - extracted patch:
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+2024-08-22 14:09:30,511 - INFO - --- src/_pytest/mark/expression.py
++++ src/_pytest/mark/expression.py
+@@ -198,6 +198,9 @@
+ 
+         :param input: The input expression - one line.
+         """
++        if input in {"None", "True", "False"}:
++            raise ValueError(f"Invalid match expression: {input} is a reserved keyword.")
++        
+         astexpr = expression(Scanner(input))
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",

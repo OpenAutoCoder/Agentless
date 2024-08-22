@@ -1,0 +1,2284 @@
+2024-08-22 13:57:29,585 - INFO - ================ repairing django__django-11790 ================
+2024-08-22 13:57:30,396 - INFO - prompting with message:
+We are currently solving the following issue within our repository. Here is the issue text:
+--- BEGIN ISSUE ---
+AuthenticationForm's username field doesn't set maxlength HTML attribute.
+Description
+	
+AuthenticationForm's username field doesn't render with maxlength HTML attribute anymore.
+Regression introduced in #27515 and 5ceaf14686ce626404afb6a5fbd3d8286410bf13.
+​https://groups.google.com/forum/?utm_source=digest&utm_medium=email#!topic/django-developers/qnfSqro0DlA
+​https://forum.djangoproject.com/t/possible-authenticationform-max-length-regression-in-django-2-1/241
+
+--- END ISSUE ---
+
+
+Below are some code segments, each from a relevant file. One or more of these files may contain bugs.
+
+--- BEGIN FILE ---
+```
+### django/contrib/auth/forms.py
+...
+        """
+        The 'request' parameter is set for custom auth use by subclasses.
+        The form data comes in via the standard 'data' kwarg.
+        """
+        self.request = request
+        self.user_cache = None
+        super().__init__(*args, **kwargs)
+
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+            self.fields['username'].label = capfirst(self.username_field.verbose_name)
+
+    def clean(self):
+        username = self.cleaned_data.get('username')
+        password = self.cleaned_data.get('password')
+
+        if username is not None and password:
+            self.user_cache = authenticate(self.request, username=username, password=password)
+            if self.user_cache is None:
+...
+```
+--- END FILE ---
+
+Please first localize the bug based on the issue statement, and then generate *SEARCH/REPLACE* edits to fix the issue.
+
+Every *SEARCH/REPLACE* edit must use this format:
+1. The file path
+2. The start of search block: <<<<<<< SEARCH
+3. A contiguous chunk of lines to search for in the existing source code
+4. The dividing line: =======
+5. The lines to replace into the source code
+6. The end of the replace block: >>>>>>> REPLACE
+
+Here is an example:
+
+```python
+### mathweb/flask/app.py
+<<<<<<< SEARCH
+from flask import Flask
+=======
+import math
+from flask import Flask
+>>>>>>> REPLACE
+```
+
+Please note that the *SEARCH/REPLACE* edit REQUIRES PROPER INDENTATION. If you would like to add the line '        print(x)', you must fully write that out, with all those spaces before the code!
+Wrap the *SEARCH/REPLACE* edit in blocks ```python...```.
+2024-08-22 13:57:30,403 - INFO - Creating API request
+2024-08-22 13:57:33,586 - INFO - API response ChatCompletion(id='chatcmpl-9z9A2hyz6DPJoEdnmFcxQuLZJo6vE', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content="Based on the issue statement, the bug is that the `maxlength` HTML attribute is not being set for the `username` field in the `AuthenticationForm`. The relevant code segment in the provided file does set the `max_length` property of the `username` field, but it does not ensure that this value is reflected in the HTML output of the form.\n\nTo fix this issue, we need to ensure that the `max_length` is set correctly in the widget for the `username` field. This can be done by setting the `attrs` of the widget.\n\nHere is the necessary `SEARCH/REPLACE` edit to fix the issue:\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE\n```\n\nThis edit adds a line to set the `maxlength` attribute in the widget's attributes for the `username` field, ensuring that it is rendered correctly in the HTML output.", refusal=None, role='assistant', function_call=None, tool_calls=None))], created=1724360250, model='gpt-4o-mini-2024-07-18', object='chat.completion', service_tier=None, system_fingerprint='fp_48196bc67a', usage=CompletionUsage(completion_tokens=230, prompt_tokens=602, total_tokens=832))
+2024-08-22 13:57:33,607 - INFO - Creating API request
+2024-08-22 13:57:37,449 - INFO - API response ChatCompletion(id='chatcmpl-9z9A6Qy4pZlOWliDW9rGd7uyJdz7H', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content="To address the issue described in the issue text, we need to ensure that the `maxlength` HTML attribute is set correctly for the `username` field in the `AuthenticationForm`. \n\nThe code snippet provided does set the `max_length` for the `username` field, but it may not be setting the corresponding HTML attribute for rendering. This might be the cause of the regression issue mentioned.\n\nWe can fix this by explicitly setting the `widget.attrs` for the `username` field to include the `maxlength` attribute.\n\nHere is the proposed change:\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        # Set the max length in the widget's attrs for rendering\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        \n        if self.fields['username'].label is None:\n>>>>>>> REPLACE\n``` \n\nThis edit will ensure that the `maxlength` attribute is rendered in the HTML for the username field during form rendering.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=1, logprobs=None, message=ChatCompletionMessage(content="Based on the provided issue statement, it appears that the problem lies in the omission of the `maxlength` HTML attribute for the username field in the `AuthenticationForm` class. The relevant code does set the `max_length` attribute of the field but does not set the HTML attribute for rendering.\n\nTo fix the issue, we will need to ensure that the `max_length` is correctly reflected in the widget of the username field. Specifically, we can do this by setting the `attrs` for the field's widget.\n\nHere are the necessary `SEARCH/REPLACE` edits:\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE\n``` \n\nThis change will set the `maxlength` attribute on the widget for the username field, ensuring that it is rendered correctly in the HTML output.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=2, logprobs=None, message=ChatCompletionMessage(content="The issue described indicates that the `maxlength` HTML attribute is not being set on the `username` field of the `AuthenticationForm`. The relevant code segment suggests that the `max_length` is being set, but it may not be correctly applied to the form field's widget, which is responsible for rendering the `maxlength` attribute in the HTML.\n\nTo fix this issue, we can modify the `fields['username'].widget.attrs` to include the `maxlength` attribute. Below is the appropriate SEARCH/REPLACE edit to address the problem.\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE\n```\n\nThis edit ensures that the `maxlength` attribute is correctly set in the field's widget attributes, enabling it to be rendered in the HTML output.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=3, logprobs=None, message=ChatCompletionMessage(content='To address the issue regarding the missing `maxlength` HTML attribute for the username field in the `AuthenticationForm`, we will make adjustments in the `django/contrib/auth/forms.py` file. \n\nThe source code already attempts to set the `max_length` for the username field, but it does not ensure that this value is also set in the widget that renders the field in HTML. We will need to add the `maxlength` attribute to the field\'s widget.\n\nHere’s the required search and replace edit:\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n    def __init__(self, request=None, *args, **kwargs):\n        ...\n        # Set the max length and label for the "username" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        self.fields[\'username\'].max_length = self.username_field.max_length or 254\n=======\n        # Set the max length and label for the "username" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        max_length = self.username_field.max_length or 254\n        self.fields[\'username\'].max_length = max_length\n        self.fields[\'username\'].widget.attrs[\'maxlength\'] = max_length\n>>>>>>> REPLACE\n```\n\nThis change ensures that the `maxlength` attribute is set on the widget for the `username` field, thus fixing the issue described in the problem statement.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=4, logprobs=None, message=ChatCompletionMessage(content="Based on the issue statement provided, the bug is that the `max_length` HTML attribute is not being set for the `username` field in the `AuthenticationForm`. The relevant code appears to be present, but the HTML attribute for `maxlength` must also be explicitly set in the field widget.\n\nTo fix the issue, we need to add the `max_length` attribute to the widget associated with the `username` field. Here is the proposed `SEARCH/REPLACE` edit:\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE\n```\n\nThis adjustment ensures that the `maxlength` attribute is included in the HTML output for the `username` field.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=5, logprobs=None, message=ChatCompletionMessage(content="Based on the issue statement, it seems that the `maxlength` HTML attribute is not being set for the username field in the `AuthenticationForm`. The provided code snippet shows that the max_length is set for the username field, which is the correct logic. However, it appears that the `max_length` property does not directly set the `maxlength` attribute in the rendered form field. We need to ensure that the `maxlength` attribute is explicitly set in the widget for the username field.\n\nHere’s the necessary search and replace edit to fix this issue:\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE\n```\n\nThis edit adds a line to set the `maxlength` attribute on the widget of the username field, ensuring that it is included in the rendered HTML.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=6, logprobs=None, message=ChatCompletionMessage(content="Based on the issue statement, the problem is that the `maxlength` HTML attribute is not being set for the `username` field in the `AuthenticationForm`. The relevant code snippet in `django/contrib/auth/forms.py` does set the `max_length` for the field, but it does not explicitly set the `maxlength` attribute that affects the HTML rendering.\n\nTo fix the issue, we need to set the `maxlength` attribute for the `username` field in the form. Here’s the required `SEARCH/REPLACE` edit:\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE\n```\n\nThis change ensures that the `maxlength` attribute is set in the widget's attributes for the `username` field, which will render the HTML attribute correctly in the output.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=7, logprobs=None, message=ChatCompletionMessage(content="Based on the issue statement, the bug is that the `username` field of the `AuthenticationForm` does not set the `maxlength` HTML attribute when rendering. The existing code in the provided segment attempts to set the `max_length` of the `username` field, but it does not ensure that this attribute is also reflected in the HTML rendering of the field.\n\nTo fix the issue, we need to add the `max_length` attribute to the widget associated with the `username` field, ensuring that it will render correctly in the HTML form. \n\nHere is the appropriate `SEARCH/REPLACE` edit to address the bug:\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE\n```\n\nThis edit adds the `maxlength` attribute to the widget for the `username` field, ensuring that it will be set correctly when the form is rendered in HTML.", refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=8, logprobs=None, message=ChatCompletionMessage(content="The issue is that the `maxlength` HTML attribute is not being set for the `username` field in the `AuthenticationForm` after the changes introduced in the mentioned commits. Based on the provided code segment, the `max_length` is being set correctly, but we need to ensure that this value is also translated into the HTML attribute for rendering.\n\nTo fix the issue, we should update the widget for the `username` field to include the `maxlength` attribute. The changes should be made in the `__init__` method of the `AuthenticationForm`.\n\nHere is the proper search and replace to add the `maxlength` attribute to the `username` field.\n\n```python\n### django/contrib/auth/forms.py\n<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE\n```\n\nThis change adds the `maxlength` attribute to the widget of the `username` field, ensuring that it is included in the rendered HTML output.", refusal=None, role='assistant', function_call=None, tool_calls=None))], created=1724360254, model='gpt-4o-mini-2024-07-18', object='chat.completion', service_tier=None, system_fingerprint='fp_507c9469a1', usage=CompletionUsage(completion_tokens=1961, prompt_tokens=602, total_tokens=2563))
+2024-08-22 13:57:37,449 - INFO - raw output:
+Based on the issue statement, the bug is that the `maxlength` HTML attribute is not being set for the `username` field in the `AuthenticationForm`. The relevant code segment in the provided file does set the `max_length` property of the `username` field, but it does not ensure that this value is reflected in the HTML output of the form.
+
+To fix this issue, we need to ensure that the `max_length` is set correctly in the widget for the `username` field. This can be done by setting the `attrs` of the widget.
+
+Here is the necessary `SEARCH/REPLACE` edit to fix the issue:
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+```
+
+This edit adds a line to set the `maxlength` attribute in the widget's attributes for the `username` field, ensuring that it is rendered correctly in the HTML output.
+2024-08-22 13:57:37,449 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,449 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,449 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,449 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,449 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 13:57:37,449 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,451 - INFO - extracted patch:
+2024-08-22 13:57:37,451 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 13:57:37,451 - INFO - raw output:
+To address the issue described in the issue text, we need to ensure that the `maxlength` HTML attribute is set correctly for the `username` field in the `AuthenticationForm`. 
+
+The code snippet provided does set the `max_length` for the `username` field, but it may not be setting the corresponding HTML attribute for rendering. This might be the cause of the regression issue mentioned.
+
+We can fix this by explicitly setting the `widget.attrs` for the `username` field to include the `maxlength` attribute.
+
+Here is the proposed change:
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        # Set the max length in the widget's attrs for rendering
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+``` 
+
+This edit will ensure that the `maxlength` attribute is rendered in the HTML for the username field during form rendering.
+2024-08-22 13:57:37,451 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,451 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        # Set the max length in the widget's attrs for rendering\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        \n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,451 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,451 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,451 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        # Set the max length in the widget's attrs for rendering
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 13:57:37,451 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,453 - INFO - extracted patch:
+2024-08-22 13:57:37,453 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,9 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        # Set the max length in the widget's attrs for rendering
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
++        
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 13:57:37,453 - INFO - raw output:
+Based on the provided issue statement, it appears that the problem lies in the omission of the `maxlength` HTML attribute for the username field in the `AuthenticationForm` class. The relevant code does set the `max_length` attribute of the field but does not set the HTML attribute for rendering.
+
+To fix the issue, we will need to ensure that the `max_length` is correctly reflected in the widget of the username field. Specifically, we can do this by setting the `attrs` for the field's widget.
+
+Here are the necessary `SEARCH/REPLACE` edits:
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+``` 
+
+This change will set the `maxlength` attribute on the widget for the username field, ensuring that it is rendered correctly in the HTML output.
+2024-08-22 13:57:37,453 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,453 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,453 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,453 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,453 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 13:57:37,453 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,454 - INFO - extracted patch:
+2024-08-22 13:57:37,455 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 13:57:37,455 - INFO - raw output:
+The issue described indicates that the `maxlength` HTML attribute is not being set on the `username` field of the `AuthenticationForm`. The relevant code segment suggests that the `max_length` is being set, but it may not be correctly applied to the form field's widget, which is responsible for rendering the `maxlength` attribute in the HTML.
+
+To fix this issue, we can modify the `fields['username'].widget.attrs` to include the `maxlength` attribute. Below is the appropriate SEARCH/REPLACE edit to address the problem.
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+```
+
+This edit ensures that the `maxlength` attribute is correctly set in the field's widget attributes, enabling it to be rendered in the HTML output.
+2024-08-22 13:57:37,455 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,455 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,455 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,455 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,455 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 13:57:37,455 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,457 - INFO - extracted patch:
+2024-08-22 13:57:37,457 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 13:57:37,457 - INFO - raw output:
+To address the issue regarding the missing `maxlength` HTML attribute for the username field in the `AuthenticationForm`, we will make adjustments in the `django/contrib/auth/forms.py` file. 
+
+The source code already attempts to set the `max_length` for the username field, but it does not ensure that this value is also set in the widget that renders the field in HTML. We will need to add the `maxlength` attribute to the field's widget.
+
+Here’s the required search and replace edit:
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+    def __init__(self, request=None, *args, **kwargs):
+        ...
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
+=======
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        max_length = self.username_field.max_length or 254
+        self.fields['username'].max_length = max_length
+        self.fields['username'].widget.attrs['maxlength'] = max_length
+>>>>>>> REPLACE
+```
+
+This change ensures that the `maxlength` attribute is set on the widget for the `username` field, thus fixing the issue described in the problem statement.
+2024-08-22 13:57:37,457 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,457 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n    def __init__(self, request=None, *args, **kwargs):\n        ...\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        self.fields['username'].max_length = self.username_field.max_length or 254\n=======\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        max_length = self.username_field.max_length or 254\n        self.fields['username'].max_length = max_length\n        self.fields['username'].widget.attrs['maxlength'] = max_length\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,457 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,457 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,457 - INFO - <<<<<<< SEARCH
+    def __init__(self, request=None, *args, **kwargs):
+        ...
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
+=======
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        max_length = self.username_field.max_length or 254
+        self.fields['username'].max_length = max_length
+        self.fields['username'].widget.attrs['maxlength'] = max_length
+>>>>>>> REPLACE
+2024-08-22 13:57:37,457 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,458 - INFO - extracted patch:
+2024-08-22 13:57:37,458 - INFO - 
+2024-08-22 13:57:37,459 - INFO - raw output:
+Based on the issue statement provided, the bug is that the `max_length` HTML attribute is not being set for the `username` field in the `AuthenticationForm`. The relevant code appears to be present, but the HTML attribute for `maxlength` must also be explicitly set in the field widget.
+
+To fix the issue, we need to add the `max_length` attribute to the widget associated with the `username` field. Here is the proposed `SEARCH/REPLACE` edit:
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+```
+
+This adjustment ensures that the `maxlength` attribute is included in the HTML output for the `username` field.
+2024-08-22 13:57:37,459 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,459 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,459 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,459 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,459 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 13:57:37,459 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,460 - INFO - extracted patch:
+2024-08-22 13:57:37,460 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 13:57:37,461 - INFO - raw output:
+Based on the issue statement, it seems that the `maxlength` HTML attribute is not being set for the username field in the `AuthenticationForm`. The provided code snippet shows that the max_length is set for the username field, which is the correct logic. However, it appears that the `max_length` property does not directly set the `maxlength` attribute in the rendered form field. We need to ensure that the `maxlength` attribute is explicitly set in the widget for the username field.
+
+Here’s the necessary search and replace edit to fix this issue:
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+```
+
+This edit adds a line to set the `maxlength` attribute on the widget of the username field, ensuring that it is included in the rendered HTML.
+2024-08-22 13:57:37,461 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,461 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,461 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,461 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,461 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 13:57:37,461 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,463 - INFO - extracted patch:
+2024-08-22 13:57:37,463 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 13:57:37,463 - INFO - raw output:
+Based on the issue statement, the problem is that the `maxlength` HTML attribute is not being set for the `username` field in the `AuthenticationForm`. The relevant code snippet in `django/contrib/auth/forms.py` does set the `max_length` for the field, but it does not explicitly set the `maxlength` attribute that affects the HTML rendering.
+
+To fix the issue, we need to set the `maxlength` attribute for the `username` field in the form. Here’s the required `SEARCH/REPLACE` edit:
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+```
+
+This change ensures that the `maxlength` attribute is set in the widget's attributes for the `username` field, which will render the HTML attribute correctly in the output.
+2024-08-22 13:57:37,463 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,463 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,463 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,463 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,463 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 13:57:37,463 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,464 - INFO - extracted patch:
+2024-08-22 13:57:37,464 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 13:57:37,464 - INFO - raw output:
+Based on the issue statement, the bug is that the `username` field of the `AuthenticationForm` does not set the `maxlength` HTML attribute when rendering. The existing code in the provided segment attempts to set the `max_length` of the `username` field, but it does not ensure that this attribute is also reflected in the HTML rendering of the field.
+
+To fix the issue, we need to add the `max_length` attribute to the widget associated with the `username` field, ensuring that it will render correctly in the HTML form. 
+
+Here is the appropriate `SEARCH/REPLACE` edit to address the bug:
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+```
+
+This edit adds the `maxlength` attribute to the widget for the `username` field, ensuring that it will be set correctly when the form is rendered in HTML.
+2024-08-22 13:57:37,465 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,465 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,465 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,465 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,465 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 13:57:37,465 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,466 - INFO - extracted patch:
+2024-08-22 13:57:37,467 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 13:57:37,467 - INFO - raw output:
+The issue is that the `maxlength` HTML attribute is not being set for the `username` field in the `AuthenticationForm` after the changes introduced in the mentioned commits. Based on the provided code segment, the `max_length` is being set correctly, but we need to ensure that this value is also translated into the HTML attribute for rendering.
+
+To fix the issue, we should update the widget for the `username` field to include the `maxlength` attribute. The changes should be made in the `__init__` method of the `AuthenticationForm`.
+
+Here is the proper search and replace to add the `maxlength` attribute to the `username` field.
+
+```python
+### django/contrib/auth/forms.py
+<<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+```
+
+This change adds the `maxlength` attribute to the widget of the `username` field, ensuring that it is included in the rendered HTML output.
+2024-08-22 13:57:37,467 - INFO - === file_to_commands: ===
+2024-08-22 13:57:37,467 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:57:37,467 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 13:57:37,467 - INFO - === edit_commands: ===
+2024-08-22 13:57:37,467 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 13:57:37,467 - INFO - 
+----------------------------------------
+2024-08-22 13:57:37,468 - INFO - extracted patch:
+2024-08-22 13:57:37,468 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:03:57,642 - INFO - === file_to_commands: ===
+2024-08-22 14:03:57,642 - INFO - === file_to_commands: ===
+2024-08-22 14:03:57,642 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:03:57,642 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:03:57,642 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:03:57,642 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:03:57,642 - INFO - === edit_commands: ===
+2024-08-22 14:03:57,642 - INFO - === edit_commands: ===
+2024-08-22 14:03:57,642 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:03:57,642 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:03:57,643 - INFO - 
+----------------------------------------
+2024-08-22 14:03:57,643 - INFO - 
+----------------------------------------
+2024-08-22 14:03:57,643 - INFO - extracted patch:
+2024-08-22 14:03:57,643 - INFO - extracted patch:
+2024-08-22 14:03:57,643 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:03:57,643 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:04:33,121 - INFO - === file_to_commands: ===
+2024-08-22 14:04:33,121 - INFO - === file_to_commands: ===
+2024-08-22 14:04:33,121 - INFO - === file_to_commands: ===
+2024-08-22 14:04:33,122 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        # Set the max length in the widget's attrs for rendering\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        \n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:33,122 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        # Set the max length in the widget's attrs for rendering\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        \n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:33,122 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        # Set the max length in the widget's attrs for rendering\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        \n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:33,122 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:04:33,122 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:04:33,122 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:04:33,122 - INFO - === edit_commands: ===
+2024-08-22 14:04:33,122 - INFO - === edit_commands: ===
+2024-08-22 14:04:33,122 - INFO - === edit_commands: ===
+2024-08-22 14:04:33,122 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        # Set the max length in the widget's attrs for rendering
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:04:33,122 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        # Set the max length in the widget's attrs for rendering
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:04:33,122 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        # Set the max length in the widget's attrs for rendering
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:04:33,122 - INFO - 
+----------------------------------------
+2024-08-22 14:04:33,122 - INFO - 
+----------------------------------------
+2024-08-22 14:04:33,122 - INFO - 
+----------------------------------------
+2024-08-22 14:04:33,122 - INFO - extracted patch:
+2024-08-22 14:04:33,122 - INFO - extracted patch:
+2024-08-22 14:04:33,122 - INFO - extracted patch:
+2024-08-22 14:04:33,122 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,9 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        # Set the max length in the widget's attrs for rendering
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
++        
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:04:33,122 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,9 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        # Set the max length in the widget's attrs for rendering
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
++        
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:04:33,122 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,9 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        # Set the max length in the widget's attrs for rendering
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
++        
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:05:03,657 - INFO - === file_to_commands: ===
+2024-08-22 14:05:03,657 - INFO - === file_to_commands: ===
+2024-08-22 14:05:03,657 - INFO - === file_to_commands: ===
+2024-08-22 14:05:03,657 - INFO - === file_to_commands: ===
+2024-08-22 14:05:03,658 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:03,658 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:03,658 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:03,658 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:03,658 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:05:03,658 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:05:03,658 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:05:03,658 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:05:03,658 - INFO - === edit_commands: ===
+2024-08-22 14:05:03,658 - INFO - === edit_commands: ===
+2024-08-22 14:05:03,658 - INFO - === edit_commands: ===
+2024-08-22 14:05:03,658 - INFO - === edit_commands: ===
+2024-08-22 14:05:03,658 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:05:03,658 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:05:03,658 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:05:03,658 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:05:03,658 - INFO - 
+----------------------------------------
+2024-08-22 14:05:03,658 - INFO - 
+----------------------------------------
+2024-08-22 14:05:03,658 - INFO - 
+----------------------------------------
+2024-08-22 14:05:03,658 - INFO - 
+----------------------------------------
+2024-08-22 14:05:03,658 - INFO - extracted patch:
+2024-08-22 14:05:03,658 - INFO - extracted patch:
+2024-08-22 14:05:03,658 - INFO - extracted patch:
+2024-08-22 14:05:03,658 - INFO - extracted patch:
+2024-08-22 14:05:03,658 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:05:03,658 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:05:03,658 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:05:03,658 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:05:36,665 - INFO - === file_to_commands: ===
+2024-08-22 14:05:36,665 - INFO - === file_to_commands: ===
+2024-08-22 14:05:36,665 - INFO - === file_to_commands: ===
+2024-08-22 14:05:36,665 - INFO - === file_to_commands: ===
+2024-08-22 14:05:36,665 - INFO - === file_to_commands: ===
+2024-08-22 14:05:36,666 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:36,666 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:36,666 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:36,666 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:36,666 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:36,666 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:05:36,666 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:05:36,666 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:05:36,666 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:05:36,666 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:05:36,666 - INFO - === edit_commands: ===
+2024-08-22 14:05:36,666 - INFO - === edit_commands: ===
+2024-08-22 14:05:36,666 - INFO - === edit_commands: ===
+2024-08-22 14:05:36,666 - INFO - === edit_commands: ===
+2024-08-22 14:05:36,666 - INFO - === edit_commands: ===
+2024-08-22 14:05:36,666 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:05:36,666 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:05:36,666 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:05:36,666 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:05:36,666 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:05:36,666 - INFO - 
+----------------------------------------
+2024-08-22 14:05:36,666 - INFO - 
+----------------------------------------
+2024-08-22 14:05:36,666 - INFO - 
+----------------------------------------
+2024-08-22 14:05:36,666 - INFO - 
+----------------------------------------
+2024-08-22 14:05:36,666 - INFO - 
+----------------------------------------
+2024-08-22 14:05:36,667 - INFO - extracted patch:
+2024-08-22 14:05:36,667 - INFO - extracted patch:
+2024-08-22 14:05:36,667 - INFO - extracted patch:
+2024-08-22 14:05:36,667 - INFO - extracted patch:
+2024-08-22 14:05:36,667 - INFO - extracted patch:
+2024-08-22 14:05:36,667 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:05:36,667 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:05:36,667 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:05:36,667 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:05:36,667 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:06:08,329 - INFO - === file_to_commands: ===
+2024-08-22 14:06:08,329 - INFO - === file_to_commands: ===
+2024-08-22 14:06:08,329 - INFO - === file_to_commands: ===
+2024-08-22 14:06:08,329 - INFO - === file_to_commands: ===
+2024-08-22 14:06:08,329 - INFO - === file_to_commands: ===
+2024-08-22 14:06:08,329 - INFO - === file_to_commands: ===
+2024-08-22 14:06:08,330 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n    def __init__(self, request=None, *args, **kwargs):\n        ...\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        self.fields['username'].max_length = self.username_field.max_length or 254\n=======\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        max_length = self.username_field.max_length or 254\n        self.fields['username'].max_length = max_length\n        self.fields['username'].widget.attrs['maxlength'] = max_length\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:08,330 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n    def __init__(self, request=None, *args, **kwargs):\n        ...\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        self.fields['username'].max_length = self.username_field.max_length or 254\n=======\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        max_length = self.username_field.max_length or 254\n        self.fields['username'].max_length = max_length\n        self.fields['username'].widget.attrs['maxlength'] = max_length\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:08,330 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n    def __init__(self, request=None, *args, **kwargs):\n        ...\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        self.fields['username'].max_length = self.username_field.max_length or 254\n=======\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        max_length = self.username_field.max_length or 254\n        self.fields['username'].max_length = max_length\n        self.fields['username'].widget.attrs['maxlength'] = max_length\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:08,330 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n    def __init__(self, request=None, *args, **kwargs):\n        ...\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        self.fields['username'].max_length = self.username_field.max_length or 254\n=======\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        max_length = self.username_field.max_length or 254\n        self.fields['username'].max_length = max_length\n        self.fields['username'].widget.attrs['maxlength'] = max_length\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:08,330 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n    def __init__(self, request=None, *args, **kwargs):\n        ...\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        self.fields['username'].max_length = self.username_field.max_length or 254\n=======\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        max_length = self.username_field.max_length or 254\n        self.fields['username'].max_length = max_length\n        self.fields['username'].widget.attrs['maxlength'] = max_length\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:08,330 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n    def __init__(self, request=None, *args, **kwargs):\n        ...\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        self.fields['username'].max_length = self.username_field.max_length or 254\n=======\n        # Set the max length and label for the \"username\" field.\n        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)\n        max_length = self.username_field.max_length or 254\n        self.fields['username'].max_length = max_length\n        self.fields['username'].widget.attrs['maxlength'] = max_length\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:08,330 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:08,330 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:08,330 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:08,330 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:08,330 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:08,330 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:08,330 - INFO - === edit_commands: ===
+2024-08-22 14:06:08,330 - INFO - === edit_commands: ===
+2024-08-22 14:06:08,330 - INFO - === edit_commands: ===
+2024-08-22 14:06:08,330 - INFO - === edit_commands: ===
+2024-08-22 14:06:08,330 - INFO - === edit_commands: ===
+2024-08-22 14:06:08,330 - INFO - === edit_commands: ===
+2024-08-22 14:06:08,330 - INFO - <<<<<<< SEARCH
+    def __init__(self, request=None, *args, **kwargs):
+        ...
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
+=======
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        max_length = self.username_field.max_length or 254
+        self.fields['username'].max_length = max_length
+        self.fields['username'].widget.attrs['maxlength'] = max_length
+>>>>>>> REPLACE
+2024-08-22 14:06:08,330 - INFO - <<<<<<< SEARCH
+    def __init__(self, request=None, *args, **kwargs):
+        ...
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
+=======
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        max_length = self.username_field.max_length or 254
+        self.fields['username'].max_length = max_length
+        self.fields['username'].widget.attrs['maxlength'] = max_length
+>>>>>>> REPLACE
+2024-08-22 14:06:08,330 - INFO - <<<<<<< SEARCH
+    def __init__(self, request=None, *args, **kwargs):
+        ...
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
+=======
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        max_length = self.username_field.max_length or 254
+        self.fields['username'].max_length = max_length
+        self.fields['username'].widget.attrs['maxlength'] = max_length
+>>>>>>> REPLACE
+2024-08-22 14:06:08,330 - INFO - <<<<<<< SEARCH
+    def __init__(self, request=None, *args, **kwargs):
+        ...
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
+=======
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        max_length = self.username_field.max_length or 254
+        self.fields['username'].max_length = max_length
+        self.fields['username'].widget.attrs['maxlength'] = max_length
+>>>>>>> REPLACE
+2024-08-22 14:06:08,330 - INFO - <<<<<<< SEARCH
+    def __init__(self, request=None, *args, **kwargs):
+        ...
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
+=======
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        max_length = self.username_field.max_length or 254
+        self.fields['username'].max_length = max_length
+        self.fields['username'].widget.attrs['maxlength'] = max_length
+>>>>>>> REPLACE
+2024-08-22 14:06:08,330 - INFO - <<<<<<< SEARCH
+    def __init__(self, request=None, *args, **kwargs):
+        ...
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
+=======
+        # Set the max length and label for the "username" field.
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        max_length = self.username_field.max_length or 254
+        self.fields['username'].max_length = max_length
+        self.fields['username'].widget.attrs['maxlength'] = max_length
+>>>>>>> REPLACE
+2024-08-22 14:06:08,330 - INFO - 
+----------------------------------------
+2024-08-22 14:06:08,330 - INFO - 
+----------------------------------------
+2024-08-22 14:06:08,330 - INFO - 
+----------------------------------------
+2024-08-22 14:06:08,330 - INFO - 
+----------------------------------------
+2024-08-22 14:06:08,330 - INFO - 
+----------------------------------------
+2024-08-22 14:06:08,330 - INFO - 
+----------------------------------------
+2024-08-22 14:06:08,331 - INFO - extracted patch:
+2024-08-22 14:06:08,331 - INFO - extracted patch:
+2024-08-22 14:06:08,331 - INFO - extracted patch:
+2024-08-22 14:06:08,331 - INFO - extracted patch:
+2024-08-22 14:06:08,331 - INFO - extracted patch:
+2024-08-22 14:06:08,331 - INFO - extracted patch:
+2024-08-22 14:06:08,331 - INFO - 
+2024-08-22 14:06:08,331 - INFO - 
+2024-08-22 14:06:08,331 - INFO - 
+2024-08-22 14:06:08,331 - INFO - 
+2024-08-22 14:06:08,331 - INFO - 
+2024-08-22 14:06:08,331 - INFO - 
+2024-08-22 14:06:48,390 - INFO - === file_to_commands: ===
+2024-08-22 14:06:48,390 - INFO - === file_to_commands: ===
+2024-08-22 14:06:48,390 - INFO - === file_to_commands: ===
+2024-08-22 14:06:48,390 - INFO - === file_to_commands: ===
+2024-08-22 14:06:48,390 - INFO - === file_to_commands: ===
+2024-08-22 14:06:48,390 - INFO - === file_to_commands: ===
+2024-08-22 14:06:48,390 - INFO - === file_to_commands: ===
+2024-08-22 14:06:48,390 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:48,390 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:48,390 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:48,390 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:48,390 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:48,390 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:48,390 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:48,390 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:48,390 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:48,390 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:48,390 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:48,390 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:48,390 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:48,390 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:06:48,390 - INFO - === edit_commands: ===
+2024-08-22 14:06:48,390 - INFO - === edit_commands: ===
+2024-08-22 14:06:48,390 - INFO - === edit_commands: ===
+2024-08-22 14:06:48,390 - INFO - === edit_commands: ===
+2024-08-22 14:06:48,390 - INFO - === edit_commands: ===
+2024-08-22 14:06:48,390 - INFO - === edit_commands: ===
+2024-08-22 14:06:48,390 - INFO - === edit_commands: ===
+2024-08-22 14:06:48,390 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:06:48,390 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:06:48,390 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:06:48,390 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:06:48,390 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:06:48,390 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:06:48,390 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:06:48,391 - INFO - 
+----------------------------------------
+2024-08-22 14:06:48,391 - INFO - 
+----------------------------------------
+2024-08-22 14:06:48,391 - INFO - 
+----------------------------------------
+2024-08-22 14:06:48,391 - INFO - 
+----------------------------------------
+2024-08-22 14:06:48,391 - INFO - 
+----------------------------------------
+2024-08-22 14:06:48,391 - INFO - 
+----------------------------------------
+2024-08-22 14:06:48,391 - INFO - 
+----------------------------------------
+2024-08-22 14:06:48,391 - INFO - extracted patch:
+2024-08-22 14:06:48,391 - INFO - extracted patch:
+2024-08-22 14:06:48,391 - INFO - extracted patch:
+2024-08-22 14:06:48,391 - INFO - extracted patch:
+2024-08-22 14:06:48,391 - INFO - extracted patch:
+2024-08-22 14:06:48,391 - INFO - extracted patch:
+2024-08-22 14:06:48,391 - INFO - extracted patch:
+2024-08-22 14:06:48,391 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:06:48,391 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:06:48,391 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:06:48,391 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:06:48,391 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:06:48,391 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:06:48,391 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:23,263 - INFO - === file_to_commands: ===
+2024-08-22 14:07:23,263 - INFO - === file_to_commands: ===
+2024-08-22 14:07:23,263 - INFO - === file_to_commands: ===
+2024-08-22 14:07:23,263 - INFO - === file_to_commands: ===
+2024-08-22 14:07:23,263 - INFO - === file_to_commands: ===
+2024-08-22 14:07:23,263 - INFO - === file_to_commands: ===
+2024-08-22 14:07:23,263 - INFO - === file_to_commands: ===
+2024-08-22 14:07:23,263 - INFO - === file_to_commands: ===
+2024-08-22 14:07:23,264 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:23,264 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:23,264 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:23,264 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:23,264 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:23,264 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:23,264 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:23,264 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:23,264 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:23,264 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:23,264 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:23,264 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:23,264 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:23,264 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:23,264 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:23,264 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:23,264 - INFO - === edit_commands: ===
+2024-08-22 14:07:23,264 - INFO - === edit_commands: ===
+2024-08-22 14:07:23,264 - INFO - === edit_commands: ===
+2024-08-22 14:07:23,264 - INFO - === edit_commands: ===
+2024-08-22 14:07:23,264 - INFO - === edit_commands: ===
+2024-08-22 14:07:23,264 - INFO - === edit_commands: ===
+2024-08-22 14:07:23,264 - INFO - === edit_commands: ===
+2024-08-22 14:07:23,264 - INFO - === edit_commands: ===
+2024-08-22 14:07:23,264 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:23,264 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:23,264 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:23,264 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:23,264 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:23,264 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:23,264 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:23,264 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:23,264 - INFO - 
+----------------------------------------
+2024-08-22 14:07:23,264 - INFO - 
+----------------------------------------
+2024-08-22 14:07:23,264 - INFO - 
+----------------------------------------
+2024-08-22 14:07:23,264 - INFO - 
+----------------------------------------
+2024-08-22 14:07:23,264 - INFO - 
+----------------------------------------
+2024-08-22 14:07:23,264 - INFO - 
+----------------------------------------
+2024-08-22 14:07:23,264 - INFO - 
+----------------------------------------
+2024-08-22 14:07:23,264 - INFO - 
+----------------------------------------
+2024-08-22 14:07:23,264 - INFO - extracted patch:
+2024-08-22 14:07:23,264 - INFO - extracted patch:
+2024-08-22 14:07:23,264 - INFO - extracted patch:
+2024-08-22 14:07:23,264 - INFO - extracted patch:
+2024-08-22 14:07:23,264 - INFO - extracted patch:
+2024-08-22 14:07:23,264 - INFO - extracted patch:
+2024-08-22 14:07:23,264 - INFO - extracted patch:
+2024-08-22 14:07:23,264 - INFO - extracted patch:
+2024-08-22 14:07:23,265 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:23,265 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:23,265 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:23,265 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:23,265 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:23,265 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:23,265 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:23,265 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:59,006 - INFO - === file_to_commands: ===
+2024-08-22 14:07:59,006 - INFO - === file_to_commands: ===
+2024-08-22 14:07:59,006 - INFO - === file_to_commands: ===
+2024-08-22 14:07:59,006 - INFO - === file_to_commands: ===
+2024-08-22 14:07:59,006 - INFO - === file_to_commands: ===
+2024-08-22 14:07:59,006 - INFO - === file_to_commands: ===
+2024-08-22 14:07:59,006 - INFO - === file_to_commands: ===
+2024-08-22 14:07:59,006 - INFO - === file_to_commands: ===
+2024-08-22 14:07:59,006 - INFO - === file_to_commands: ===
+2024-08-22 14:07:59,007 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:59,007 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:59,007 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:59,007 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:59,007 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:59,007 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:59,007 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:59,007 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:59,007 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:59,007 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:59,007 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:59,007 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:59,007 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:59,007 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:59,007 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:59,007 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:59,007 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:59,007 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:07:59,007 - INFO - === edit_commands: ===
+2024-08-22 14:07:59,007 - INFO - === edit_commands: ===
+2024-08-22 14:07:59,007 - INFO - === edit_commands: ===
+2024-08-22 14:07:59,007 - INFO - === edit_commands: ===
+2024-08-22 14:07:59,007 - INFO - === edit_commands: ===
+2024-08-22 14:07:59,007 - INFO - === edit_commands: ===
+2024-08-22 14:07:59,007 - INFO - === edit_commands: ===
+2024-08-22 14:07:59,007 - INFO - === edit_commands: ===
+2024-08-22 14:07:59,007 - INFO - === edit_commands: ===
+2024-08-22 14:07:59,007 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:59,007 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:59,007 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:59,007 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:59,007 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:59,007 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:59,007 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:59,007 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:59,007 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:07:59,007 - INFO - 
+----------------------------------------
+2024-08-22 14:07:59,007 - INFO - 
+----------------------------------------
+2024-08-22 14:07:59,007 - INFO - 
+----------------------------------------
+2024-08-22 14:07:59,007 - INFO - 
+----------------------------------------
+2024-08-22 14:07:59,007 - INFO - 
+----------------------------------------
+2024-08-22 14:07:59,007 - INFO - 
+----------------------------------------
+2024-08-22 14:07:59,007 - INFO - 
+----------------------------------------
+2024-08-22 14:07:59,007 - INFO - 
+----------------------------------------
+2024-08-22 14:07:59,007 - INFO - 
+----------------------------------------
+2024-08-22 14:07:59,008 - INFO - extracted patch:
+2024-08-22 14:07:59,008 - INFO - extracted patch:
+2024-08-22 14:07:59,008 - INFO - extracted patch:
+2024-08-22 14:07:59,008 - INFO - extracted patch:
+2024-08-22 14:07:59,008 - INFO - extracted patch:
+2024-08-22 14:07:59,008 - INFO - extracted patch:
+2024-08-22 14:07:59,008 - INFO - extracted patch:
+2024-08-22 14:07:59,008 - INFO - extracted patch:
+2024-08-22 14:07:59,008 - INFO - extracted patch:
+2024-08-22 14:07:59,008 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:59,008 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:59,008 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:59,008 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:59,008 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:59,008 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:59,008 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:59,008 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:07:59,008 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.fields['username'].max_length
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,994 - INFO - === file_to_commands: ===
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - === edit_commands: ===
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,995 - INFO - 
+----------------------------------------
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - extracted patch:
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:08:35,996 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - === file_to_commands: ===
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - {
+  "'django/contrib/auth/forms.py'": [
+    "<<<<<<< SEARCH\n        if self.fields['username'].label is None:\n=======\n        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254\n        if self.fields['username'].label is None:\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edited_file: 'django/contrib/auth/forms.py' ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,116 - INFO - === edit_commands: ===
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - <<<<<<< SEARCH
+        if self.fields['username'].label is None:
+=======
+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+        if self.fields['username'].label is None:
+>>>>>>> REPLACE
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - 
+----------------------------------------
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - extracted patch:
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+2024-08-22 14:09:13,117 - INFO - --- django/contrib/auth/forms.py
++++ django/contrib/auth/forms.py
+@@ -192,6 +192,7 @@
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+         self.fields['username'].max_length = self.username_field.max_length or 254
++        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length or 254
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
