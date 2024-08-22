@@ -1,5 +1,6 @@
 import colorsys
 import os
+import ast
 import random
 import sys
 import shutil
@@ -121,8 +122,6 @@ def get_documents(repo_name, lang, return_files=False):
         input_files=valid_files,
         file_metadata=lambda x: {"filepath": x},
     ).load_data()
-    import pdb
-    pdb.set_trace()
     shutil.rmtree(local_dir)
     return documents
 
@@ -426,6 +425,7 @@ class RepoMap:
             ranked_definitions.items(), reverse=True, key=lambda x: x[1]
         )
 
+
         # import pdb
         # pdb.set_trace()
 
@@ -565,6 +565,78 @@ class RepoMap:
         self.tree_cache[key] = res
         return res
 
+    
+    def get_code_block(self, file_path, line_number):
+        """
+        Extract the entire logical block (function/method) containing the reference.
+        """
+        with open(file_path, 'r') as file:
+            source = file.read()
+        
+        tree = ast.parse(source)
+        
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if node.lineno <= line_number <= node.end_lineno:
+                    return ast.get_source_segment(source, node)
+        
+        # If no containing block found, fall back to a simple context
+        lines = source.splitlines()
+        start = max(0, line_number - 2)
+        end = min(len(lines), line_number + 2)
+        return '\n'.join(lines[start:end])
+    
+    def find_references(self, file_path, other_files):
+        """
+        Find references to functions or class methods from the given file in other repository files.
+        Returns a ranked list of references.
+        """
+        # Get the tags (functions and class methods) from the target file
+        rel_file_path = self.get_rel_fname(file_path)
+        target_tags = self.get_tags(file_path, rel_file_path)
+        # Exclude __init__ and other special methods
+        excluded_names = {'__init__', '__str__', '__repr__', '__eq__', '__lt__', '__gt__', '__le__', '__ge__', '__ne__'}
+        target_names = set(tag.name for tag in target_tags if tag.kind == "def" and tag.name not in excluded_names)
+        import pdb
+        pdb.set_trace()
+        references = defaultdict(list)
+        
+
+        # Search for references in other files
+        for other_file in other_files:
+            if other_file == file_path:
+                continue
+            
+            rel_other_file = self.get_rel_fname(other_file)
+            other_tags = self.get_tags(other_file, rel_other_file)
+            
+            for tag in other_tags:
+                if tag.kind == "ref" and tag.name in target_names:
+                    references[tag.name].append((other_file, tag.line))
+
+        
+        ranked_references = []
+        for name, refs in references.items():
+            count = len(refs)
+            ranked_references.append((name, count, refs))
+
+        # Sort by reference count (descending) and then by name
+        ranked_references.sort(key=lambda x: (-x[1], x[0]))
+
+        # the output should be in the following format:
+        # name: files : an example showing the way the function is used.
+        import pdb
+        pdb.set_trace()
+        for name, count, refs in ranked_references:
+            print(f"{name}: {count}")
+            for ref in refs:
+                file, line = ref
+                code_block = self.get_code_block(file, line)
+                print(f"{name}: {file} : {code_block}")
+
+        return ranked_references
+
+
 def find_src_files(directory):
     if not os.path.isdir(directory):
         return [directory]
@@ -599,10 +671,10 @@ if __name__ == "__main__":
         }
     docs = get_documents(**repoItem)
     if lang == "python":
-        chat_files = [doc for doc in docs if "playground/OpenDevin_OpenDevin/openhands/memory/memory.py" in str(doc)]
+        chat_files = [doc for doc in docs if "playground/OpenDevin_OpenDevin/openhands/controller/agent_controller.py" in str(doc)]
 
         other_files = [
-            doc for doc in docs if "playground/OpenDevin_OpenDevin/openhands/memory/memory.py" not in str(doc)
+            doc for doc in docs if "playground/OpenDevin_OpenDevin/openhands/controller/agent_controller.py" not in str(doc)
         ]
     elif lang == "rust":
         chat_files = [
@@ -615,6 +687,10 @@ if __name__ == "__main__":
         ]
 
     rm = RepoMap(root=".")
+    print("Chat files: ", chat_files)
+    print("Other files: ", other_files)
     repo_map = rm.get_ranked_tags_map(chat_files, other_files)
+    ranked_references = rm.find_references(chat_files[0], other_files)
 
     print(repo_map)
+    print(ranked_references)
