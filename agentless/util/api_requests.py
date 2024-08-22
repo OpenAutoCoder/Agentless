@@ -111,7 +111,7 @@ def request_gemini_engine(config, logger, base_url=None, max_retries=40, timeout
         chat = model.start_chat(history=[])
         ret = chat.send_message(config["message"])
     except Exception as e:
-    logger.info("Can't run Gemini engine")
+        logger.info("Can't run Gemini engine")
         print(e)
     return ret
         
