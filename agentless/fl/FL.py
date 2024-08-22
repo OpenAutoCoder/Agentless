@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 
 from agentless.repair.repair import construct_topn_file_context
@@ -26,6 +27,64 @@ class FL(ABC):
 
 
 class LLMFL(FL):
+    obtain_relevant_files_refined_prompt = """
+Use the reflection to rethink the github problem description and code structure to see if any changes are needed in the list of initial selected
+files to fix the problem.
+
+### GitHub Problem Description ###
+{problem_statement}
+
+###
+
+### Repository Structure ###
+{structure}
+
+### Initial Selected Files ###
+{initial_selected_files}
+
+###
+
+### Reflection ###
+{reflection}
+
+You need to return at most 5 files and retunr the full file paths for 
+both the inital selected files which should be kept as is and the new files that you think should be added.
+The returned files should be separated by new lines ordered by most to least important and wrapped with ```
+For example:
+```
+file1.py
+file2.py
+```
+
+"""
+
+    obtain_relevant_files_critic_prompt = """
+Please analyze the problem description and the initially selected files (with their content). Then, provide a detailed critique addressing the following points:
+
+1. Relevance: Are all the selected files truly relevant to solving the described problem? If not, which ones seem unnecessary?
+
+2. Completeness: Are there any important files missing from the selection that are likely needed to address the problem?
+
+3. Scope: Is the selection too broad or too narrow given the problem description?
+
+4. Dependencies: Are there any crucial dependencies or related files that should be included but are currently missing?
+
+5. Potential oversights: Are there any aspects of the problem that might require files from unexpected parts of the codebase?
+
+6. Suggestions: What specific changes would you recommend to improve the file selection?
+
+Provide your critique in a clear, concise manner. Be specific in your recommendations, citing file names and explaining your reasoning.
+
+### GitHub Problem Description ###
+{problem_statement}
+
+###
+
+### Selected Files Content ###
+{file_contents}
+
+Your critique:
+"""
     obtain_relevant_files_prompt = """
 Please look through the following GitHub problem description and Repository structure and provide a list of files that one would need to edit to fix the problem.
 
@@ -235,6 +294,96 @@ Return just the locations.
         if content:
             return content.strip().split("\n")
 
+    def refine_localize(self, found_files, reflection_model, reflection_backend, mock=False, match_partial_paths=False):
+        from agentless.util.api_requests import num_tokens_from_messages
+        from agentless.util.model import make_model
+
+        critic_model = make_model(
+            model=reflection_model,
+            backend=reflection_backend,
+            logger=self.logger,
+            max_tokens=self.max_tokens,
+            temperature=0,
+            batch_size=1,
+        )
+        
+
+        file_contents = get_repo_files(self.structure, found_files)
+        content_with_annotations = {
+            fn: get_skeleton(code, with_annotations=True) for fn, code in file_contents.items()
+        }
+        formatted_content = "\n\n".join([
+            f"### File: {filename} ###\n{content}"
+            for filename, content in content_with_annotations.items()
+        ])
+        critic_prompt = self.obtain_relevant_files_critic_prompt.format(
+            problem_statement=self.problem_statement,
+            file_contents=formatted_content
+        ).strip()
+
+        traj = critic_model.codegen(critic_prompt, num_samples=1, system_message="""
+You are principal software engineer at Google. You are deeply proficient with understanding any codebase, solve issues and code review.
+                             """)[0]
+        traj["critic_prompt"] = critic_prompt
+        time.sleep(60)
+        # use the critic output to refine the found files
+        critic_output = traj["response"]
+
+        # reflect again
+
+        message = self.obtain_relevant_files_refined_prompt.format(
+            problem_statement=self.problem_statement,
+            structure=show_project_structure(self.structure).strip(),
+            initial_selected_files="\n".join(found_files),
+            reflection=critic_output,
+        ).strip()
+        self.logger.info(f"prompting with refined message:\n{message}")
+        print(f"prompting with refined message:\n{message}")
+        self.logger.info("=" * 80)
+        print("=" * 80)
+        if mock:
+            self.logger.info("Skipping querying model since mock=True")
+            traj.update({
+                "refined_prompt": message,
+                "refined_usage": {
+                    "prompt_tokens": num_tokens_from_messages(message, self.model_name),
+                },
+            })
+            return [], {"raw_output_loc": ""}, traj
+
+        refined_model = make_model(
+            model=self.model_name,
+            backend=self.backend,
+            logger=self.logger,
+            max_tokens=self.max_tokens,
+            temperature=0,
+            batch_size=1,
+        )
+        final_traj = refined_model.codegen(message, num_samples=1, system_message="""
+You are principal software engineer at Google. You are deeply proficient with understanding any codebase and solve issues in the codebase.
+                             """)[0]
+        final_traj["critic_traj"] = traj
+        final_traj["prompt"] = message
+        raw_output = final_traj["response"]
+        model_found_files = self._parse_model_return_lines(raw_output)
+
+        files, classes, functions = get_full_file_paths_and_classes_and_functions(
+            self.structure
+        )
+
+        # sort based on order of appearance in model_found_files
+        found_files = correct_file_paths(model_found_files, files, match_partial_paths)
+
+        self.logger.info(raw_output)
+        print(raw_output)
+
+        return (
+            found_files,
+            {"raw_output_files": raw_output},
+            traj,
+        )
+        
+        
     def localize(
         self, top_n=1, mock=False, match_partial_paths=False
     ) -> tuple[list, list, list, any]:

@@ -87,7 +87,7 @@ class AnthropicChatDecoder(DecoderBase):
     def __init__(self, name: str, logger, **kwargs) -> None:
         super().__init__(name, logger, **kwargs)
 
-    def codegen(self, message: str, num_samples: int = 1) -> List[dict]:
+    def codegen(self, message: str, num_samples: int = 1, system_message: str = "You are a helpful assistant.") -> List[dict]:
         if self.temperature == 0:
             assert num_samples == 1
         assert num_samples == 1, "Anthropic does not support batching"
@@ -97,7 +97,7 @@ class AnthropicChatDecoder(DecoderBase):
             "model": self.name,
             "max_tokens": self.max_new_tokens,
             "temperature": self.temperature,
-            "system": "You are a helpful assistant.",
+            "system": system_message,
             # "n": batch_size,
             "messages": [
                 {"role": "user", "content": message},

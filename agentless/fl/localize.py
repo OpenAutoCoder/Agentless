@@ -103,7 +103,16 @@ def localize_instance(
                     ]
                     related_loc_traj = locs["related_loc_traj"]
                 break
+    
+    if args.reflection and args.file_level:
+        # perform reflection on the found files by passing 
+        # the content of the files to the LLM and asking it to justify the choices
+        # the LLM makes.
+        found_files, refined_additional_artifact_loc_file, refined_file_traj = fl.refine_localize(
+            found_files, args.reflection_model, args.reflection_backend
+        )
 
+        
     # related class, functions, global var localization
     if args.related_level:
         if len(found_files) != 0:
@@ -181,6 +190,8 @@ def localize_instance(
                     "found_edit_locs": found_edit_locs,
                     "additional_artifact_loc_edit_location": additional_artifact_loc_edit_location,
                     "edit_loc_traj": edit_loc_traj,
+                    "refined_additional_artifact_loc_file": refined_additional_artifact_loc_file,
+                    "refined_file_traj": refined_file_traj,
                 }
             )
             + "\n"
@@ -287,6 +298,18 @@ def merge(args):
 
 def main():
     parser = argparse.ArgumentParser()
+    # enable using LLM to perform reflection
+    parser.add_argument("--reflection", action="store_true")
+    parser.add_argument("--no_reflection", action="store_false", dest="merge")
+    parser.add_argument(
+        "--reflection_model",
+        type=str,
+        default="claude-3-5-sonnet-20240620",
+        choices=["gpt-4o-2024-05-13", "gpt-4o-mini","deepseek-coder", "gpt-4o-mini-2024-07-18", "claude-3-5-sonnet-20240620", "gemini-1.5-flash"],
+    )
+    parser.add_argument(
+        "--reflection_backend", type=str, default="anthropic", choices=["openai", "deepseek", "anthropic", "gemini"]
+    )
 
     parser.add_argument("--output_folder", type=str, required=True)
     parser.add_argument("--output_file", type=str, default="loc_outputs.jsonl")
