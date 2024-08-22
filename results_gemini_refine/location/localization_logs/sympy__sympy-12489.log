@@ -1,0 +1,4716 @@
+2024-08-21 22:05:35,340 - INFO - Processing bug sympy__sympy-12489
+2024-08-21 22:05:35,604 - INFO - ================ localize sympy__sympy-12489 ================
+2024-08-21 22:05:35,611 - INFO - prompting with message:
+Please look through the following GitHub problem description and Repository structure and provide a list of files that one would need to edit to fix the problem.
+
+### GitHub Problem Description ###
+combinatorics.Permutation can't be subclassed properly
+I stumbled across a subclassing issue with `combinatorics.Permutation`:
+The object creation is done in `Permutation.__new__`, but internally the function `_af_new` is used (which itself is a reference to the static method `Permutation._af_new`). This method eventually creates the object calling `Basic.__new__(Perm, perm)` (`Perm` is a reference to `Permutation`).
+In the end, this makes subclassing `Permutation` impossible (besides overriding `Permutation._af_new` as always instances of `Permutation` are returned.
+
+An elegant solution would be to stick to Python's instance creation mechanisms, i.e. use classmethods where appropriate (`__new__` is one) and use the mandatory reference to the class (the first argument of a classmethod) the method is called on for instance creation.
+
+I'm completely new to sympy development and encountered this issue whilst trying to subclass `Permutation`. Therefore I'm not aware of any side effects changing the instance creation probably has. (I monkeypatched it locally and ran the tests, all succeeded.)
+
+Maybe there is a coherent explanation why the implementation is as it is and should not be changed?
+
+
+###
+
+### Repository Structure ###
+sympy/
+    conftest.py
+    setup.py
+    setupegg.py
+    release.py
+    __init__.py
+    galgebra.py
+    abc.py
+    series/
+        sequences.py
+        series_class.py
+        approximants.py
+        limits.py
+        acceleration.py
+        order.py
+        series.py
+        formal.py
+        __init__.py
+        gruntz.py
+        kauers.py
+        limitseq.py
+        fourier.py
+        residues.py
+        benchmarks/
+            __init__.py
+            bench_limit.py
+            bench_order.py
+    crypto/
+        __init__.py
+        crypto.py
+    core/
+        facts.py
+        trace.py
+        compatibility.py
+        backend.py
+        add.py
+        exprtools.py
+        containers.py
+        coreerrors.py
+        cache.py
+        __init__.py
+        symbol.py
+        rules.py
+        core.py
+        numbers.py
+        logic.py
+        relational.py
+        mul.py
+        operations.py
+        basic.py
+        singleton.py
+        multidimensional.py
+        evaluate.py
+        sympify.py
+        alphabets.py
+        evalf.py
+        mod.py
+        power.py
+        function.py
+        assumptions.py
+        expr.py
+        decorators.py
+        benchmarks/
+            bench_expand.py
+            bench_arit.py
+            bench_numbers.py
+            bench_basic.py
+            __init__.py
+            bench_assumptions.py
+            bench_sympify.py
+    unify/
+        __init__.py
+        core.py
+        usympy.py
+        rewrite.py
+    polys/
+        euclidtools.py
+        numberfields.py
+        compatibility.py
+        rootoftools.py
+        ring_series.py
+        polyconfig.py
+        fields.py
+        polyroots.py
+        constructor.py
+        factortools.py
+        polyutils.py
+        densetools.py
+        polyfuncs.py
+        fglmtools.py
+        __init__.py
+        sqfreetools.py
+        solvers.py
+        polyoptions.py
+        heuristicgcd.py
+        polytools.py
+        rationaltools.py
+        modulargcd.py
+        specialpolys.py
+        densebasic.py
+        polyclasses.py
+        orthopolys.py
+        partfrac.py
+        densearith.py
+        subresultants_qq_zz.py
+        polyerrors.py
+        groebnertools.py
+        rings.py
+        galoistools.py
+        distributedmodules.py
+        polyquinticconst.py
+        monomials.py
+        dispersion.py
+        orderings.py
+        rootisolation.py
+        domains/
+            field.py
+            pythonrationalfield.py
+            mpelements.py
+            fractionfield.py
+            complexfield.py
+            modularinteger.py
+            pythonfinitefield.py
+            domain.py
+            pythonintegerring.py
+            polynomialring.py
+            compositedomain.py
+            __init__.py
+            old_fractionfield.py
+            old_polynomialring.py
+            characteristiczero.py
+            quotientring.py
+            realfield.py
+            algebraicfield.py
+            integerring.py
+            domainelement.py
+            finitefield.py
+            groundtypes.py
+            gmpyrationalfield.py
+            rationalfield.py
+            gmpyfinitefield.py
+            gmpyintegerring.py
+            pythonrational.py
+            ring.py
+            expressiondomain.py
+            simpledomain.py
+        benchmarks/
+            bench_groebnertools.py
+            bench_solvers.py
+            __init__.py
+            bench_galoispolys.py
+        agca/
+            __init__.py
+            modules.py
+            ideals.py
+            homomorphisms.py
+    concrete/
+        summations.py
+        guess.py
+        expr_with_limits.py
+        __init__.py
+        products.py
+        gosper.py
+        delta.py
+        expr_with_intlimits.py
+    holonomic/
+        holonomic.py
+        recurrence.py
+        __init__.py
+        numerical.py
+        holonomicerrors.py
+        linearsolver.py
+    strategies/
+        tree.py
+        util.py
+        rl.py
+        tools.py
+        __init__.py
+        core.py
+        traverse.py
+        branch/
+            tools.py
+            __init__.py
+            core.py
+            traverse.py
+    ntheory/
+        egyptian_fraction.py
+        residue_ntheory.py
+        primetest.py
+        generate.py
+        __init__.py
+        multinomial.py
+        factor_.py
+        bbp_pi.py
+        continued_fraction.py
+        partitions_.py
+        modular.py
+    printing/
+        preview.py
+        cxxcode.py
+        tree.py
+        gtk.py
+        str.py
+        mathml.py
+        codeprinter.py
+        tableform.py
+        rcode.py
+        mathematica.py
+        __init__.py
+        jscode.py
+        fcode.py
+        llvmjitcode.py
+        lambdarepr.py
+        repr.py
+        conventions.py
+        ccode.py
+        python.py
+        defaults.py
+        dot.py
+        theanocode.py
+        latex.py
+        julia.py
+        printer.py
+        octave.py
+        precedence.py
+        rust.py
+        pretty/
+            stringpict.py
+            __init__.py
+            pretty.py
+            pretty_symbology.py
+    logic/
+        __init__.py
+        inference.py
+        boolalg.py
+        algorithms/
+            dpll.py
+            __init__.py
+            dpll2.py
+        utilities/
+            __init__.py
+            dimacs.py
+    solvers/
+        recurr.py
+        bivariate.py
+        polysys.py
+        __init__.py
+        solvers.py
+        diophantine.py
+        pde.py
+        ode.py
+        inequalities.py
+        solveset.py
+        decompogen.py
+        deutils.py
+        benchmarks/
+            bench_solvers.py
+            __init__.py
+    codegen/
+        __init__.py
+        cfunctions.py
+        ffunctions.py
+        ast.py
+    liealgebras/
+        cartan_matrix.py
+        type_d.py
+        weyl_group.py
+        __init__.py
+        type_e.py
+        type_a.py
+        type_f.py
+        type_b.py
+        cartan_type.py
+        root_system.py
+        type_c.py
+        dynkin_diagram.py
+        type_g.py
+    utilities/
+        magic.py
+        misc.py
+        randtest.py
+        lambdify.py
+        decorator.py
+        __init__.py
+        memoization.py
+        pytest.py
+        autowrap.py
+        enumerative.py
+        pkgdata.py
+        exceptions.py
+        codegen.py
+        source.py
+        timeutils.py
+        runtests.py
+        iterables.py
+        benchmarking.py
+        mathml/
+            __init__.py
+    integrals/
+        meijerint.py
+        transforms.py
+        prde.py
+        deltafunctions.py
+        rde.py
+        quadrature.py
+        heurisch.py
+        __init__.py
+        singularityfunctions.py
+        rationaltools.py
+        risch.py
+        integrals.py
+        meijerint_doc.py
+        trigonometry.py
+        manualintegrate.py
+        benchmarks/
+            bench_integrate.py
+            __init__.py
+            bench_trigintegrate.py
+    assumptions/
+        sathandlers.py
+        ask.py
+        refine.py
+        __init__.py
+        satask.py
+        assume.py
+        ask_generated.py
+        handlers/
+            matrices.py
+            order.py
+            __init__.py
+            calculus.py
+            common.py
+            ntheory.py
+            sets.py
+    sandbox/
+        indexed_integrals.py
+        __init__.py
+    plotting/
+        plot.py
+        __init__.py
+        experimental_lambdify.py
+        textplot.py
+        plot_implicit.py
+        pygletplot/
+            plot_surface.py
+            plot_mode.py
+            plot.py
+            plot_object.py
+            plot_window.py
+            util.py
+            plot_modes.py
+            plot_rotation.py
+            __init__.py
+            color_scheme.py
+            plot_axes.py
+            plot_controller.py
+            plot_camera.py
+            plot_interval.py
+            plot_curve.py
+            plot_mode_base.py
+            managed_window.py
+        intervalmath/
+            __init__.py
+            lib_interval.py
+            interval_arithmetic.py
+    sets/
+        fancysets.py
+        __init__.py
+        contains.py
+        sets.py
+        conditionset.py
+    benchmarks/
+        bench_meijerint.py
+        __init__.py
+        bench_discrete_log.py
+        bench_symbench.py
+    combinatorics/
+        named_groups.py
+        partitions.py
+        prufer.py
+        util.py
+        tensor_can.py
+        graycode.py
+        __init__.py
+        polyhedron.py
+        permutations.py
+        generators.py
+        subsets.py
+        free_groups.py
+        perm_groups.py
+        fp_groups.py
+        group_constructs.py
+    interactive/
+        session.py
+        ipythonprinting.py
+        __init__.py
+        printing.py
+    functions/
+        __init__.py
+        special/
+            spherical_harmonics.py
+            hyper.py
+            mathieu_functions.py
+            singularity_functions.py
+            beta_functions.py
+            gamma_functions.py
+            bsplines.py
+            __init__.py
+            polynomials.py
+            elliptic_integrals.py
+            tensor_functions.py
+            zeta_functions.py
+            delta_functions.py
+            error_functions.py
+            bessel.py
+            benchmarks/
+                __init__.py
+                bench_special.py
+        combinatorial/
+            __init__.py
+            numbers.py
+            factorials.py
+        elementary/
+            integers.py
+            complexes.py
+            trigonometric.py
+            __init__.py
+            exponential.py
+            hyperbolic.py
+            miscellaneous.py
+            piecewise.py
+            benchmarks/
+                bench_exp.py
+                __init__.py
+    tensor/
+        __init__.py
+        index_methods.py
+        tensor.py
+        indexed.py
+        array/
+            sparse_ndim_array.py
+            ndim_array.py
+            arrayop.py
+            __init__.py
+            mutable_ndim_array.py
+            dense_ndim_array.py
+    geometry/
+        util.py
+        line.py
+        polygon.py
+        __init__.py
+        curve.py
+        point.py
+        parabola.py
+        entity.py
+        exceptions.py
+        ellipse.py
+        plane.py
+    physics/
+        wigner.py
+        paulialgebra.py
+        unitsystems.py
+        matrices.py
+        gaussopt.py
+        __init__.py
+        sho.py
+        secondquant.py
+        pring.py
+        qho_1d.py
+        hydrogen.py
+        hep/
+            gamma_matrices.py
+            __init__.py
+        mechanics/
+            functions.py
+            system.py
+            body.py
+            models.py
+            rigidbody.py
+            __init__.py
+            lagrange.py
+            kane.py
+            particle.py
+            linearize.py
+        units/
+            unitsystem.py
+            definitions.py
+            dimensions.py
+            util.py
+            __init__.py
+            quantities.py
+            prefixes.py
+            systems/
+                mksa.py
+                natural.py
+                __init__.py
+                mks.py
+        continuum_mechanics/
+            __init__.py
+            beam.py
+        vector/
+            functions.py
+            vector.py
+            __init__.py
+            point.py
+            frame.py
+            fieldfunctions.py
+            dyadic.py
+            printing.py
+        optics/
+            gaussopt.py
+            medium.py
+            __init__.py
+            utils.py
+            waves.py
+        quantum/
+            qft.py
+            qubit.py
+            operatorordering.py
+            cg.py
+            innerproduct.py
+            matrixutils.py
+            spin.py
+            piab.py
+            shor.py
+            sho1d.py
+            qexpr.py
+            constants.py
+            dagger.py
+            represent.py
+            operator.py
+            __init__.py
+            hilbert.py
+            circuitutils.py
+            tensorproduct.py
+            density.py
+            cartesian.py
+            grover.py
+            gate.py
+            anticommutator.py
+            fermion.py
+            qasm.py
+            commutator.py
+            matrixcache.py
+            identitysearch.py
+            pauli.py
+            boson.py
+            qapply.py
+            circuitplot.py
+            operatorset.py
+            state.py
+    external/
+        __init__.py
+        importtools.py
+    parsing/
+        sympy_tokenize.py
+        ast_parser.py
+        maxima.py
+        mathematica.py
+        __init__.py
+        sympy_parser.py
+    calculus/
+        singularities.py
+        util.py
+        __init__.py
+        finite_diff.py
+        euler.py
+    simplify/
+        epathtools.py
+        simplify.py
+        powsimp.py
+        traversaltools.py
+        fu.py
+        __init__.py
+        combsimp.py
+        trigsimp.py
+        cse_main.py
+        sqrtdenest.py
+        ratsimp.py
+        hyperexpand.py
+        hyperexpand_doc.py
+        cse_opts.py
+        radsimp.py
+    vector/
+        functions.py
+        coordsysrect.py
+        vector.py
+        basisdependent.py
+        scalar.py
+        __init__.py
+        point.py
+        orienters.py
+        deloperator.py
+        dyadic.py
+    categories/
+        baseclasses.py
+        diagram_drawing.py
+        __init__.py
+    diffgeom/
+        diffgeom.py
+        __init__.py
+        rn.py
+    stats/
+        frv.py
+        __init__.py
+        drv_types.py
+        symbolic_probability.py
+        rv.py
+        crv.py
+        error_prop.py
+        frv_types.py
+        drv.py
+        rv_interface.py
+        crv_types.py
+    matrices/
+        immutable.py
+        sparsetools.py
+        matrices.py
+        dense.py
+        densetools.py
+        __init__.py
+        sparse.py
+        densearith.py
+        densesolve.py
+        benchmarks/
+            __init__.py
+            bench_matrix.py
+        expressions/
+            matmul.py
+            trace.py
+            determinant.py
+            adjoint.py
+            slice.py
+            factorizations.py
+            __init__.py
+            hadamard.py
+            diagonal.py
+            matpow.py
+            transpose.py
+            blockmatrix.py
+            dotproduct.py
+            matadd.py
+            matexpr.py
+            fourier.py
+            inverse.py
+            funcmatrix.py
+    deprecated/
+        __init__.py
+        class_registry.py
+bin/
+    authors_update.py
+    mailmap_update.py
+    get_sympy.py
+    sympy_time.py
+    coverage_doctest.py
+    generate_test_list.py
+    generate_module_list.py
+    sympy_time_cache.py
+    ask_update.py
+    coverage_report.py
+release/
+    fabfile.py
+examples/
+    all.py
+    advanced/
+        qft.py
+        pyglet_plotting.py
+        relativity.py
+        autowrap_ufuncify.py
+        dense_coding_example.py
+        gibbs_phenomenon.py
+        grover_example.py
+        pidigits.py
+        autowrap_integrators.py
+        curvilinear_coordinates.py
+        hydrogen.py
+        fem.py
+    beginner/
+        functions.py
+        limits_examples.py
+        plot_examples.py
+        series.py
+        precision.py
+        substitution.py
+        print_pretty.py
+        basic.py
+        expansion.py
+        plotting_nice_plot.py
+        differentiation.py
+    intermediate/
+        print_gtk.py
+        coupled_cluster.py
+        infinite_1d_box.py
+        vandermonde.py
+        differential_equations.py
+        sample.py
+        partial_differential_eqs.py
+        trees.py
+        mplot3d.py
+        mplot2d.py
+doc/
+    generate_logos.py
+    ext/
+        sympylive.py
+        docscrape_sphinx.py
+        numpydoc.py
+        docscrape.py
+    api/
+        conf.py
+    src/
+        conf.py
+
+###
+
+Please only provide the full path and return at most 5 files.
+The returned files should be separated by new lines ordered by most to least important and wrapped with ```
+For example:
+```
+file1.py
+file2.py
+```
+2024-08-21 22:05:35,612 - INFO - ================================================================================
+2024-08-21 22:05:38,014 - INFO - ```
+sympy/combinatorics/permutations.py
+sympy/combinatorics/__init__.py
+sympy/core/basic.py
+sympy/core/__init__.py
+sympy/core/function.py
+```
+2024-08-21 22:05:38,495 - INFO - Creating API request
+2024-08-21 22:05:52,489 - INFO - API response Message(id='msg_01EQjLAg12LoxS33XoGRMFeb', content=[TextBlock(text='Here\'s my detailed critique of the file selection and problem description:\n\n1. Relevance:\n   The selected file "sympy/combinatorics/permutations.py" is highly relevant to the described problem, as it contains the Permutation class which is the focus of the issue. However, the other selected files ("sympy/combinatorics/__init__.py", "sympy/core/basic.py", "sympy/core/__init__.py", and "sympy/core/function.py") seem less directly relevant to the specific subclassing issue described.\n\n2. Completeness:\n   The selection is missing some potentially important files:\n   - Any test files related to Permutation class\n   - Files containing subclasses of Permutation (if any exist)\n   - Files containing code that uses Permutation extensively\n\n3. Scope:\n   The scope appears too broad. While the "permutations.py" file is crucial, the inclusion of core SymPy files like "basic.py" and "function.py" may be unnecessary for addressing this specific subclassing issue.\n\n4. Dependencies:\n   The selection includes some core SymPy files, which is good for understanding the broader context. However, it\'s missing potential dependencies specific to the Permutation class, such as other combinatorics-related files that might interact with', type='text')], model='claude-3-5-sonnet-20240620', role='assistant', stop_reason='max_tokens', stop_sequence=None, type='message', usage=Usage(input_tokens=44261, output_tokens=299))
+2024-08-21 22:06:52,487 - INFO - prompting with refined message:
+Use the reflection to rethink the github problem description and code structure to see if any changes are needed in the list of initial selected
+files to fix the problem.
+
+### GitHub Problem Description ###
+combinatorics.Permutation can't be subclassed properly
+I stumbled across a subclassing issue with `combinatorics.Permutation`:
+The object creation is done in `Permutation.__new__`, but internally the function `_af_new` is used (which itself is a reference to the static method `Permutation._af_new`). This method eventually creates the object calling `Basic.__new__(Perm, perm)` (`Perm` is a reference to `Permutation`).
+In the end, this makes subclassing `Permutation` impossible (besides overriding `Permutation._af_new` as always instances of `Permutation` are returned.
+
+An elegant solution would be to stick to Python's instance creation mechanisms, i.e. use classmethods where appropriate (`__new__` is one) and use the mandatory reference to the class (the first argument of a classmethod) the method is called on for instance creation.
+
+I'm completely new to sympy development and encountered this issue whilst trying to subclass `Permutation`. Therefore I'm not aware of any side effects changing the instance creation probably has. (I monkeypatched it locally and ran the tests, all succeeded.)
+
+Maybe there is a coherent explanation why the implementation is as it is and should not be changed?
+
+
+###
+
+### Repository Structure ###
+sympy/
+    conftest.py
+    setup.py
+    setupegg.py
+    release.py
+    __init__.py
+    galgebra.py
+    abc.py
+    series/
+        sequences.py
+        series_class.py
+        approximants.py
+        limits.py
+        acceleration.py
+        order.py
+        series.py
+        formal.py
+        __init__.py
+        gruntz.py
+        kauers.py
+        limitseq.py
+        fourier.py
+        residues.py
+        benchmarks/
+            __init__.py
+            bench_limit.py
+            bench_order.py
+    crypto/
+        __init__.py
+        crypto.py
+    core/
+        facts.py
+        trace.py
+        compatibility.py
+        backend.py
+        add.py
+        exprtools.py
+        containers.py
+        coreerrors.py
+        cache.py
+        __init__.py
+        symbol.py
+        rules.py
+        core.py
+        numbers.py
+        logic.py
+        relational.py
+        mul.py
+        operations.py
+        basic.py
+        singleton.py
+        multidimensional.py
+        evaluate.py
+        sympify.py
+        alphabets.py
+        evalf.py
+        mod.py
+        power.py
+        function.py
+        assumptions.py
+        expr.py
+        decorators.py
+        benchmarks/
+            bench_expand.py
+            bench_arit.py
+            bench_numbers.py
+            bench_basic.py
+            __init__.py
+            bench_assumptions.py
+            bench_sympify.py
+    unify/
+        __init__.py
+        core.py
+        usympy.py
+        rewrite.py
+    polys/
+        euclidtools.py
+        numberfields.py
+        compatibility.py
+        rootoftools.py
+        ring_series.py
+        polyconfig.py
+        fields.py
+        polyroots.py
+        constructor.py
+        factortools.py
+        polyutils.py
+        densetools.py
+        polyfuncs.py
+        fglmtools.py
+        __init__.py
+        sqfreetools.py
+        solvers.py
+        polyoptions.py
+        heuristicgcd.py
+        polytools.py
+        rationaltools.py
+        modulargcd.py
+        specialpolys.py
+        densebasic.py
+        polyclasses.py
+        orthopolys.py
+        partfrac.py
+        densearith.py
+        subresultants_qq_zz.py
+        polyerrors.py
+        groebnertools.py
+        rings.py
+        galoistools.py
+        distributedmodules.py
+        polyquinticconst.py
+        monomials.py
+        dispersion.py
+        orderings.py
+        rootisolation.py
+        domains/
+            field.py
+            pythonrationalfield.py
+            mpelements.py
+            fractionfield.py
+            complexfield.py
+            modularinteger.py
+            pythonfinitefield.py
+            domain.py
+            pythonintegerring.py
+            polynomialring.py
+            compositedomain.py
+            __init__.py
+            old_fractionfield.py
+            old_polynomialring.py
+            characteristiczero.py
+            quotientring.py
+            realfield.py
+            algebraicfield.py
+            integerring.py
+            domainelement.py
+            finitefield.py
+            groundtypes.py
+            gmpyrationalfield.py
+            rationalfield.py
+            gmpyfinitefield.py
+            gmpyintegerring.py
+            pythonrational.py
+            ring.py
+            expressiondomain.py
+            simpledomain.py
+        benchmarks/
+            bench_groebnertools.py
+            bench_solvers.py
+            __init__.py
+            bench_galoispolys.py
+        agca/
+            __init__.py
+            modules.py
+            ideals.py
+            homomorphisms.py
+    concrete/
+        summations.py
+        guess.py
+        expr_with_limits.py
+        __init__.py
+        products.py
+        gosper.py
+        delta.py
+        expr_with_intlimits.py
+    holonomic/
+        holonomic.py
+        recurrence.py
+        __init__.py
+        numerical.py
+        holonomicerrors.py
+        linearsolver.py
+    strategies/
+        tree.py
+        util.py
+        rl.py
+        tools.py
+        __init__.py
+        core.py
+        traverse.py
+        branch/
+            tools.py
+            __init__.py
+            core.py
+            traverse.py
+    ntheory/
+        egyptian_fraction.py
+        residue_ntheory.py
+        primetest.py
+        generate.py
+        __init__.py
+        multinomial.py
+        factor_.py
+        bbp_pi.py
+        continued_fraction.py
+        partitions_.py
+        modular.py
+    printing/
+        preview.py
+        cxxcode.py
+        tree.py
+        gtk.py
+        str.py
+        mathml.py
+        codeprinter.py
+        tableform.py
+        rcode.py
+        mathematica.py
+        __init__.py
+        jscode.py
+        fcode.py
+        llvmjitcode.py
+        lambdarepr.py
+        repr.py
+        conventions.py
+        ccode.py
+        python.py
+        defaults.py
+        dot.py
+        theanocode.py
+        latex.py
+        julia.py
+        printer.py
+        octave.py
+        precedence.py
+        rust.py
+        pretty/
+            stringpict.py
+            __init__.py
+            pretty.py
+            pretty_symbology.py
+    logic/
+        __init__.py
+        inference.py
+        boolalg.py
+        algorithms/
+            dpll.py
+            __init__.py
+            dpll2.py
+        utilities/
+            __init__.py
+            dimacs.py
+    solvers/
+        recurr.py
+        bivariate.py
+        polysys.py
+        __init__.py
+        solvers.py
+        diophantine.py
+        pde.py
+        ode.py
+        inequalities.py
+        solveset.py
+        decompogen.py
+        deutils.py
+        benchmarks/
+            bench_solvers.py
+            __init__.py
+    codegen/
+        __init__.py
+        cfunctions.py
+        ffunctions.py
+        ast.py
+    liealgebras/
+        cartan_matrix.py
+        type_d.py
+        weyl_group.py
+        __init__.py
+        type_e.py
+        type_a.py
+        type_f.py
+        type_b.py
+        cartan_type.py
+        root_system.py
+        type_c.py
+        dynkin_diagram.py
+        type_g.py
+    utilities/
+        magic.py
+        misc.py
+        randtest.py
+        lambdify.py
+        decorator.py
+        __init__.py
+        memoization.py
+        pytest.py
+        autowrap.py
+        enumerative.py
+        pkgdata.py
+        exceptions.py
+        codegen.py
+        source.py
+        timeutils.py
+        runtests.py
+        iterables.py
+        benchmarking.py
+        mathml/
+            __init__.py
+    integrals/
+        meijerint.py
+        transforms.py
+        prde.py
+        deltafunctions.py
+        rde.py
+        quadrature.py
+        heurisch.py
+        __init__.py
+        singularityfunctions.py
+        rationaltools.py
+        risch.py
+        integrals.py
+        meijerint_doc.py
+        trigonometry.py
+        manualintegrate.py
+        benchmarks/
+            bench_integrate.py
+            __init__.py
+            bench_trigintegrate.py
+    assumptions/
+        sathandlers.py
+        ask.py
+        refine.py
+        __init__.py
+        satask.py
+        assume.py
+        ask_generated.py
+        handlers/
+            matrices.py
+            order.py
+            __init__.py
+            calculus.py
+            common.py
+            ntheory.py
+            sets.py
+    sandbox/
+        indexed_integrals.py
+        __init__.py
+    plotting/
+        plot.py
+        __init__.py
+        experimental_lambdify.py
+        textplot.py
+        plot_implicit.py
+        pygletplot/
+            plot_surface.py
+            plot_mode.py
+            plot.py
+            plot_object.py
+            plot_window.py
+            util.py
+            plot_modes.py
+            plot_rotation.py
+            __init__.py
+            color_scheme.py
+            plot_axes.py
+            plot_controller.py
+            plot_camera.py
+            plot_interval.py
+            plot_curve.py
+            plot_mode_base.py
+            managed_window.py
+        intervalmath/
+            __init__.py
+            lib_interval.py
+            interval_arithmetic.py
+    sets/
+        fancysets.py
+        __init__.py
+        contains.py
+        sets.py
+        conditionset.py
+    benchmarks/
+        bench_meijerint.py
+        __init__.py
+        bench_discrete_log.py
+        bench_symbench.py
+    combinatorics/
+        named_groups.py
+        partitions.py
+        prufer.py
+        util.py
+        tensor_can.py
+        graycode.py
+        __init__.py
+        polyhedron.py
+        permutations.py
+        generators.py
+        subsets.py
+        free_groups.py
+        perm_groups.py
+        fp_groups.py
+        group_constructs.py
+    interactive/
+        session.py
+        ipythonprinting.py
+        __init__.py
+        printing.py
+    functions/
+        __init__.py
+        special/
+            spherical_harmonics.py
+            hyper.py
+            mathieu_functions.py
+            singularity_functions.py
+            beta_functions.py
+            gamma_functions.py
+            bsplines.py
+            __init__.py
+            polynomials.py
+            elliptic_integrals.py
+            tensor_functions.py
+            zeta_functions.py
+            delta_functions.py
+            error_functions.py
+            bessel.py
+            benchmarks/
+                __init__.py
+                bench_special.py
+        combinatorial/
+            __init__.py
+            numbers.py
+            factorials.py
+        elementary/
+            integers.py
+            complexes.py
+            trigonometric.py
+            __init__.py
+            exponential.py
+            hyperbolic.py
+            miscellaneous.py
+            piecewise.py
+            benchmarks/
+                bench_exp.py
+                __init__.py
+    tensor/
+        __init__.py
+        index_methods.py
+        tensor.py
+        indexed.py
+        array/
+            sparse_ndim_array.py
+            ndim_array.py
+            arrayop.py
+            __init__.py
+            mutable_ndim_array.py
+            dense_ndim_array.py
+    geometry/
+        util.py
+        line.py
+        polygon.py
+        __init__.py
+        curve.py
+        point.py
+        parabola.py
+        entity.py
+        exceptions.py
+        ellipse.py
+        plane.py
+    physics/
+        wigner.py
+        paulialgebra.py
+        unitsystems.py
+        matrices.py
+        gaussopt.py
+        __init__.py
+        sho.py
+        secondquant.py
+        pring.py
+        qho_1d.py
+        hydrogen.py
+        hep/
+            gamma_matrices.py
+            __init__.py
+        mechanics/
+            functions.py
+            system.py
+            body.py
+            models.py
+            rigidbody.py
+            __init__.py
+            lagrange.py
+            kane.py
+            particle.py
+            linearize.py
+        units/
+            unitsystem.py
+            definitions.py
+            dimensions.py
+            util.py
+            __init__.py
+            quantities.py
+            prefixes.py
+            systems/
+                mksa.py
+                natural.py
+                __init__.py
+                mks.py
+        continuum_mechanics/
+            __init__.py
+            beam.py
+        vector/
+            functions.py
+            vector.py
+            __init__.py
+            point.py
+            frame.py
+            fieldfunctions.py
+            dyadic.py
+            printing.py
+        optics/
+            gaussopt.py
+            medium.py
+            __init__.py
+            utils.py
+            waves.py
+        quantum/
+            qft.py
+            qubit.py
+            operatorordering.py
+            cg.py
+            innerproduct.py
+            matrixutils.py
+            spin.py
+            piab.py
+            shor.py
+            sho1d.py
+            qexpr.py
+            constants.py
+            dagger.py
+            represent.py
+            operator.py
+            __init__.py
+            hilbert.py
+            circuitutils.py
+            tensorproduct.py
+            density.py
+            cartesian.py
+            grover.py
+            gate.py
+            anticommutator.py
+            fermion.py
+            qasm.py
+            commutator.py
+            matrixcache.py
+            identitysearch.py
+            pauli.py
+            boson.py
+            qapply.py
+            circuitplot.py
+            operatorset.py
+            state.py
+    external/
+        __init__.py
+        importtools.py
+    parsing/
+        sympy_tokenize.py
+        ast_parser.py
+        maxima.py
+        mathematica.py
+        __init__.py
+        sympy_parser.py
+    calculus/
+        singularities.py
+        util.py
+        __init__.py
+        finite_diff.py
+        euler.py
+    simplify/
+        epathtools.py
+        simplify.py
+        powsimp.py
+        traversaltools.py
+        fu.py
+        __init__.py
+        combsimp.py
+        trigsimp.py
+        cse_main.py
+        sqrtdenest.py
+        ratsimp.py
+        hyperexpand.py
+        hyperexpand_doc.py
+        cse_opts.py
+        radsimp.py
+    vector/
+        functions.py
+        coordsysrect.py
+        vector.py
+        basisdependent.py
+        scalar.py
+        __init__.py
+        point.py
+        orienters.py
+        deloperator.py
+        dyadic.py
+    categories/
+        baseclasses.py
+        diagram_drawing.py
+        __init__.py
+    diffgeom/
+        diffgeom.py
+        __init__.py
+        rn.py
+    stats/
+        frv.py
+        __init__.py
+        drv_types.py
+        symbolic_probability.py
+        rv.py
+        crv.py
+        error_prop.py
+        frv_types.py
+        drv.py
+        rv_interface.py
+        crv_types.py
+    matrices/
+        immutable.py
+        sparsetools.py
+        matrices.py
+        dense.py
+        densetools.py
+        __init__.py
+        sparse.py
+        densearith.py
+        densesolve.py
+        benchmarks/
+            __init__.py
+            bench_matrix.py
+        expressions/
+            matmul.py
+            trace.py
+            determinant.py
+            adjoint.py
+            slice.py
+            factorizations.py
+            __init__.py
+            hadamard.py
+            diagonal.py
+            matpow.py
+            transpose.py
+            blockmatrix.py
+            dotproduct.py
+            matadd.py
+            matexpr.py
+            fourier.py
+            inverse.py
+            funcmatrix.py
+    deprecated/
+        __init__.py
+        class_registry.py
+bin/
+    authors_update.py
+    mailmap_update.py
+    get_sympy.py
+    sympy_time.py
+    coverage_doctest.py
+    generate_test_list.py
+    generate_module_list.py
+    sympy_time_cache.py
+    ask_update.py
+    coverage_report.py
+release/
+    fabfile.py
+examples/
+    all.py
+    advanced/
+        qft.py
+        pyglet_plotting.py
+        relativity.py
+        autowrap_ufuncify.py
+        dense_coding_example.py
+        gibbs_phenomenon.py
+        grover_example.py
+        pidigits.py
+        autowrap_integrators.py
+        curvilinear_coordinates.py
+        hydrogen.py
+        fem.py
+    beginner/
+        functions.py
+        limits_examples.py
+        plot_examples.py
+        series.py
+        precision.py
+        substitution.py
+        print_pretty.py
+        basic.py
+        expansion.py
+        plotting_nice_plot.py
+        differentiation.py
+    intermediate/
+        print_gtk.py
+        coupled_cluster.py
+        infinite_1d_box.py
+        vandermonde.py
+        differential_equations.py
+        sample.py
+        partial_differential_eqs.py
+        trees.py
+        mplot3d.py
+        mplot2d.py
+doc/
+    generate_logos.py
+    ext/
+        sympylive.py
+        docscrape_sphinx.py
+        numpydoc.py
+        docscrape.py
+    api/
+        conf.py
+    src/
+        conf.py
+
+### Initial Selected Files ###
+sympy/combinatorics/permutations.py
+sympy/combinatorics/__init__.py
+sympy/core/basic.py
+sympy/core/__init__.py
+sympy/core/function.py
+
+###
+
+### Reflection ###
+Here's my detailed critique of the file selection and problem description:
+
+1. Relevance:
+   The selected file "sympy/combinatorics/permutations.py" is highly relevant to the described problem, as it contains the Permutation class which is the focus of the issue. However, the other selected files ("sympy/combinatorics/__init__.py", "sympy/core/basic.py", "sympy/core/__init__.py", and "sympy/core/function.py") seem less directly relevant to the specific subclassing issue described.
+
+2. Completeness:
+   The selection is missing some potentially important files:
+   - Any test files related to Permutation class
+   - Files containing subclasses of Permutation (if any exist)
+   - Files containing code that uses Permutation extensively
+
+3. Scope:
+   The scope appears too broad. While the "permutations.py" file is crucial, the inclusion of core SymPy files like "basic.py" and "function.py" may be unnecessary for addressing this specific subclassing issue.
+
+4. Dependencies:
+   The selection includes some core SymPy files, which is good for understanding the broader context. However, it's missing potential dependencies specific to the Permutation class, such as other combinatorics-related files that might interact with
+
+You need to return at most 5 files and retunr the full file paths for 
+both the inital selected files which should be kept as is and the new files that you think should be added.
+The returned files should be separated by new lines ordered by most to least important and wrapped with ```
+For example:
+```
+file1.py
+file2.py
+```
+2024-08-21 22:06:52,491 - INFO - ================================================================================
+2024-08-21 22:06:55,576 - INFO - ```
+sympy/combinatorics/permutations.py
+sympy/combinatorics/tests/test_permutations.py
+sympy/core/basic.py
+sympy/core/function.py
+sympy/combinatorics/__init__.py
+```
+2024-08-21 22:06:56,070 - INFO - prompting with message:
+
+Please look through the following GitHub Problem Description and the Skeleton of Relevant Files.
+Identify all locations that need inspection or editing to fix the problem, including directly related areas as well as any potentially related global variables, functions, and classes.
+For each location you provide, either give the name of the class, the name of a method in a class, the name of a function, or the name of a global variable.
+
+### GitHub Problem Description ###
+combinatorics.Permutation can't be subclassed properly
+I stumbled across a subclassing issue with `combinatorics.Permutation`:
+The object creation is done in `Permutation.__new__`, but internally the function `_af_new` is used (which itself is a reference to the static method `Permutation._af_new`). This method eventually creates the object calling `Basic.__new__(Perm, perm)` (`Perm` is a reference to `Permutation`).
+In the end, this makes subclassing `Permutation` impossible (besides overriding `Permutation._af_new` as always instances of `Permutation` are returned.
+
+An elegant solution would be to stick to Python's instance creation mechanisms, i.e. use classmethods where appropriate (`__new__` is one) and use the mandatory reference to the class (the first argument of a classmethod) the method is called on for instance creation.
+
+I'm completely new to sympy development and encountered this issue whilst trying to subclass `Permutation`. Therefore I'm not aware of any side effects changing the instance creation probably has. (I monkeypatched it locally and ran the tests, all succeeded.)
+
+Maybe there is a coherent explanation why the implementation is as it is and should not be changed?
+
+
+### Skeleton of Relevant Files ###
+
+### File: sympy/combinatorics/permutations.py ###
+```python
+
+
+def _af_rmul(a, b):
+...
+
+def _af_rmuln(*abc):
+...
+
+def _af_parity(pi):
+...
+
+def _af_invert(a):
+...
+def _af_pow(a, n):
+...
+def _af_commutes_with(a, b):
+...
+
+class Cycle(dict):
+    def __missing__(self, arg):
+...
+    def __iter__(self):
+...
+    def __call__(self, *other):
+...
+    def list(self, size=None):
+...
+    def __repr__(self):
+...
+    def __str__(self):
+...
+    def __init__(self, *args):
+...
+    @property
+    def size(self):
+...
+    def copy(self):
+...
+class Permutation(Basic):
+
+    is_Permutation = True
+
+    _array_form = None
+    _cyclic_form = None
+    _cycle_structure = None
+    _size = None
+    _rank = None
+
+    def __new__(cls, *args, **kwargs):
+...
+    @staticmethod
+    def _af_new(perm):
+...
+    def _hashable_content(self):
+...
+    @property
+    def array_form(self):
+...
+    def __repr__(self):
+...
+    def list(self, size=None):
+...
+    @property
+    def cyclic_form(self):
+...
+    @property
+    def full_cyclic_form(self):
+...
+    @property
+    def size(self):
+...
+    def support(self):
+...
+    def __add__(self, other):
+...
+    def __sub__(self, other):
+...
+    @staticmethod
+    def rmul(*args):
+...
+    @staticmethod
+    def rmul_with_af(*args):
+...
+    def mul_inv(self, other):
+...
+    def __rmul__(self, other):
+...
+    def __mul__(self, other):
+...
+    def commutes_with(self, other):
+...
+    def __pow__(self, n):
+...
+    def __rxor__(self, i):
+...
+    def __xor__(self, h):
+...
+    def transpositions(self):
+...
+    @classmethod
+    def from_sequence(self, i, key=None):
+...
+    def __invert__(self):
+...
+    def __iter__(self):
+...
+    def __call__(self, *i):
+...
+    def atoms(self):
+...
+    def next_lex(self):
+...
+    @classmethod
+    def unrank_nonlex(self, n, r):
+...
+    def rank_nonlex(self, inv_perm=None):
+...
+    def next_nonlex(self):
+...
+    def rank(self):
+...
+    @property
+    def cardinality(self):
+...
+    def parity(self):
+...
+    @property
+    def is_even(self):
+...
+    @property
+    def is_odd(self):
+...
+    @property
+    def is_Singleton(self):
+...
+    @property
+    def is_Empty(self):
+...
+    @property
+    def is_Identity(self):
+...
+    def ascents(self):
+...
+    def descents(self):
+...
+    def max(self):
+...
+    def min(self):
+...
+    def inversions(self):
+...
+    def commutator(self, x):
+...
+    def signature(self):
+...
+    def order(self):
+...
+    def length(self):
+...
+    @property
+    def cycle_structure(self):
+...
+    @property
+    def cycles(self):
+...
+    def index(self):
+...
+    def runs(self):
+...
+    def inversion_vector(self):
+...
+    def rank_trotterjohnson(self):
+...
+    @classmethod
+    def unrank_trotterjohnson(self, size, rank):
+...
+    def next_trotterjohnson(self):
+...
+    def get_precedence_matrix(self):
+...
+    def get_precedence_distance(self, other):
+...
+    def get_adjacency_matrix(self):
+...
+    def get_adjacency_distance(self, other):
+...
+    def get_positional_distance(self, other):
+...
+    @classmethod
+    def josephus(self, m, n, s=1):
+...
+    @classmethod
+    def from_inversion_vector(self, inversion):
+...
+    @classmethod
+    def random(self, n):
+...
+    @classmethod
+    def unrank_lex(self, size, rank):
+...
+    # global flag to control how permutations are printed
+    # when True, Permutation([0, 2, 1, 3]) -> Cycle(1, 2)
+    # when False, Permutation([0, 2, 1, 3]) -> Permutation([0, 2, 1])
+    print_cyclic = True
+
+
+def _merge(arr, temp, left, mid, right):
+...
+Perm = Permutation
+_af_new = Perm._af_new
+```
+
+### File: sympy/core/basic.py ###
+```python
+
+
+class Basic(with_metaclass(ManagedProperties)):
+    __slots__ = ['_mhash',              # hash value
+                 '_args',               # arguments
+                 '_assumptions'
+                ]
+
+    # To be overridden with True in the appropriate subclasses
+    is_number = False
+    is_Atom = False
+    is_Symbol = False
+    is_symbol = False
+    is_Indexed = False
+    is_Dummy = False
+    is_Wild = False
+    is_Function = False
+    is_Add = False
+    is_Mul = False
+    is_Pow = False
+    is_Number = False
+    is_Float = False
+    is_Rational = False
+    is_Integer = False
+    is_NumberSymbol = False
+    is_Order = False
+    is_Derivative = False
+    is_Piecewise = False
+    is_Poly = False
+    is_AlgebraicNumber = False
+    is_Relational = False
+    is_Equality = False
+    is_Boolean = False
+    is_Not = False
+    is_Matrix = False
+    is_Vector = False
+    is_Point = False
+
+    def __new__(cls, *args):
+...
+    def copy(self):
+...
+    def __reduce_ex__(self, proto):
+...
+    def __getnewargs__(self):
+...
+    def __getstate__(self):
+...
+    def __setstate__(self, state):
+...
+    def __hash__(self):
+...
+    def _hashable_content(self):
+...
+    @property
+    def assumptions0(self):
+...
+    def compare(self, other):
+...
+    @staticmethod
+    def _compare_pretty(a, b):
+...
+    @classmethod
+    def fromiter(cls, args, **assumptions):
+...
+    @classmethod
+    def class_key(cls):
+...
+    @cacheit
+    def sort_key(self, order=None):
+...
+    def __eq__(self, other):
+...
+    def __ne__(self, other):
+...
+    def dummy_eq(self, other, symbol=None):
+...
+    # Note, we always use the default ordering (lex) in __str__ and __repr__,
+    # regardless of the global setting.  See issue 5487.
+    def __repr__(self):
+...
+    def __str__(self):
+...
+    def atoms(self, *types):
+...
+    @property
+    def free_symbols(self):
+...
+    @property
+    def canonical_variables(self):
+...
+    def rcall(self, *args):
+...
+    @staticmethod
+    def _recursive_call(expr_to_call, on_args):
+...
+    def is_hypergeometric(self, k):
+...
+    @property
+    def is_comparable(self):
+...
+    @property
+    def func(self):
+...
+    @property
+    def args(self):
+...
+    @property
+    def _sorted_args(self):
+...
+
+    def as_poly(self, *gens, **args):
+...
+    def as_content_primitive(self, radical=False, clear=True):
+...
+    def subs(self, *args, **kwargs):
+...
+    @cacheit
+    def _subs(self, old, new, **hints):
+...
+    def _eval_subs(self, old, new):
+...
+    def xreplace(self, rule):
+...
+    def _xreplace(self, rule):
+...
+    @cacheit
+    def has(self, *patterns):
+...
+    def _has(self, pattern):
+...
+    def _has_matcher(self):
+...
+    def replace(self, query, value, map=False, simultaneous=True, exact=False):
+...
+    def find(self, query, group=False):
+...
+    def count(self, query):
+...
+    def matches(self, expr, repl_dict={}, old=False):
+...
+    def match(self, pattern, old=False):
+...
+    def count_ops(self, visual=None):
+...
+    def doit(self, **hints):
+...
+    def _eval_rewrite(self, pattern, rule, **hints):
+...
+    def rewrite(self, *args, **hints):
+...
+
+class Atom(Basic):
+
+    is_Atom = True
+
+    __slots__ = []
+
+    def matches(self, expr, repl_dict={}, old=False):
+...
+    def xreplace(self, rule, hack2=False):
+...
+    def doit(self, **hints):
+...
+    @classmethod
+    def class_key(cls):
+...
+    @cacheit
+    def sort_key(self, order=None):
+...
+    def _eval_simplify(self, ratio, measure):
+...
+    @property
+    def _sorted_args(self):
+...
+
+def _aresame(a, b):
+...
+
+def _atomic(e):
+...
+
+class preorder_traversal(Iterator):
+    def __init__(self, node, keys=None):
+...
+    def _preorder_traversal(self, node, keys):
+...
+    def skip(self):
+...
+    def __next__(self):
+...
+    def __iter__(self):
+...
+
+def _make_find_query(query):
+
+```
+
+### File: sympy/core/function.py ###
+```python
+
+def _coeff_isneg(a):
+...
+
+class PoleError(Exception):
+    pass
+
+
+class ArgumentIndexError(ValueError):
+    def __str__(self):
+...
+def _getnargs(cls):
+...
+def _getnargs_old(eval_):
+...
+def _getnargs_new(eval_):
+...
+
+
+
+class FunctionClass(ManagedProperties):
+    _new = type.__new__
+
+    def __init__(cls, *args, **kwargs):
+...
+    @property
+    def __signature__(self):
+...
+    @property
+    def nargs(self):
+...
+    def __repr__(cls):
+...
+
+class Application(with_metaclass(FunctionClass, Basic)):
+
+    is_Function = True
+
+    @cacheit
+    def __new__(cls, *args, **options):
+...
+    @classmethod
+    def eval(cls, *args):
+...
+    @property
+    def func(self):
+...
+    def _eval_subs(self, old, new):
+...
+
+class Function(Application, Expr):
+
+    @property
+    def _diff_wrt(self):
+...
+    @cacheit
+    def __new__(cls, *args, **options):
+...
+    @classmethod
+    def _should_evalf(cls, arg):
+...
+    @classmethod
+    def class_key(cls):
+...
+    @property
+    def is_commutative(self):
+...
+    def _eval_evalf(self, prec):
+...
+    def _eval_derivative(self, s):
+...
+    def _eval_is_commutative(self):
+...
+    def _eval_is_complex(self):
+...
+    def as_base_exp(self):
+...
+    def _eval_aseries(self, n, args0, x, logx):
+...
+    def _eval_nseries(self, x, n, logx):
+...
+    def fdiff(self, argindex=1):
+...
+    def _eval_as_leading_term(self, x):
+...
+    def _sage_(self):
+...
+
+class AppliedUndef(Function):
+
+    def __new__(cls, *args, **options):
+...
+    def _eval_as_leading_term(self, x):
+...
+    def _sage_(self):
+...
+class UndefinedFunction(FunctionClass):
+    def __new__(mcl, name, bases=(AppliedUndef,), __dict__=None, **kwargs):
+...
+    def __instancecheck__(cls, instance):
+...
+UndefinedFunction.__eq__ = lambda s, o: (isinstance(o, s.__class__) and
+                                         (s.class_key() == o.class_key()))
+
+class WildFunction(Function, AtomicExpr):
+
+    include = set()
+
+    def __init__(cls, name, **assumptions):
+...
+    def matches(self, expr, repl_dict={}, old=False):
+...
+
+class Derivative(Expr):
+
+    is_Derivative = True
+
+    @property
+    def _diff_wrt(self):
+...
+    def __new__(cls, expr, *variables, **assumptions):
+...
+    @classmethod
+    def _sort_variables(cls, vars):
+...
+    def _eval_is_commutative(self):
+...
+    def _eval_derivative(self, v):
+...
+    def doit(self, **hints):
+...
+    @_sympifyit('z0', NotImplementedError)
+    def doit_numerically(self, z0):
+...
+    @property
+    def expr(self):
+...
+    @property
+    def variables(self):
+...
+    @property
+    def free_symbols(self):
+...
+    def _eval_subs(self, old, new):
+...
+    def _eval_lseries(self, x, logx):
+...
+    def _eval_nseries(self, x, n, logx):
+...
+    def _eval_as_leading_term(self, x):
+...
+    def _sage_(self):
+...
+    def as_finite_difference(self, points=1, x0=None, wrt=None):
+...
+
+class Lambda(Expr):
+    is_Function = True
+
+    def __new__(cls, variables, expr):
+...
+    @property
+    def variables(self):
+...
+    @property
+    def expr(self):
+...
+    @property
+    def free_symbols(self):
+...
+    def __call__(self, *args):
+...
+    def __eq__(self, other):
+...
+    def __ne__(self, other):
+...
+    def __hash__(self):
+...
+    def _hashable_content(self):
+...
+    @property
+    def is_identity(self):
+...
+
+class Subs(Expr):
+    def __new__(cls, expr, variables, point, **assumptions):
+...
+    def _eval_is_commutative(self):
+...
+    def doit(self):
+...
+    def evalf(self, prec=None, **options):
+...
+    n = evalf
+
+    @property
+    def variables(self):
+...
+    @property
+    def expr(self):
+...
+    @property
+    def point(self):
+...
+    @property
+    def free_symbols(self):
+...
+    def _has(self, pattern):
+...
+    def __eq__(self, other):
+...
+    def __ne__(self, other):
+...
+    def __hash__(self):
+...
+    def _hashable_content(self):
+...
+    def _eval_subs(self, old, new):
+...
+    def _eval_derivative(self, s):
+...
+    def _eval_nseries(self, x, n, logx):
+...
+    def _eval_as_leading_term(self, x):
+...
+
+def diff(f, *symbols, **kwargs):
+...
+
+def expand(e, deep=True, modulus=None, power_base=True, power_exp=True,
+        mul=True, log=True, multinomial=True, basic=True, **hints):
+...
+# This is a special application of two hints
+
+def _mexpand(expr, recursive=False):
+...
+
+# These are simple wrappers around single hints.
+
+
+def expand_mul(expr, deep=True):
+...
+
+def expand_multinomial(expr, deep=True):
+...
+
+def expand_log(expr, deep=True, force=False):
+...
+
+def expand_func(expr, deep=True):
+...
+
+def expand_trig(expr, deep=True):
+...
+
+def expand_complex(expr, deep=True):
+...
+
+def expand_power_base(expr, deep=True, force=False):
+...
+
+def expand_power_exp(expr, deep=True):
+...
+
+def count_ops(expr, visual=False):
+...
+
+def nfloat(expr, n=15, exponent=False):
+
+```
+
+
+###
+
+Please provide the complete set of locations as either a class name, a function name, or a variable name.
+Note that if you include a class, you do not need to list its specific methods.
+You can include either the entire class or don't include the class name and instead include specific methods in the class.
+### Examples:
+```
+full_path1/file1.py
+function: my_function_1
+class: MyClass1
+function: MyClass2.my_method
+
+full_path2/file2.py
+variable: my_var
+function: MyClass3.my_method
+
+full_path3/file3.py
+function: my_function_2
+function: my_function_3
+function: MyClass4.my_method_1
+class: MyClass5
+```
+
+Return just the locations.
+
+2024-08-21 22:06:56,071 - INFO - ================================================================================
+2024-08-21 22:06:58,398 - INFO - ==== raw output ====
+2024-08-21 22:06:58,399 - INFO - ```
+sympy/combinatorics/permutations.py
+function: _af_new
+class: Permutation
+function: Permutation.__new__
+variable: Perm
+```
+2024-08-21 22:06:58,399 - INFO - ================================================================================
+2024-08-21 22:06:58,399 - INFO - ==== extracted locs ====
+2024-08-21 22:06:58,399 - INFO - ['function: _af_new\nclass: Permutation\nfunction: Permutation.__new__\nvariable: Perm']
+2024-08-21 22:06:58,399 - INFO - ['']
+2024-08-21 22:06:58,399 - INFO - ['']
+2024-08-21 22:06:58,399 - INFO - ================================================================================
+2024-08-21 22:06:59,448 - INFO - prompting with message:
+
+Please review the following GitHub problem description and relevant files, and provide a set of locations that need to be edited to fix the issue.
+The locations can be specified as class names, function or method names, or exact line numbers that require modification.
+
+### GitHub Problem Description ###
+combinatorics.Permutation can't be subclassed properly
+I stumbled across a subclassing issue with `combinatorics.Permutation`:
+The object creation is done in `Permutation.__new__`, but internally the function `_af_new` is used (which itself is a reference to the static method `Permutation._af_new`). This method eventually creates the object calling `Basic.__new__(Perm, perm)` (`Perm` is a reference to `Permutation`).
+In the end, this makes subclassing `Permutation` impossible (besides overriding `Permutation._af_new` as always instances of `Permutation` are returned.
+
+An elegant solution would be to stick to Python's instance creation mechanisms, i.e. use classmethods where appropriate (`__new__` is one) and use the mandatory reference to the class (the first argument of a classmethod) the method is called on for instance creation.
+
+I'm completely new to sympy development and encountered this issue whilst trying to subclass `Permutation`. Therefore I'm not aware of any side effects changing the instance creation probably has. (I monkeypatched it locally and ran the tests, all succeeded.)
+
+Maybe there is a coherent explanation why the implementation is as it is and should not be changed?
+
+
+###
+### sympy/combinatorics/permutations.py
+...
+454|
+455|    @property
+456|    def size(self):
+457|        if not self:
+458|            return 0
+459|        return max(self.keys()) + 1
+460|
+461|    def copy(self):
+462|        return Cycle(self)
+463|
+464|class Permutation(Basic):
+465|    """
+466|    A permutation, alternatively known as an 'arrangement number' or 'ordering'
+467|    is an arrangement of the elements of an ordered list into a one-to-one
+468|    mapping with itself. The permutation of a given arrangement is given by
+469|    indicating the positions of the elements after re-arrangement [2]_. For
+470|    example, if one started with elements [x, y, a, b] (in that order) and
+471|    they were reordered as [x, y, b, a] then the permutation would be
+472|    [0, 1, 3, 2]. Notice that (in SymPy) the first element is always referred
+473|    to as 0 and the permutation uses the indices of the elements in the
+474|    original ordering, not the elements (a, b, etc...) themselves.
+475|
+476|    >>> from sympy.combinatorics import Permutation
+477|    >>> Permutation.print_cyclic = False
+478|
+479|    Permutations Notation
+480|    =====================
+481|
+482|    Permutations are commonly represented in disjoint cycle or array forms.
+483|
+484|    Array Notation and 2-line Form
+485|    ------------------------------------
+486|
+487|    In the 2-line form, the elements and their final positions are shown
+488|    as a matrix with 2 rows:
+489|
+490|    [0    1    2     ... n-1]
+491|    [p(0) p(1) p(2)  ... p(n-1)]
+492|
+493|    Since the first line is always range(n), where n is the size of p,
+494|    it is sufficient to represent the permutation by the second line,
+495|    referred to as the "array form" of the permutation. This is entered
+496|    in brackets as the argument to the Permutation class:
+497|
+498|    >>> p = Permutation([0, 2, 1]); p
+499|    Permutation([0, 2, 1])
+500|
+501|    Given i in range(p.size), the permutation maps i to i^p
+502|
+503|    >>> [i^p for i in range(p.size)]
+504|    [0, 2, 1]
+505|
+506|    The composite of two permutations p*q means first apply p, then q, so
+507|    i^(p*q) = (i^p)^q which is i^p^q according to Python precedence rules:
+508|
+509|    >>> q = Permutation([2, 1, 0])
+510|    >>> [i^p^q for i in range(3)]
+511|    [2, 0, 1]
+512|    >>> [i^(p*q) for i in range(3)]
+513|    [2, 0, 1]
+514|
+515|    One can use also the notation p(i) = i^p, but then the composition
+516|    rule is (p*q)(i) = q(p(i)), not p(q(i)):
+517|
+518|    >>> [(p*q)(i) for i in range(p.size)]
+519|    [2, 0, 1]
+520|    >>> [q(p(i)) for i in range(p.size)]
+521|    [2, 0, 1]
+522|    >>> [p(q(i)) for i in range(p.size)]
+523|    [1, 2, 0]
+524|
+525|    Disjoint Cycle Notation
+526|    -----------------------
+527|
+528|    In disjoint cycle notation, only the elements that have shifted are
+529|    indicated. In the above case, the 2 and 1 switched places. This can
+530|    be entered in two ways:
+531|
+532|    >>> Permutation(1, 2) == Permutation([[1, 2]]) == p
+533|    True
+534|
+535|    Only the relative ordering of elements in a cycle matter:
+536|
+537|    >>> Permutation(1,2,3) == Permutation(2,3,1) == Permutation(3,1,2)
+538|    True
+539|
+540|    The disjoint cycle notation is convenient when representing permutations
+541|    that have several cycles in them:
+542|
+543|    >>> Permutation(1, 2)(3, 5) == Permutation([[1, 2], [3, 5]])
+544|    True
+545|
+546|    It also provides some economy in entry when computing products of
+547|    permutations that are written in disjoint cycle notation:
+548|
+549|    >>> Permutation(1, 2)(1, 3)(2, 3)
+550|    Permutation([0, 3, 2, 1])
+551|    >>> _ == Permutation([[1, 2]])*Permutation([[1, 3]])*Permutation([[2, 3]])
+552|    True
+553|
+554|    Entering a singleton in a permutation is a way to indicate the size of the
+555|    permutation. The ``size`` keyword can also be used.
+556|
+557|    Array-form entry:
+558|
+559|    >>> Permutation([[1, 2], [9]])
+560|    Permutation([0, 2, 1], size=10)
+561|    >>> Permutation([[1, 2]], size=10)
+562|    Permutation([0, 2, 1], size=10)
+563|
+564|    Cyclic-form entry:
+565|
+566|    >>> Permutation(1, 2, size=10)
+567|    Permutation([0, 2, 1], size=10)
+568|    >>> Permutation(9)(1, 2)
+569|    Permutation([0, 2, 1], size=10)
+570|
+571|    Caution: no singleton containing an element larger than the largest
+572|    in any previous cycle can be entered. This is an important difference
+573|    in how Permutation and Cycle handle the __call__ syntax. A singleton
+574|    argument at the start of a Permutation performs instantiation of the
+575|    Permutation and is permitted:
+576|
+577|    >>> Permutation(5)
+578|    Permutation([], size=6)
+579|
+580|    A singleton entered after instantiation is a call to the permutation
+581|    -- a function call -- and if the argument is out of range it will
+582|    trigger an error. For this reason, it is better to start the cycle
+583|    with the singleton:
+584|
+585|    The following fails because there is is no element 3:
+586|
+587|    >>> Permutation(1, 2)(3)
+588|    Traceback (most recent call last):
+589|    ...
+590|    IndexError: list index out of range
+591|
+592|    This is ok: only the call to an out of range singleton is prohibited;
+593|    otherwise the permutation autosizes:
+594|
+595|    >>> Permutation(3)(1, 2)
+596|    Permutation([0, 2, 1, 3])
+597|    >>> Permutation(1, 2)(3, 4) == Permutation(3, 4)(1, 2)
+598|    True
+599|
+600|
+601|    Equality testing
+602|    ----------------
+603|
+604|    The array forms must be the same in order for permutations to be equal:
+605|
+606|    >>> Permutation([1, 0, 2, 3]) == Permutation([1, 0])
+607|    False
+608|
+609|
+610|    Identity Permutation
+611|    --------------------
+612|
+613|    The identity permutation is a permutation in which no element is out of
+614|    place. It can be entered in a variety of ways. All the following create
+615|    an identity permutation of size 4:
+616|
+617|    >>> I = Permutation([0, 1, 2, 3])
+618|    >>> all(p == I for p in [
+619|    ... Permutation(3),
+620|    ... Permutation(range(4)),
+621|    ... Permutation([], size=4),
+622|    ... Permutation(size=4)])
+623|    True
+624|
+625|    Watch out for entering the range *inside* a set of brackets (which is
+626|    cycle notation):
+627|
+628|    >>> I == Permutation([range(4)])
+629|    False
+630|
+631|
+632|    Permutation Printing
+633|    ====================
+634|
+635|    There are a few things to note about how Permutations are printed.
+636|
+637|    1) If you prefer one form (array or cycle) over another, you can set that
+638|    with the print_cyclic flag.
+639|
+640|    >>> Permutation(1, 2)(4, 5)(3, 4)
+641|    Permutation([0, 2, 1, 4, 5, 3])
+642|    >>> p = _
+643|
+644|    >>> Permutation.print_cyclic = True
+645|    >>> p
+646|    (1 2)(3 4 5)
+647|    >>> Permutation.print_cyclic = False
+648|
+649|    2) Regardless of the setting, a list of elements in the array for cyclic
+650|    form can be obtained and either of those can be copied and supplied as
+651|    the argument to Permutation:
+652|
+653|    >>> p.array_form
+654|    [0, 2, 1, 4, 5, 3]
+655|    >>> p.cyclic_form
+656|    [[1, 2], [3, 4, 5]]
+657|    >>> Permutation(_) == p
+658|    True
+659|
+660|    3) Printing is economical in that as little as possible is printed while
+661|    retaining all information about the size of the permutation:
+662|
+663|    >>> Permutation([1, 0, 2, 3])
+664|    Permutation([1, 0, 2, 3])
+665|    >>> Permutation([1, 0, 2, 3], size=20)
+666|    Permutation([1, 0], size=20)
+667|    >>> Permutation([1, 0, 2, 4, 3, 5, 6], size=20)
+668|    Permutation([1, 0, 2, 4, 3], size=20)
+669|
+670|    >>> p = Permutation([1, 0, 2, 3])
+671|    >>> Permutation.print_cyclic = True
+672|    >>> p
+673|    (3)(0 1)
+674|    >>> Permutation.print_cyclic = False
+675|
+676|    The 2 was not printed but it is still there as can be seen with the
+677|    array_form and size methods:
+678|
+679|    >>> p.array_form
+680|    [1, 0, 2, 3]
+681|    >>> p.size
+682|    4
+683|
+684|    Short introduction to other methods
+685|    ===================================
+686|
+687|    The permutation can act as a bijective function, telling what element is
+688|    located at a given position
+689|
+690|    >>> q = Permutation([5, 2, 3, 4, 1, 0])
+691|    >>> q.array_form[1] # the hard way
+692|    2
+693|    >>> q(1) # the easy way
+694|    2
+695|    >>> {i: q(i) for i in range(q.size)} # showing the bijection
+696|    {0: 5, 1: 2, 2: 3, 3: 4, 4: 1, 5: 0}
+697|
+698|    The full cyclic form (including singletons) can be obtained:
+699|
+700|    >>> p.full_cyclic_form
+701|    [[0, 1], [2], [3]]
+702|
+703|    Any permutation can be factored into transpositions of pairs of elements:
+704|
+705|    >>> Permutation([[1, 2], [3, 4, 5]]).transpositions()
+706|    [(1, 2), (3, 5), (3, 4)]
+707|    >>> Permutation.rmul(*[Permutation([ti], size=6) for ti in _]).cyclic_form
+708|    [[1, 2], [3, 4, 5]]
+709|
+710|    The number of permutations on a set of n elements is given by n! and is
+711|    called the cardinality.
+712|
+713|    >>> p.size
+714|    4
+715|    >>> p.cardinality
+716|    24
+717|
+718|    A given permutation has a rank among all the possible permutations of the
+719|    same elements, but what that rank is depends on how the permutations are
+720|    enumerated. (There are a number of different methods of doing so.) The
+721|    lexicographic rank is given by the rank method and this rank is used to
+722|    increment a permutation with addition/subtraction:
+723|
+724|    >>> p.rank()
+725|    6
+726|    >>> p + 1
+727|    Permutation([1, 0, 3, 2])
+728|    >>> p.next_lex()
+729|    Permutation([1, 0, 3, 2])
+730|    >>> _.rank()
+731|    7
+732|    >>> p.unrank_lex(p.size, rank=7)
+733|    Permutation([1, 0, 3, 2])
+734|
+735|    The product of two permutations p and q is defined as their composition as
+736|    functions, (p*q)(i) = q(p(i)) [6]_.
+737|
+738|    >>> p = Permutation([1, 0, 2, 3])
+739|    >>> q = Permutation([2, 3, 1, 0])
+740|    >>> list(q*p)
+741|    [2, 3, 0, 1]
+742|    >>> list(p*q)
+743|    [3, 2, 1, 0]
+744|    >>> [q(p(i)) for i in range(p.size)]
+745|    [3, 2, 1, 0]
+746|
+747|    The permutation can be 'applied' to any list-like object, not only
+748|    Permutations:
+749|
+750|    >>> p(['zero', 'one', 'four', 'two'])
+751|     ['one', 'zero', 'four', 'two']
+752|    >>> p('zo42')
+753|    ['o', 'z', '4', '2']
+754|
+755|    If you have a list of arbitrary elements, the corresponding permutation
+756|    can be found with the from_sequence method:
+757|
+758|    >>> Permutation.from_sequence('SymPy')
+759|    Permutation([1, 3, 2, 0, 4])
+760|
+761|    See Also
+762|    ========
+763|
+764|    Cycle
+765|
+766|    References
+767|    ==========
+768|
+769|    .. [1] Skiena, S. 'Permutations.' 1.1 in Implementing Discrete Mathematics
+770|           Combinatorics and Graph Theory with Mathematica.  Reading, MA:
+771|           Addison-Wesley, pp. 3-16, 1990.
+772|
+773|    .. [2] Knuth, D. E. The Art of Computer Programming, Vol. 4: Combinatorial
+774|           Algorithms, 1st ed. Reading, MA: Addison-Wesley, 2011.
+775|
+776|    .. [3] Wendy Myrvold and Frank Ruskey. 2001. Ranking and unranking
+777|           permutations in linear time. Inf. Process. Lett. 79, 6 (September 2001),
+778|           281-284. DOI=10.1016/S0020-0190(01)00141-7
+779|
+780|    .. [4] D. L. Kreher, D. R. Stinson 'Combinatorial Algorithms'
+781|           CRC Press, 1999
+782|
+783|    .. [5] Graham, R. L.; Knuth, D. E.; and Patashnik, O.
+784|           Concrete Mathematics: A Foundation for Computer Science, 2nd ed.
+785|           Reading, MA: Addison-Wesley, 1994.
+786|
+787|    .. [6] http://en.wikipedia.org/wiki/Permutation#Product_and_inverse
+788|
+789|    .. [7] http://en.wikipedia.org/wiki/Lehmer_code
+790|
+791|    """
+792|
+793|    is_Permutation = True
+794|
+795|    _array_form = None
+796|    _cyclic_form = None
+797|    _cycle_structure = None
+798|    _size = None
+799|    _rank = None
+800|
+801|    def __new__(cls, *args, **kwargs):
+802|        """
+803|        Constructor for the Permutation object from a list or a
+804|        list of lists in which all elements of the permutation may
+805|        appear only once.
+806|
+807|        Examples
+808|        ========
+809|
+810|        >>> from sympy.combinatorics.permutations import Permutation
+811|        >>> Permutation.print_cyclic = False
+812|
+813|        Permutations entered in array-form are left unaltered:
+814|
+815|        >>> Permutation([0, 2, 1])
+816|        Permutation([0, 2, 1])
+817|
+818|        Permutations entered in cyclic form are converted to array form;
+819|        singletons need not be entered, but can be entered to indicate the
+820|        largest element:
+821|
+822|        >>> Permutation([[4, 5, 6], [0, 1]])
+823|        Permutation([1, 0, 2, 3, 5, 6, 4])
+824|        >>> Permutation([[4, 5, 6], [0, 1], [19]])
+825|        Permutation([1, 0, 2, 3, 5, 6, 4], size=20)
+826|
+827|        All manipulation of permutations assumes that the smallest element
+828|        is 0 (in keeping with 0-based indexing in Python) so if the 0 is
+829|        missing when entering a permutation in array form, an error will be
+830|        raised:
+831|
+832|        >>> Permutation([2, 1])
+833|        Traceback (most recent call last):
+834|        ...
+835|        ValueError: Integers 0 through 2 must be present.
+836|
+837|        If a permutation is entered in cyclic form, it can be entered without
+838|        singletons and the ``size`` specified so those values can be filled
+839|        in, otherwise the array form will only extend to the maximum value
+840|        in the cycles:
+841|
+842|        >>> Permutation([[1, 4], [3, 5, 2]], size=10)
+843|        Permutation([0, 4, 3, 5, 1, 2], size=10)
+844|        >>> _.array_form
+845|        [0, 4, 3, 5, 1, 2, 6, 7, 8, 9]
+846|        """
+847|        size = kwargs.pop('size', None)
+848|        if size is not None:
+849|            size = int(size)
+850|
+851|        #a) ()
+852|        #b) (1) = identity
+853|        #c) (1, 2) = cycle
+854|        #d) ([1, 2, 3]) = array form
+855|        #e) ([[1, 2]]) = cyclic form
+856|        #f) (Cycle) = conversion to permutation
+857|        #g) (Permutation) = adjust size or return copy
+858|        ok = True
+859|        if not args:  # a
+860|            return _af_new(list(range(size or 0)))
+861|        elif len(args) > 1:  # c
+862|            return _af_new(Cycle(*args).list(size))
+863|        if len(args) == 1:
+864|            a = args[0]
+865|            if isinstance(a, Perm):  # g
+866|                if size is None or size == a.size:
+867|                    return a
+868|                return Perm(a.array_form, size=size)
+869|            if isinstance(a, Cycle):  # f
+870|                return _af_new(a.list(size))
+871|            if not is_sequence(a):  # b
+872|                return _af_new(list(range(a + 1)))
+873|            if has_variety(is_sequence(ai) for ai in a):
+874|                ok = False
+875|        else:
+876|            ok = False
+877|        if not ok:
+878|            raise ValueError("Permutation argument must be a list of ints, "
+879|                             "a list of lists, Permutation or Cycle.")
+880|
+881|
+882|        # safe to assume args are valid; this also makes a copy
+883|        # of the args
+884|        args = list(args[0])
+885|
+886|        is_cycle = args and is_sequence(args[0])
+887|        if is_cycle:  # e
+888|            args = [[int(i) for i in c] for c in args]
+889|        else:  # d
+890|            args = [int(i) for i in args]
+891|
+892|        # if there are n elements present, 0, 1, ..., n-1 should be present
+893|        # unless a cycle notation has been provided. A 0 will be added
+894|        # for convenience in case one wants to enter permutations where
+895|        # counting starts from 1.
+896|
+897|        temp = flatten(args)
+898|        if has_dups(temp) and not is_cycle:
+899|            raise ValueError('there were repeated elements.')
+900|        temp = set(temp)
+901|
+902|        if not is_cycle and \
+903|                any(i not in temp for i in range(len(temp))):
+904|            raise ValueError("Integers 0 through %s must be present." %
+905|                             max(temp))
+906|
+907|        if is_cycle:
+908|            # it's not necessarily canonical so we won't store
+909|            # it -- use the array form instead
+910|            c = Cycle()
+911|            for ci in args:
+912|                c = c(*ci)
+913|            aform = c.list()
+914|        else:
+915|            aform = list(args)
+916|        if size and size > len(aform):
+917|            # don't allow for truncation of permutation which
+918|            # might split a cycle and lead to an invalid aform
+919|            # but do allow the permutation size to be increased
+920|            aform.extend(list(range(len(aform), size)))
+921|        size = len(aform)
+922|        obj = Basic.__new__(cls, aform)
+923|        obj._array_form = aform
+924|        obj._size = size
+925|        return obj
+926|
+927|    @staticmethod
+928|    def _af_new(perm):
+929|        """A method to produce a Permutation object from a list;
+930|        the list is bound to the _array_form attribute, so it must
+931|        not be modified; this method is meant for internal use only;
+932|        the list ``a`` is supposed to be generated as a temporary value
+933|        in a method, so p = Perm._af_new(a) is the only object
+934|        to hold a reference to ``a``::
+935|
+936|        Examples
+937|        ========
+938|
+939|        >>> from sympy.combinatorics.permutations import Perm
+940|        >>> Perm.print_cyclic = False
+941|        >>> a = [2,1,3,0]
+942|        >>> p = Perm._af_new(a)
+943|        >>> p
+944|        Permutation([2, 1, 3, 0])
+945|
+946|        """
+947|        p = Basic.__new__(Perm, perm)
+948|        p._array_form = perm
+949|        p._size = len(perm)
+950|        return p
+951|
+952|    def _hashable_content(self):
+953|        # the array_form (a list) is the Permutation arg, so we need to
+954|        # return a tuple, instead
+955|        return tuple(self.array_form)
+956|
+957|    @property
+958|    def array_form(self):
+959|        """
+960|        Return a copy of the attribute _array_form
+961|        Examples
+962|        ========
+963|
+964|        >>> from sympy.combinatorics.permutations import Permutation
+965|        >>> Permutation.print_cyclic = False
+966|        >>> p = Permutation([[2, 0], [3, 1]])
+967|        >>> p.array_form
+968|        [2, 3, 0, 1]
+969|        >>> Permutation([[2, 0, 3, 1]]).array_form
+970|        [3, 2, 0, 1]
+971|        >>> Permutation([2, 0, 3, 1]).array_form
+972|        [2, 0, 3, 1]
+973|        >>> Permutation([[1, 2], [4, 5]]).array_form
+974|        [0, 2, 1, 3, 5, 4]
+975|        """
+976|        return self._array_form[:]
+977|
+978|    def __repr__(self):
+979|        from sympy.combinatorics.permutations import Permutation, Cycle
+980|        if Permutation.print_cyclic:
+981|            if not self.size:
+982|                return 'Permutation()'
+983|            # before taking Cycle notation, see if the last element is
+984|            # a singleton and move it to the head of the string
+985|            s = Cycle(self)(self.size - 1).__repr__()[len('Cycle'):]
+986|            last = s.rfind('(')
+987|            if not last == 0 and ',' not in s[last:]:
+988|                s = s[last:] + s[:last]
+989|            return 'Permutation%s' %s
+990|        else:
+991|            s = self.support()
+992|            if not s:
+993|                if self.size < 5:
+994|                    return 'Permutation(%s)' % str(self.array_form)
+995|                return 'Permutation([], size=%s)' % self.size
+996|            trim = str(self.array_form[:s[-1] + 1]) + ', size=%s' % self.size
+997|            use = full = str(self.array_form)
+998|            if len(trim) < len(full):
+999|                use = trim
+1000|            return 'Permutation(%s)' % use
+1001|
+1002|    def list(self, size=None):
+1003|        """Return the permutation as an explicit list, possibly
+1004|        trimming unmoved elements if size is less than the maximum
+1005|        element in the permutation; if this is desired, setting
+1006|        ``size=-1`` will guarantee such trimming.
+1007|
+1008|        Examples
+1009|        ========
+1010|
+1011|        >>> from sympy.combinatorics.permutations import Permutation
+1012|        >>> Permutation.print_cyclic = False
+1013|        >>> p = Permutation(2, 3)(4, 5)
+1014|        >>> p.list()
+1015|        [0, 1, 3, 2, 5, 4]
+1016|        >>> p.list(10)
+1017|        [0, 1, 3, 2, 5, 4, 6, 7, 8, 9]
+1018|
+1019|        Passing a length too small will trim trailing, unchanged elements
+1020|        in the permutation:
+1021|
+1022|        >>> Permutation(2, 4)(1, 2, 4).list(-1)
+1023|        [0, 2, 1]
+1024|        >>> Permutation(3).list(-1)
+1025|        []
+1026|        """
+1027|        if not self and size is None:
+1028|            raise ValueError('must give size for empty Cycle')
+1029|        rv = self.array_form
+1030|        if size is not None:
+1031|            if size > self.size:
+1032|                rv.extend(list(range(self.size, size)))
+1033|            else:
+1034|                # find first value from rhs where rv[i] != i
+1035|                i = self.size - 1
+1036|                while rv:
+1037|                    if rv[-1] != i:
+1038|                        break
+1039|                    rv.pop()
+1040|                    i -= 1
+1041|        return rv
+1042|
+1043|    @property
+1044|    def cyclic_form(self):
+1045|        """
+1046|        This is used to convert to the cyclic notation
+1047|        from the canonical notation. Singletons are omitted.
+1048|
+1049|        Examples
+1050|        ========
+1051|
+1052|        >>> from sympy.combinatorics.permutations import Permutation
+1053|        >>> Permutation.print_cyclic = False
+1054|        >>> p = Permutation([0, 3, 1, 2])
+1055|        >>> p.cyclic_form
+1056|        [[1, 3, 2]]
+1057|        >>> Permutation([1, 0, 2, 4, 3, 5]).cyclic_form
+1058|        [[0, 1], [3, 4]]
+1059|
+1060|        See Also
+1061|        ========
+1062|
+1063|        array_form, full_cyclic_form
+1064|        """
+1065|        if self._cyclic_form is not None:
+1066|            return list(self._cyclic_form)
+1067|        array_form = self.array_form
+1068|        unchecked = [True] * len(array_form)
+1069|        cyclic_form = []
+1070|        for i in range(len(array_form)):
+1071|            if unchecked[i]:
+1072|                cycle = []
+1073|                cycle.append(i)
+1074|                unchecked[i] = False
+1075|                j = i
+1076|                while unchecked[array_form[j]]:
+1077|                    j = array_form[j]
+1078|                    cycle.append(j)
+1079|                    unchecked[j] = False
+1080|                if len(cycle) > 1:
+1081|                    cyclic_form.append(cycle)
+1082|                    assert cycle == list(minlex(cycle, is_set=True))
+1083|        cyclic_form.sort()
+1084|        self._cyclic_form = cyclic_form[:]
+1085|        return cyclic_form
+1086|
+1087|    @property
+1088|    def full_cyclic_form(self):
+1089|        """Return permutation in cyclic form including singletons.
+1090|
+1091|        Examples
+1092|        ========
+1093|
+1094|        >>> from sympy.combinatorics.permutations import Permutation
+1095|        >>> Permutation([0, 2, 1]).full_cyclic_form
+1096|        [[0], [1, 2]]
+1097|        """
+1098|        need = set(range(self.size)) - set(flatten(self.cyclic_form))
+1099|        rv = self.cyclic_form
+1100|        rv.extend([[i] for i in need])
+1101|        rv.sort()
+1102|        return rv
+1103|
+1104|    @property
+1105|    def size(self):
+1106|        """
+1107|        Returns the number of elements in the permutation.
+1108|
+1109|        Examples
+1110|        ========
+1111|
+1112|        >>> from sympy.combinatorics import Permutation
+1113|        >>> Permutation([[3, 2], [0, 1]]).size
+1114|        4
+1115|
+1116|        See Also
+1117|        ========
+1118|
+1119|        cardinality, length, order, rank
+1120|        """
+1121|        return self._size
+1122|
+1123|    def support(self):
+1124|        """Return the elements in permutation, P, for which P[i] != i.
+1125|
+1126|        Examples
+1127|        ========
+1128|
+1129|        >>> from sympy.combinatorics import Permutation
+1130|        >>> p = Permutation([[3, 2], [0, 1], [4]])
+1131|        >>> p.array_form
+1132|        [1, 0, 3, 2, 4]
+1133|        >>> p.support()
+1134|        [0, 1, 2, 3]
+1135|        """
+1136|        a = self.array_form
+1137|        return [i for i, e in enumerate(a) if a[i] != i]
+1138|
+1139|    def __add__(self, other):
+1140|        """Return permutation that is other higher in rank than self.
+1141|
+1142|        The rank is the lexicographical rank, with the identity permutation
+1143|        having rank of 0.
+1144|
+1145|        Examples
+1146|        ========
+1147|
+1148|        >>> from sympy.combinatorics.permutations import Permutation
+1149|        >>> Permutation.print_cyclic = False
+1150|        >>> I = Permutation([0, 1, 2, 3])
+1151|        >>> a = Permutation([2, 1, 3, 0])
+1152|        >>> I + a.rank() == a
+1153|        True
+1154|
+1155|        See Also
+1156|        ========
+1157|
+1158|        __sub__, inversion_vector
+1159|
+1160|        """
+1161|        rank = (self.rank() + other) % self.cardinality
+1162|        rv = Perm.unrank_lex(self.size, rank)
+1163|        rv._rank = rank
+1164|        return rv
+1165|
+1166|    def __sub__(self, other):
+1167|        """Return the permutation that is other lower in rank than self.
+1168|
+1169|        See Also
+1170|        ========
+1171|
+1172|        __add__
+1173|        """
+1174|        return self.__add__(-other)
+1175|
+1176|    @staticmethod
+1177|    def rmul(*args):
+1178|        """
+1179|        Return product of Permutations [a, b, c, ...] as the Permutation whose
+1180|        ith value is a(b(c(i))).
+1181|
+1182|        a, b, c, ... can be Permutation objects or tuples.
+1183|
+1184|        Examples
+1185|        ========
+1186|
+1187|        >>> from sympy.combinatorics.permutations import _af_rmul, Permutation
+1188|        >>> Permutation.print_cyclic = False
+1189|
+1190|        >>> a, b = [1, 0, 2], [0, 2, 1]
+1191|        >>> a = Permutation(a); b = Permutation(b)
+1192|        >>> list(Permutation.rmul(a, b))
+1193|        [1, 2, 0]
+1194|        >>> [a(b(i)) for i in range(3)]
+1195|        [1, 2, 0]
+1196|
+1197|        This handles the operands in reverse order compared to the ``*`` operator:
+1198|
+1199|        >>> a = Permutation(a); b = Permutation(b)
+1200|        >>> list(a*b)
+1201|        [2, 0, 1]
+1202|        >>> [b(a(i)) for i in range(3)]
+1203|        [2, 0, 1]
+1204|
+1205|        Notes
+1206|        =====
+1207|
+1208|        All items in the sequence will be parsed by Permutation as
+1209|        necessary as long as the first item is a Permutation:
+1210|
+1211|        >>> Permutation.rmul(a, [0, 2, 1]) == Permutation.rmul(a, b)
+1212|        True
+1213|
+1214|        The reverse order of arguments will raise a TypeError.
+1215|
+1216|        """
+1217|        rv = args[0]
+1218|        for i in range(1, len(args)):
+1219|            rv = args[i]*rv
+1220|        return rv
+1221|
+1222|    @staticmethod
+1223|    def rmul_with_af(*args):
+1224|        """
+1225|        same as rmul, but the elements of args are Permutation objects
+1226|        which have _array_form
+1227|        """
+1228|        a = [x._array_form for x in args]
+1229|        rv = _af_new(_af_rmuln(*a))
+1230|        return rv
+1231|
+1232|    def mul_inv(self, other):
+1233|        """
+1234|        other*~self, self and other have _array_form
+1235|        """
+1236|        a = _af_invert(self._array_form)
+1237|        b = other._array_form
+1238|        return _af_new(_af_rmul(a, b))
+1239|
+1240|    def __rmul__(self, other):
+1241|        """This is needed to coerse other to Permutation in rmul."""
+1242|        return Perm(other)*self
+1243|
+1244|    def __mul__(self, other):
+1245|        """
+1246|        Return the product a*b as a Permutation; the ith value is b(a(i)).
+1247|
+1248|        Examples
+1249|        ========
+1250|
+1251|        >>> from sympy.combinatorics.permutations import _af_rmul, Permutation
+1252|        >>> Permutation.print_cyclic = False
+1253|
+1254|        >>> a, b = [1, 0, 2], [0, 2, 1]
+1255|        >>> a = Permutation(a); b = Permutation(b)
+1256|        >>> list(a*b)
+1257|        [2, 0, 1]
+1258|        >>> [b(a(i)) for i in range(3)]
+1259|        [2, 0, 1]
+1260|
+1261|        This handles operands in reverse order compared to _af_rmul and rmul:
+1262|
+1263|        >>> al = list(a); bl = list(b)
+1264|        >>> _af_rmul(al, bl)
+1265|        [1, 2, 0]
+1266|        >>> [al[bl[i]] for i in range(3)]
+1267|        [1, 2, 0]
+1268|
+1269|        It is acceptable for the arrays to have different lengths; the shorter
+1270|        one will be padded to match the longer one:
+1271|
+1272|        >>> b*Permutation([1, 0])
+1273|        Permutation([1, 2, 0])
+1274|        >>> Permutation([1, 0])*b
+1275|        Permutation([2, 0, 1])
+1276|
+1277|        It is also acceptable to allow coercion to handle conversion of a
+1278|        single list to the left of a Permutation:
+1279|
+1280|        >>> [0, 1]*a # no change: 2-element identity
+1281|        Permutation([1, 0, 2])
+1282|        >>> [[0, 1]]*a # exchange first two elements
+1283|        Permutation([0, 1, 2])
+1284|
+1285|        You cannot use more than 1 cycle notation in a product of cycles
+1286|        since coercion can only handle one argument to the left. To handle
+1287|        multiple cycles it is convenient to use Cycle instead of Permutation:
+1288|
+1289|        >>> [[1, 2]]*[[2, 3]]*Permutation([]) # doctest: +SKIP
+1290|        >>> from sympy.combinatorics.permutations import Cycle
+1291|        >>> Cycle(1, 2)(2, 3)
+1292|        (1 3 2)
+1293|
+1294|        """
+1295|        a = self.array_form
+1296|        # __rmul__ makes sure the other is a Permutation
+1297|        b = other.array_form
+1298|        if not b:
+1299|            perm = a
+1300|        else:
+1301|            b.extend(list(range(len(b), len(a))))
+1302|            perm = [b[i] for i in a] + b[len(a):]
+1303|        return _af_new(perm)
+1304|
+1305|    def commutes_with(self, other):
+1306|        """
+1307|        Checks if the elements are commuting.
+1308|
+1309|        Examples
+1310|        ========
+1311|
+1312|        >>> from sympy.combinatorics.permutations import Permutation
+1313|        >>> a = Permutation([1, 4, 3, 0, 2, 5])
+1314|        >>> b = Permutation([0, 1, 2, 3, 4, 5])
+1315|        >>> a.commutes_with(b)
+1316|        True
+1317|        >>> b = Permutation([2, 3, 5, 4, 1, 0])
+1318|        >>> a.commutes_with(b)
+1319|        False
+1320|        """
+1321|        a = self.array_form
+1322|        b = other.array_form
+1323|        return _af_commutes_with(a, b)
+1324|
+1325|    def __pow__(self, n):
+1326|        """
+1327|        Routine for finding powers of a permutation.
+1328|
+1329|        Examples
+1330|        ========
+1331|
+1332|        >>> from sympy.combinatorics.permutations import Permutation
+1333|        >>> Permutation.print_cyclic = False
+1334|        >>> p = Permutation([2,0,3,1])
+1335|        >>> p.order()
+1336|        4
+1337|        >>> p**4
+1338|        Permutation([0, 1, 2, 3])
+1339|        """
+1340|        if type(n) == Perm:
+1341|            raise NotImplementedError(
+1342|                'p**p is not defined; do you mean p^p (conjugate)?')
+1343|        n = int(n)
+1344|        return _af_new(_af_pow(self.array_form, n))
+1345|
+1346|    def __rxor__(self, i):
+1347|        """Return self(i) when ``i`` is an int.
+1348|
+1349|        Examples
+1350|        ========
+1351|
+1352|        >>> from sympy.combinatorics import Permutation
+1353|        >>> p = Permutation(1, 2, 9)
+1354|        >>> 2^p == p(2) == 9
+1355|        True
+1356|        """
+1357|        if int(i) == i:
+1358|            return self(i)
+1359|        else:
+1360|            raise NotImplementedError(
+1361|                "i^p = p(i) when i is an integer, not %s." % i)
+1362|
+1363|    def __xor__(self, h):
+1364|        """Return the conjugate permutation ``~h*self*h` `.
+1365|
+1366|        If ``a`` and ``b`` are conjugates, ``a = h*b*~h`` and
+1367|        ``b = ~h*a*h`` and both have the same cycle structure.
+1368|
+1369|        Examples
+1370|        ========
+1371|
+1372|        >>> from sympy.combinatorics.permutations import Permutation
+1373|        >>> Permutation.print_cyclic = True
+1374|        >>> p = Permutation(1, 2, 9)
+1375|        >>> q = Permutation(6, 9, 8)
+1376|        >>> p*q != q*p
+1377|        True
+1378|
+1379|        Calculate and check properties of the conjugate:
+1380|
+1381|        >>> c = p^q
+1382|        >>> c == ~q*p*q and p == q*c*~q
+1383|        True
+1384|
+1385|        The expression q^p^r is equivalent to q^(p*r):
+1386|
+1387|        >>> r = Permutation(9)(4, 6, 8)
+1388|        >>> q^p^r == q^(p*r)
+1389|        True
+1390|
+1391|        If the term to the left of the conjugate operator, i, is an integer
+1392|        then this is interpreted as selecting the ith element from the
+1393|        permutation to the right:
+1394|
+1395|        >>> all(i^p == p(i) for i in range(p.size))
+1396|        True
+1397|
+1398|        Note that the * operator as higher precedence than the ^ operator:
+1399|
+1400|        >>> q^r*p^r == q^(r*p)^r == Permutation(9)(1, 6, 4)
+1401|        True
+1402|
+1403|        Notes
+1404|        =====
+1405|
+1406|        In Python the precedence rule is p^q^r = (p^q)^r which differs
+1407|        in general from p^(q^r)
+1408|
+1409|        >>> q^p^r
+1410|        (9)(1 4 8)
+1411|        >>> q^(p^r)
+1412|        (9)(1 8 6)
+1413|
+1414|        For a given r and p, both of the following are conjugates of p:
+1415|        ~r*p*r and r*p*~r. But these are not necessarily the same:
+1416|
+1417|        >>> ~r*p*r == r*p*~r
+1418|        True
+1419|
+1420|        >>> p = Permutation(1, 2, 9)(5, 6)
+1421|        >>> ~r*p*r == r*p*~r
+1422|        False
+1423|
+1424|        The conjugate ~r*p*r was chosen so that ``p^q^r`` would be equivalent
+1425|        to ``p^(q*r)`` rather than ``p^(r*q)``. To obtain r*p*~r, pass ~r to
+1426|        this method:
+1427|
+1428|        >>> p^~r == r*p*~r
+1429|        True
+1430|        """
+1431|
+1432|        if self.size != h.size:
+1433|            raise ValueError("The permutations must be of equal size.")
+1434|        a = [None]*self.size
+1435|        h = h._array_form
+1436|        p = self._array_form
+1437|        for i in range(self.size):
+1438|            a[h[i]] = h[p[i]]
+1439|        return _af_new(a)
+1440|
+1441|    def transpositions(self):
+1442|        """
+1443|        Return the permutation decomposed into a list of transpositions.
+1444|
+1445|        It is always possible to express a permutation as the product of
+1446|        transpositions, see [1]
+1447|
+1448|        Examples
+1449|        ========
+1450|
+1451|        >>> from sympy.combinatorics.permutations import Permutation
+1452|        >>> p = Permutation([[1, 2, 3], [0, 4, 5, 6, 7]])
+1453|        >>> t = p.transpositions()
+1454|        >>> t
+1455|        [(0, 7), (0, 6), (0, 5), (0, 4), (1, 3), (1, 2)]
+1456|        >>> print(''.join(str(c) for c in t))
+1457|        (0, 7)(0, 6)(0, 5)(0, 4)(1, 3)(1, 2)
+1458|        >>> Permutation.rmul(*[Permutation([ti], size=p.size) for ti in t]) == p
+1459|        True
+1460|
+1461|        References
+1462|        ==========
+1463|
+1464|        1. http://en.wikipedia.org/wiki/Transposition_%28mathematics%29#Properties
+1465|
+1466|        """
+1467|        a = self.cyclic_form
+1468|        res = []
+1469|        for x in a:
+1470|            nx = len(x)
+1471|            if nx == 2:
+1472|                res.append(tuple(x))
+1473|            elif nx > 2:
+1474|                first = x[0]
+1475|                for y in x[nx - 1:0:-1]:
+1476|                    res.append((first, y))
+1477|        return res
+1478|
+1479|    @classmethod
+1480|    def from_sequence(self, i, key=None):
+1481|        """Return the permutation needed to obtain ``i`` from the sorted
+1482|        elements of ``i``. If custom sorting is desired, a key can be given.
+1483|
+1484|        Examples
+1485|        ========
+1486|
+1487|        >>> from sympy.combinatorics import Permutation
+1488|        >>> Permutation.print_cyclic = True
+1489|
+1490|        >>> Permutation.from_sequence('SymPy')
+1491|        (4)(0 1 3)
+1492|        >>> _(sorted("SymPy"))
+1493|        ['S', 'y', 'm', 'P', 'y']
+1494|        >>> Permutation.from_sequence('SymPy', key=lambda x: x.lower())
+1495|        (4)(0 2)(1 3)
+1496|        """
+1497|        ic = list(zip(i, list(range(len(i)))))
+1498|        if key:
+1499|            ic.sort(key=lambda x: key(x[0]))
+1500|        else:
+1501|            ic.sort()
+1502|        return ~Permutation([i[1] for i in ic])
+1503|
+1504|    def __invert__(self):
+1505|        """
+1506|        Return the inverse of the permutation.
+1507|
+1508|        A permutation multiplied by its inverse is the identity permutation.
+1509|
+1510|        Examples
+1511|        ========
+1512|
+1513|        >>> from sympy.combinatorics.permutations import Permutation
+1514|        >>> p = Permutation([[2,0], [3,1]])
+1515|        >>> ~p
+1516|        Permutation([2, 3, 0, 1])
+1517|        >>> _ == p**-1
+1518|        True
+1519|        >>> p*~p == ~p*p == Permutation([0, 1, 2, 3])
+1520|        True
+1521|        """
+1522|        return _af_new(_af_invert(self._array_form))
+1523|
+1524|    def __iter__(self):
+1525|        """Yield elements from array form.
+1526|
+1527|        Examples
+1528|        ========
+1529|
+1530|        >>> from sympy.combinatorics import Permutation
+1531|        >>> list(Permutation(range(3)))
+1532|        [0, 1, 2]
+1533|        """
+1534|        for i in self.array_form:
+1535|            yield i
+1536|
+1537|    def __call__(self, *i):
+1538|        """
+1539|        Allows applying a permutation instance as a bijective function.
+1540|
+1541|        Examples
+1542|        ========
+1543|
+1544|        >>> from sympy.combinatorics.permutations import Permutation
+1545|        >>> p = Permutation([[2, 0], [3, 1]])
+1546|        >>> p.array_form
+1547|        [2, 3, 0, 1]
+1548|        >>> [p(i) for i in range(4)]
+1549|        [2, 3, 0, 1]
+1550|
+1551|        If an array is given then the permutation selects the items
+1552|        from the array (i.e. the permutation is applied to the array):
+1553|
+1554|        >>> from sympy.abc import x
+1555|        >>> p([x, 1, 0, x**2])
+1556|        [0, x**2, x, 1]
+1557|        """
+1558|        # list indices can be Integer or int; leave this
+1559|        # as it is (don't test or convert it) because this
+1560|        # gets called a lot and should be fast
+1561|        if len(i) == 1:
+1562|            i = i[0]
+1563|            try:
+1564|                # P(1)
+1565|                return self._array_form[i]
+1566|            except TypeError:
+1567|                try:
+1568|                    # P([a, b, c])
+1569|                    return [i[j] for j in self._array_form]
+1570|                except Exception:
+1571|                    raise TypeError('unrecognized argument')
+1572|        else:
+1573|            # P(1, 2, 3)
+1574|            return self*Permutation(Cycle(*i), size=self.size)
+1575|
+1576|    def atoms(self):
+1577|        """
+1578|        Returns all the elements of a permutation
+1579|
+1580|        Examples
+1581|        ========
+1582|
+1583|        >>> from sympy.combinatorics import Permutation
+1584|        >>> Permutation([0, 1, 2, 3, 4, 5]).atoms()
+1585|        {0, 1, 2, 3, 4, 5}
+1586|        >>> Permutation([[0, 1], [2, 3], [4, 5]]).atoms()
+1587|        {0, 1, 2, 3, 4, 5}
+1588|        """
+1589|        return set(self.array_form)
+1590|
+1591|    def next_lex(self):
+1592|        """
+1593|        Returns the next permutation in lexicographical order.
+1594|        If self is the last permutation in lexicographical order
+1595|        it returns None.
+1596|        See [4] section 2.4.
+1597|
+1598|
+1599|        Examples
+1600|        ========
+1601|
+1602|        >>> from sympy.combinatorics.permutations import Permutation
+1603|        >>> p = Permutation([2, 3, 1, 0])
+1604|        >>> p = Permutation([2, 3, 1, 0]); p.rank()
+1605|        17
+1606|        >>> p = p.next_lex(); p.rank()
+1607|        18
+1608|
+1609|        See Also
+1610|        ========
+1611|
+1612|        rank, unrank_lex
+1613|        """
+1614|        perm = self.array_form[:]
+1615|        n = len(perm)
+1616|        i = n - 2
+1617|        while perm[i + 1] < perm[i]:
+1618|            i -= 1
+1619|        if i == -1:
+1620|            return None
+1621|        else:
+1622|            j = n - 1
+1623|            while perm[j] < perm[i]:
+1624|                j -= 1
+1625|            perm[j], perm[i] = perm[i], perm[j]
+1626|            i += 1
+1627|            j = n - 1
+1628|            while i < j:
+1629|                perm[j], perm[i] = perm[i], perm[j]
+1630|                i += 1
+1631|                j -= 1
+1632|        return _af_new(perm)
+1633|
+1634|    @classmethod
+1635|    def unrank_nonlex(self, n, r):
+1636|        """
+1637|        This is a linear time unranking algorithm that does not
+1638|        respect lexicographic order [3].
+1639|
+1640|        Examples
+1641|        ========
+1642|
+1643|        >>> from sympy.combinatorics.permutations import Permutation
+1644|        >>> Permutation.print_cyclic = False
+1645|        >>> Permutation.unrank_nonlex(4, 5)
+1646|        Permutation([2, 0, 3, 1])
+1647|        >>> Permutation.unrank_nonlex(4, -1)
+1648|        Permutation([0, 1, 2, 3])
+1649|
+1650|        See Also
+1651|        ========
+1652|
+1653|        next_nonlex, rank_nonlex
+1654|        """
+1655|        def _unrank1(n, r, a):
+1656|            if n > 0:
+1657|                a[n - 1], a[r % n] = a[r % n], a[n - 1]
+1658|                _unrank1(n - 1, r//n, a)
+1659|
+1660|        id_perm = list(range(n))
+1661|        n = int(n)
+1662|        r = r % ifac(n)
+1663|        _unrank1(n, r, id_perm)
+1664|        return _af_new(id_perm)
+1665|
+1666|    def rank_nonlex(self, inv_perm=None):
+1667|        """
+1668|        This is a linear time ranking algorithm that does not
+1669|        enforce lexicographic order [3].
+1670|
+1671|
+1672|        Examples
+1673|        ========
+1674|
+1675|        >>> from sympy.combinatorics.permutations import Permutation
+1676|        >>> p = Permutation([0, 1, 2, 3])
+1677|        >>> p.rank_nonlex()
+1678|        23
+1679|
+1680|        See Also
+1681|        ========
+1682|
+1683|        next_nonlex, unrank_nonlex
+1684|        """
+1685|        def _rank1(n, perm, inv_perm):
+1686|            if n == 1:
+1687|                return 0
+1688|            s = perm[n - 1]
+1689|            t = inv_perm[n - 1]
+1690|            perm[n - 1], perm[t] = perm[t], s
+1691|            inv_perm[n - 1], inv_perm[s] = inv_perm[s], t
+1692|            return s + n*_rank1(n - 1, perm, inv_perm)
+1693|
+1694|        if inv_perm is None:
+1695|            inv_perm = (~self).array_form
+1696|        if not inv_perm:
+1697|            return 0
+1698|        perm = self.array_form[:]
+1699|        r = _rank1(len(perm), perm, inv_perm)
+1700|        return r
+1701|
+1702|    def next_nonlex(self):
+1703|        """
+1704|        Returns the next permutation in nonlex order [3].
+1705|        If self is the last permutation in this order it returns None.
+1706|
+1707|        Examples
+1708|        ========
+1709|
+1710|        >>> from sympy.combinatorics.permutations import Permutation
+1711|        >>> Permutation.print_cyclic = False
+1712|        >>> p = Permutation([2, 0, 3, 1]); p.rank_nonlex()
+1713|        5
+1714|        >>> p = p.next_nonlex(); p
+1715|        Permutation([3, 0, 1, 2])
+1716|        >>> p.rank_nonlex()
+1717|        6
+1718|
+1719|        See Also
+1720|        ========
+1721|
+1722|        rank_nonlex, unrank_nonlex
+1723|        """
+1724|        r = self.rank_nonlex()
+1725|        if r == ifac(self.size) - 1:
+1726|            return None
+1727|        return Perm.unrank_nonlex(self.size, r + 1)
+1728|
+1729|    def rank(self):
+1730|        """
+1731|        Returns the lexicographic rank of the permutation.
+1732|
+1733|        Examples
+1734|        ========
+1735|
+1736|        >>> from sympy.combinatorics.permutations import Permutation
+1737|        >>> p = Permutation([0, 1, 2, 3])
+1738|        >>> p.rank()
+1739|        0
+1740|        >>> p = Permutation([3, 2, 1, 0])
+1741|        >>> p.rank()
+1742|        23
+1743|
+1744|        See Also
+1745|        ========
+1746|
+1747|        next_lex, unrank_lex, cardinality, length, order, size
+1748|        """
+1749|        if not self._rank is None:
+1750|            return self._rank
+1751|        rank = 0
+1752|        rho = self.array_form[:]
+1753|        n = self.size - 1
+1754|        size = n + 1
+1755|        psize = int(ifac(n))
+1756|        for j in range(size - 1):
+1757|            rank += rho[j]*psize
+1758|            for i in range(j + 1, size):
+1759|                if rho[i] > rho[j]:
+1760|                    rho[i] -= 1
+1761|            psize //= n
+1762|            n -= 1
+1763|        self._rank = rank
+1764|        return rank
+1765|
+1766|    @property
+1767|    def cardinality(self):
+1768|        """
+1769|        Returns the number of all possible permutations.
+1770|
+1771|        Examples
+1772|        ========
+1773|
+1774|        >>> from sympy.combinatorics.permutations import Permutation
+1775|        >>> p = Permutation([0, 1, 2, 3])
+1776|        >>> p.cardinality
+1777|        24
+1778|
+1779|        See Also
+1780|        ========
+1781|
+1782|        length, order, rank, size
+1783|        """
+1784|        return int(ifac(self.size))
+1785|
+1786|    def parity(self):
+1787|        """
+1788|        Computes the parity of a permutation.
+1789|
+1790|        The parity of a permutation reflects the parity of the
+1791|        number of inversions in the permutation, i.e., the
+1792|        number of pairs of x and y such that ``x > y`` but ``p[x] < p[y]``.
+1793|
+1794|        Examples
+1795|        ========
+1796|
+1797|        >>> from sympy.combinatorics.permutations import Permutation
+1798|        >>> p = Permutation([0, 1, 2, 3])
+1799|        >>> p.parity()
+1800|        0
+1801|        >>> p = Permutation([3, 2, 0, 1])
+1802|        >>> p.parity()
+1803|        1
+1804|
+1805|        See Also
+1806|        ========
+1807|
+1808|        _af_parity
+1809|        """
+1810|        if self._cyclic_form is not None:
+1811|            return (self.size - self.cycles) % 2
+1812|
+1813|        return _af_parity(self.array_form)
+1814|
+1815|    @property
+1816|    def is_even(self):
+1817|        """
+1818|        Checks if a permutation is even.
+1819|
+1820|        Examples
+1821|        ========
+1822|
+1823|        >>> from sympy.combinatorics.permutations import Permutation
+1824|        >>> p = Permutation([0, 1, 2, 3])
+1825|        >>> p.is_even
+1826|        True
+1827|        >>> p = Permutation([3, 2, 1, 0])
+1828|        >>> p.is_even
+1829|        True
+1830|
+1831|        See Also
+1832|        ========
+1833|
+1834|        is_odd
+1835|        """
+1836|        return not self.is_odd
+1837|
+1838|    @property
+1839|    def is_odd(self):
+1840|        """
+1841|        Checks if a permutation is odd.
+1842|
+1843|        Examples
+1844|        ========
+1845|
+1846|        >>> from sympy.combinatorics.permutations import Permutation
+1847|        >>> p = Permutation([0, 1, 2, 3])
+1848|        >>> p.is_odd
+1849|        False
+1850|        >>> p = Permutation([3, 2, 0, 1])
+1851|        >>> p.is_odd
+1852|        True
+1853|
+1854|        See Also
+1855|        ========
+1856|
+1857|        is_even
+1858|        """
+1859|        return bool(self.parity() % 2)
+1860|
+1861|    @property
+1862|    def is_Singleton(self):
+1863|        """
+1864|        Checks to see if the permutation contains only one number and is
+1865|        thus the only possible permutation of this set of numbers
+1866|
+1867|        Examples
+1868|        ========
+1869|
+1870|        >>> from sympy.combinatorics import Permutation
+1871|        >>> Permutation([0]).is_Singleton
+1872|        True
+1873|        >>> Permutation([0, 1]).is_Singleton
+1874|        False
+1875|
+1876|        See Also
+1877|        ========
+1878|
+1879|        is_Empty
+1880|        """
+1881|        return self.size == 1
+1882|
+1883|    @property
+1884|    def is_Empty(self):
+1885|        """
+1886|        Checks to see if the permutation is a set with zero elements
+1887|
+1888|        Examples
+1889|        ========
+1890|
+1891|        >>> from sympy.combinatorics import Permutation
+1892|        >>> Permutation([]).is_Empty
+1893|        True
+1894|        >>> Permutation([0]).is_Empty
+1895|        False
+1896|
+1897|        See Also
+1898|        ========
+1899|
+1900|        is_Singleton
+1901|        """
+1902|        return self.size == 0
+1903|
+1904|    @property
+1905|    def is_Identity(self):
+1906|        """
+1907|        Returns True if the Permutation is an identity permutation.
+1908|
+1909|        Examples
+1910|        ========
+1911|
+1912|        >>> from sympy.combinatorics.permutations import Permutation
+1913|        >>> p = Permutation([])
+1914|        >>> p.is_Identity
+1915|        True
+1916|        >>> p = Permutation([[0], [1], [2]])
+1917|        >>> p.is_Identity
+1918|        True
+1919|        >>> p = Permutation([0, 1, 2])
+1920|        >>> p.is_Identity
+1921|        True
+1922|        >>> p = Permutation([0, 2, 1])
+1923|        >>> p.is_Identity
+1924|        False
+1925|
+1926|        See Also
+1927|        ========
+1928|
+1929|        order
+1930|        """
+1931|        af = self.array_form
+1932|        return not af or all(i == af[i] for i in range(self.size))
+1933|
+1934|    def ascents(self):
+1935|        """
+1936|        Returns the positions of ascents in a permutation, ie, the location
+1937|        where p[i] < p[i+1]
+1938|
+1939|        Examples
+1940|        ========
+1941|
+1942|        >>> from sympy.combinatorics.permutations import Permutation
+1943|        >>> p = Permutation([4, 0, 1, 3, 2])
+1944|        >>> p.ascents()
+1945|        [1, 2]
+1946|
+1947|        See Also
+1948|        ========
+1949|
+1950|        descents, inversions, min, max
+1951|        """
+1952|        a = self.array_form
+1953|        pos = [i for i in range(len(a) - 1) if a[i] < a[i + 1]]
+1954|        return pos
+1955|
+1956|    def descents(self):
+1957|        """
+1958|        Returns the positions of descents in a permutation, ie, the location
+1959|        where p[i] > p[i+1]
+1960|
+1961|        Examples
+1962|        ========
+1963|
+1964|        >>> from sympy.combinatorics.permutations import Permutation
+1965|        >>> p = Permutation([4, 0, 1, 3, 2])
+1966|        >>> p.descents()
+1967|        [0, 3]
+1968|
+1969|        See Also
+1970|        ========
+1971|
+1972|        ascents, inversions, min, max
+1973|        """
+1974|        a = self.array_form
+1975|        pos = [i for i in range(len(a) - 1) if a[i] > a[i + 1]]
+1976|        return pos
+1977|
+1978|    def max(self):
+1979|        """
+1980|        The maximum element moved by the permutation.
+1981|
+1982|        Examples
+1983|        ========
+1984|
+1985|        >>> from sympy.combinatorics.permutations import Permutation
+1986|        >>> p = Permutation([1, 0, 2, 3, 4])
+1987|        >>> p.max()
+1988|        1
+1989|
+1990|        See Also
+1991|        ========
+1992|
+1993|        min, descents, ascents, inversions
+1994|        """
+1995|        max = 0
+1996|        a = self.array_form
+1997|        for i in range(len(a)):
+1998|            if a[i] != i and a[i] > max:
+1999|                max = a[i]
+2000|        return max
+2001|
+2002|    def min(self):
+2003|        """
+2004|        The minimum element moved by the permutation.
+2005|
+2006|        Examples
+2007|        ========
+2008|
+2009|        >>> from sympy.combinatorics.permutations import Permutation
+2010|        >>> p = Permutation([0, 1, 4, 3, 2])
+2011|        >>> p.min()
+2012|        2
+2013|
+2014|        See Also
+2015|        ========
+2016|
+2017|        max, descents, ascents, inversions
+2018|        """
+2019|        a = self.array_form
+2020|        min = len(a)
+2021|        for i in range(len(a)):
+2022|            if a[i] != i and a[i] < min:
+2023|                min = a[i]
+2024|        return min
+2025|
+2026|    def inversions(self):
+2027|        """
+2028|        Computes the number of inversions of a permutation.
+2029|
+2030|        An inversion is where i > j but p[i] < p[j].
+2031|
+2032|        For small length of p, it iterates over all i and j
+2033|        values and calculates the number of inversions.
+2034|        For large length of p, it uses a variation of merge
+2035|        sort to calculate the number of inversions.
+2036|
+2037|        References
+2038|        ==========
+2039|
+2040|        [1] http://www.cp.eng.chula.ac.th/~piak/teaching/algo/algo2008/count-inv.htm
+2041|
+2042|        Examples
+2043|        ========
+2044|
+2045|        >>> from sympy.combinatorics.permutations import Permutation
+2046|        >>> p = Permutation([0, 1, 2, 3, 4, 5])
+2047|        >>> p.inversions()
+2048|        0
+2049|        >>> Permutation([3, 2, 1, 0]).inversions()
+2050|        6
+2051|
+2052|        See Also
+2053|        ========
+2054|
+2055|        descents, ascents, min, max
+2056|        """
+2057|        inversions = 0
+2058|        a = self.array_form
+2059|        n = len(a)
+2060|        if n < 130:
+2061|            for i in range(n - 1):
+2062|                b = a[i]
+2063|                for c in a[i + 1:]:
+2064|                    if b > c:
+2065|                        inversions += 1
+2066|        else:
+2067|            k = 1
+2068|            right = 0
+2069|            arr = a[:]
+2070|            temp = a[:]
+2071|            while k < n:
+2072|                i = 0
+2073|                while i + k < n:
+2074|                    right = i + k * 2 - 1
+2075|                    if right >= n:
+2076|                        right = n - 1
+2077|                    inversions += _merge(arr, temp, i, i + k, right)
+2078|                    i = i + k * 2
+2079|                k = k * 2
+2080|        return inversions
+2081|
+2082|    def commutator(self, x):
+2083|        """Return the commutator of self and x: ``~x*~self*x*self``
+2084|
+2085|        If f and g are part of a group, G, then the commutator of f and g
+2086|        is the group identity iff f and g commute, i.e. fg == gf.
+2087|
+2088|        Examples
+2089|        ========
+2090|
+2091|        >>> from sympy.combinatorics.permutations import Permutation
+2092|        >>> Permutation.print_cyclic = False
+2093|        >>> p = Permutation([0, 2, 3, 1])
+2094|        >>> x = Permutation([2, 0, 3, 1])
+2095|        >>> c = p.commutator(x); c
+2096|        Permutation([2, 1, 3, 0])
+2097|        >>> c == ~x*~p*x*p
+2098|        True
+2099|
+2100|        >>> I = Permutation(3)
+2101|        >>> p = [I + i for i in range(6)]
+2102|        >>> for i in range(len(p)):
+2103|        ...     for j in range(len(p)):
+2104|        ...         c = p[i].commutator(p[j])
+2105|        ...         if p[i]*p[j] == p[j]*p[i]:
+2106|        ...             assert c == I
+2107|        ...         else:
+2108|        ...             assert c != I
+2109|        ...
+2110|
+2111|        References
+2112|        ==========
+2113|
+2114|        http://en.wikipedia.org/wiki/Commutator
+2115|        """
+2116|
+2117|        a = self.array_form
+2118|        b = x.array_form
+2119|        n = len(a)
+2120|        if len(b) != n:
+2121|            raise ValueError("The permutations must be of equal size.")
+2122|        inva = [None]*n
+2123|        for i in range(n):
+2124|            inva[a[i]] = i
+2125|        invb = [None]*n
+2126|        for i in range(n):
+2127|            invb[b[i]] = i
+2128|        return _af_new([a[b[inva[i]]] for i in invb])
+2129|
+2130|    def signature(self):
+2131|        """
+2132|        Gives the signature of the permutation needed to place the
+2133|        elements of the permutation in canonical order.
+2134|
+2135|        The signature is calculated as (-1)^<number of inversions>
+2136|
+2137|        Examples
+2138|        ========
+2139|
+2140|        >>> from sympy.combinatorics.permutations import Permutation
+2141|        >>> p = Permutation([0, 1, 2])
+2142|        >>> p.inversions()
+2143|        0
+2144|        >>> p.signature()
+2145|        1
+2146|        >>> q = Permutation([0,2,1])
+2147|        >>> q.inversions()
+2148|        1
+2149|        >>> q.signature()
+2150|        -1
+2151|
+2152|        See Also
+2153|        ========
+2154|
+2155|        inversions
+2156|        """
+2157|        if self.is_even:
+2158|            return 1
+2159|        return -1
+2160|
+2161|    def order(self):
+2162|        """
+2163|        Computes the order of a permutation.
+2164|
+2165|        When the permutation is raised to the power of its
+2166|        order it equals the identity permutation.
+2167|
+2168|        Examples
+2169|        ========
+2170|
+2171|        >>> from sympy.combinatorics.permutations import Permutation
+2172|        >>> Permutation.print_cyclic = False
+2173|        >>> p = Permutation([3, 1, 5, 2, 4, 0])
+2174|        >>> p.order()
+2175|        4
+2176|        >>> (p**(p.order()))
+2177|        Permutation([], size=6)
+2178|
+2179|        See Also
+2180|        ========
+2181|
+2182|        identity, cardinality, length, rank, size
+2183|        """
+2184|
+2185|        return reduce(lcm, [len(cycle) for cycle in self.cyclic_form], 1)
+2186|
+2187|    def length(self):
+2188|        """
+2189|        Returns the number of integers moved by a permutation.
+2190|
+2191|        Examples
+2192|        ========
+2193|
+2194|        >>> from sympy.combinatorics import Permutation
+2195|        >>> Permutation([0, 3, 2, 1]).length()
+2196|        2
+2197|        >>> Permutation([[0, 1], [2, 3]]).length()
+2198|        4
+2199|
+2200|        See Also
+2201|        ========
+2202|
+2203|        min, max, support, cardinality, order, rank, size
+2204|        """
+2205|
+2206|        return len(self.support())
+2207|
+2208|    @property
+2209|    def cycle_structure(self):
+2210|        """Return the cycle structure of the permutation as a dictionary
+2211|        indicating the multiplicity of each cycle length.
+2212|
+2213|        Examples
+2214|        ========
+2215|
+2216|        >>> from sympy.combinatorics import Permutation
+2217|        >>> Permutation.print_cyclic = True
+2218|        >>> Permutation(3).cycle_structure
+2219|        {1: 4}
+2220|        >>> Permutation(0, 4, 3)(1, 2)(5, 6).cycle_structure
+2221|        {2: 2, 3: 1}
+2222|        """
+2223|        if self._cycle_structure:
+2224|            rv = self._cycle_structure
+2225|        else:
+2226|            rv = defaultdict(int)
+2227|            singletons = self.size
+2228|            for c in self.cyclic_form:
+2229|                rv[len(c)] += 1
+2230|                singletons -= len(c)
+2231|            if singletons:
+2232|                rv[1] = singletons
+2233|            self._cycle_structure = rv
+2234|        return dict(rv)  # make a copy
+2235|
+2236|    @property
+2237|    def cycles(self):
+2238|        """
+2239|        Returns the number of cycles contained in the permutation
+2240|        (including singletons).
+2241|
+2242|        Examples
+2243|        ========
+2244|
+2245|        >>> from sympy.combinatorics import Permutation
+2246|        >>> Permutation([0, 1, 2]).cycles
+2247|        3
+2248|        >>> Permutation([0, 1, 2]).full_cyclic_form
+2249|        [[0], [1], [2]]
+2250|        >>> Permutation(0, 1)(2, 3).cycles
+2251|        2
+2252|
+2253|        See Also
+2254|        ========
+2255|        sympy.functions.combinatorial.numbers.stirling
+2256|        """
+2257|        return len(self.full_cyclic_form)
+2258|
+2259|    def index(self):
+2260|        """
+2261|        Returns the index of a permutation.
+2262|
+2263|        The index of a permutation is the sum of all subscripts j such
+2264|        that p[j] is greater than p[j+1].
+2265|
+2266|        Examples
+2267|        ========
+2268|
+2269|        >>> from sympy.combinatorics.permutations import Permutation
+2270|        >>> p = Permutation([3, 0, 2, 1, 4])
+2271|        >>> p.index()
+2272|        2
+2273|        """
+2274|        a = self.array_form
+2275|
+2276|        return sum([j for j in range(len(a) - 1) if a[j] > a[j + 1]])
+2277|
+2278|    def runs(self):
+2279|        """
+2280|        Returns the runs of a permutation.
+2281|
+2282|        An ascending sequence in a permutation is called a run [5].
+2283|
+2284|
+2285|        Examples
+2286|        ========
+2287|
+2288|        >>> from sympy.combinatorics.permutations import Permutation
+2289|        >>> p = Permutation([2, 5, 7, 3, 6, 0, 1, 4, 8])
+2290|        >>> p.runs()
+2291|        [[2, 5, 7], [3, 6], [0, 1, 4, 8]]
+2292|        >>> q = Permutation([1,3,2,0])
+2293|        >>> q.runs()
+2294|        [[1, 3], [2], [0]]
+2295|        """
+2296|        return runs(self.array_form)
+2297|
+2298|    def inversion_vector(self):
+2299|        """Return the inversion vector of the permutation.
+2300|
+2301|        The inversion vector consists of elements whose value
+2302|        indicates the number of elements in the permutation
+2303|        that are lesser than it and lie on its right hand side.
+2304|
+2305|        The inversion vector is the same as the Lehmer encoding of a
+2306|        permutation.
+2307|
+2308|        Examples
+2309|        ========
+2310|
+2311|        >>> from sympy.combinatorics.permutations import Permutation
+2312|        >>> p = Permutation([4, 8, 0, 7, 1, 5, 3, 6, 2])
+2313|        >>> p.inversion_vector()
+2314|        [4, 7, 0, 5, 0, 2, 1, 1]
+2315|        >>> p = Permutation([3, 2, 1, 0])
+2316|        >>> p.inversion_vector()
+2317|        [3, 2, 1]
+2318|
+2319|        The inversion vector increases lexicographically with the rank
+2320|        of the permutation, the -ith element cycling through 0..i.
+2321|
+2322|        >>> p = Permutation(2)
+2323|        >>> while p:
+2324|        ...     print('%s %s %s' % (p, p.inversion_vector(), p.rank()))
+2325|        ...     p = p.next_lex()
+2326|        ...
+2327|        Permutation([0, 1, 2]) [0, 0] 0
+2328|        Permutation([0, 2, 1]) [0, 1] 1
+2329|        Permutation([1, 0, 2]) [1, 0] 2
+2330|        Permutation([1, 2, 0]) [1, 1] 3
+2331|        Permutation([2, 0, 1]) [2, 0] 4
+2332|        Permutation([2, 1, 0]) [2, 1] 5
+2333|
+2334|        See Also
+2335|        ========
+2336|        from_inversion_vector
+2337|        """
+2338|        self_array_form = self.array_form
+2339|        n = len(self_array_form)
+2340|        inversion_vector = [0] * (n - 1)
+2341|
+2342|        for i in range(n - 1):
+2343|            val = 0
+2344|            for j in range(i + 1, n):
+2345|                if self_array_form[j] < self_array_form[i]:
+2346|                    val += 1
+2347|            inversion_vector[i] = val
+2348|        return inversion_vector
+2349|
+2350|    def rank_trotterjohnson(self):
+2351|        """
+2352|        Returns the Trotter Johnson rank, which we get from the minimal
+2353|        change algorithm. See [4] section 2.4.
+2354|
+2355|        Examples
+2356|        ========
+2357|
+2358|        >>> from sympy.combinatorics.permutations import Permutation
+2359|        >>> p = Permutation([0, 1, 2, 3])
+2360|        >>> p.rank_trotterjohnson()
+2361|        0
+2362|        >>> p = Permutation([0, 2, 1, 3])
+2363|        >>> p.rank_trotterjohnson()
+2364|        7
+2365|
+2366|        See Also
+2367|        ========
+2368|
+2369|        unrank_trotterjohnson, next_trotterjohnson
+2370|        """
+2371|        if self.array_form == [] or self.is_Identity:
+2372|            return 0
+2373|        if self.array_form == [1, 0]:
+2374|            return 1
+2375|        perm = self.array_form
+2376|        n = self.size
+2377|        rank = 0
+2378|        for j in range(1, n):
+2379|            k = 1
+2380|            i = 0
+2381|            while perm[i] != j:
+2382|                if perm[i] < j:
+2383|                    k += 1
+2384|                i += 1
+2385|            j1 = j + 1
+2386|            if rank % 2 == 0:
+2387|                rank = j1*rank + j1 - k
+2388|            else:
+2389|                rank = j1*rank + k - 1
+2390|        return rank
+2391|
+2392|    @classmethod
+2393|    def unrank_trotterjohnson(self, size, rank):
+2394|        """
+2395|        Trotter Johnson permutation unranking. See [4] section 2.4.
+2396|
+2397|        Examples
+2398|        ========
+2399|
+2400|        >>> from sympy.combinatorics.permutations import Permutation
+2401|        >>> Permutation.unrank_trotterjohnson(5, 10)
+2402|        Permutation([0, 3, 1, 2, 4])
+2403|
+2404|        See Also
+2405|        ========
+2406|
+2407|        rank_trotterjohnson, next_trotterjohnson
+2408|        """
+2409|        perm = [0]*size
+2410|        r2 = 0
+2411|        n = ifac(size)
+2412|        pj = 1
+2413|        for j in range(2, size + 1):
+2414|            pj *= j
+2415|            r1 = (rank * pj) // n
+2416|            k = r1 - j*r2
+2417|            if r2 % 2 == 0:
+2418|                for i in range(j - 1, j - k - 1, -1):
+2419|                    perm[i] = perm[i - 1]
+2420|                perm[j - k - 1] = j - 1
+2421|            else:
+2422|                for i in range(j - 1, k, -1):
+2423|                    perm[i] = perm[i - 1]
+2424|                perm[k] = j - 1
+2425|            r2 = r1
+2426|        return _af_new(perm)
+2427|
+2428|    def next_trotterjohnson(self):
+2429|        """
+2430|        Returns the next permutation in Trotter-Johnson order.
+2431|        If self is the last permutation it returns None.
+2432|        See [4] section 2.4. If it is desired to generate all such
+2433|        permutations, they can be generated in order more quickly
+2434|        with the ``generate_bell`` function.
+2435|
+2436|        Examples
+2437|        ========
+2438|
+2439|        >>> from sympy.combinatorics.permutations import Permutation
+2440|        >>> Permutation.print_cyclic = False
+2441|        >>> p = Permutation([3, 0, 2, 1])
+2442|        >>> p.rank_trotterjohnson()
+2443|        4
+2444|        >>> p = p.next_trotterjohnson(); p
+2445|        Permutation([0, 3, 2, 1])
+2446|        >>> p.rank_trotterjohnson()
+2447|        5
+2448|
+2449|        See Also
+2450|        ========
+2451|
+2452|        rank_trotterjohnson, unrank_trotterjohnson, sympy.utilities.iterables.generate_bell
+2453|        """
+2454|        pi = self.array_form[:]
+2455|        n = len(pi)
+2456|        st = 0
+2457|        rho = pi[:]
+2458|        done = False
+2459|        m = n-1
+2460|        while m > 0 and not done:
+2461|            d = rho.index(m)
+2462|            for i in range(d, m):
+2463|                rho[i] = rho[i + 1]
+2464|            par = _af_parity(rho[:m])
+2465|            if par == 1:
+2466|                if d == m:
+2467|                    m -= 1
+2468|                else:
+2469|                    pi[st + d], pi[st + d + 1] = pi[st + d + 1], pi[st + d]
+2470|                    done = True
+2471|            else:
+2472|                if d == 0:
+2473|                    m -= 1
+2474|                    st += 1
+2475|                else:
+2476|                    pi[st + d], pi[st + d - 1] = pi[st + d - 1], pi[st + d]
+2477|                    done = True
+2478|        if m == 0:
+2479|            return None
+2480|        return _af_new(pi)
+2481|
+2482|    def get_precedence_matrix(self):
+2483|        """
+2484|        Gets the precedence matrix. This is used for computing the
+2485|        distance between two permutations.
+2486|
+2487|        Examples
+2488|        ========
+2489|
+2490|        >>> from sympy.combinatorics.permutations import Permutation
+2491|        >>> p = Permutation.josephus(3, 6, 1)
+2492|        >>> p
+2493|        Permutation([2, 5, 3, 1, 4, 0])
+2494|        >>> p.get_precedence_matrix()
+2495|        Matrix([
+2496|        [0, 0, 0, 0, 0, 0],
+2497|        [1, 0, 0, 0, 1, 0],
+2498|        [1, 1, 0, 1, 1, 1],
+2499|        [1, 1, 0, 0, 1, 0],
+2500|        [1, 0, 0, 0, 0, 0],
+2501|        [1, 1, 0, 1, 1, 0]])
+2502|
+2503|        See Also
+2504|        ========
+2505|
+2506|        get_precedence_distance, get_adjacency_matrix, get_adjacency_distance
+2507|        """
+2508|        m = zeros(self.size)
+2509|        perm = self.array_form
+2510|        for i in range(m.rows):
+2511|            for j in range(i + 1, m.cols):
+2512|                m[perm[i], perm[j]] = 1
+2513|        return m
+2514|
+2515|    def get_precedence_distance(self, other):
+2516|        """
+2517|        Computes the precedence distance between two permutations.
+2518|
+2519|        Suppose p and p' represent n jobs. The precedence metric
+2520|        counts the number of times a job j is preceded by job i
+2521|        in both p and p'. This metric is commutative.
+2522|
+2523|        Examples
+2524|        ========
+2525|
+2526|        >>> from sympy.combinatorics.permutations import Permutation
+2527|        >>> p = Permutation([2, 0, 4, 3, 1])
+2528|        >>> q = Permutation([3, 1, 2, 4, 0])
+2529|        >>> p.get_precedence_distance(q)
+2530|        7
+2531|        >>> q.get_precedence_distance(p)
+2532|        7
+2533|
+2534|        See Also
+2535|        ========
+2536|
+2537|        get_precedence_matrix, get_adjacency_matrix, get_adjacency_distance
+2538|        """
+2539|        if self.size != other.size:
+2540|            raise ValueError("The permutations must be of equal size.")
+2541|        self_prec_mat = self.get_precedence_matrix()
+2542|        other_prec_mat = other.get_precedence_matrix()
+2543|        n_prec = 0
+2544|        for i in range(self.size):
+2545|            for j in range(self.size):
+2546|                if i == j:
+2547|                    continue
+2548|                if self_prec_mat[i, j] * other_prec_mat[i, j] == 1:
+2549|                    n_prec += 1
+2550|        d = self.size * (self.size - 1)//2 - n_prec
+2551|        return d
+2552|
+2553|    def get_adjacency_matrix(self):
+2554|        """
+2555|        Computes the adjacency matrix of a permutation.
+2556|
+2557|        If job i is adjacent to job j in a permutation p
+2558|        then we set m[i, j] = 1 where m is the adjacency
+2559|        matrix of p.
+2560|
+2561|        Examples
+2562|        ========
+2563|
+2564|        >>> from sympy.combinatorics.permutations import Permutation
+2565|        >>> p = Permutation.josephus(3, 6, 1)
+2566|        >>> p.get_adjacency_matrix()
+2567|        Matrix([
+2568|        [0, 0, 0, 0, 0, 0],
+2569|        [0, 0, 0, 0, 1, 0],
+2570|        [0, 0, 0, 0, 0, 1],
+2571|        [0, 1, 0, 0, 0, 0],
+2572|        [1, 0, 0, 0, 0, 0],
+2573|        [0, 0, 0, 1, 0, 0]])
+2574|        >>> q = Permutation([0, 1, 2, 3])
+2575|        >>> q.get_adjacency_matrix()
+2576|        Matrix([
+2577|        [0, 1, 0, 0],
+2578|        [0, 0, 1, 0],
+2579|        [0, 0, 0, 1],
+2580|        [0, 0, 0, 0]])
+2581|
+2582|        See Also
+2583|        ========
+2584|
+2585|        get_precedence_matrix, get_precedence_distance, get_adjacency_distance
+2586|        """
+2587|        m = zeros(self.size)
+2588|        perm = self.array_form
+2589|        for i in range(self.size - 1):
+2590|            m[perm[i], perm[i + 1]] = 1
+2591|        return m
+2592|
+2593|    def get_adjacency_distance(self, other):
+2594|        """
+2595|        Computes the adjacency distance between two permutations.
+2596|
+2597|        This metric counts the number of times a pair i,j of jobs is
+2598|        adjacent in both p and p'. If n_adj is this quantity then
+2599|        the adjacency distance is n - n_adj - 1 [1]
+2600|
+2601|        [1] Reeves, Colin R. Landscapes, Operators and Heuristic search, Annals
+2602|        of Operational Research, 86, pp 473-490. (1999)
+2603|
+2604|
+2605|        Examples
+2606|        ========
+2607|
+2608|        >>> from sympy.combinatorics.permutations import Permutation
+2609|        >>> p = Permutation([0, 3, 1, 2, 4])
+2610|        >>> q = Permutation.josephus(4, 5, 2)
+2611|        >>> p.get_adjacency_distance(q)
+2612|        3
+2613|        >>> r = Permutation([0, 2, 1, 4, 3])
+2614|        >>> p.get_adjacency_distance(r)
+2615|        4
+2616|
+2617|        See Also
+2618|        ========
+2619|
+2620|        get_precedence_matrix, get_precedence_distance, get_adjacency_matrix
+2621|        """
+2622|        if self.size != other.size:
+2623|            raise ValueError("The permutations must be of the same size.")
+2624|        self_adj_mat = self.get_adjacency_matrix()
+2625|        other_adj_mat = other.get_adjacency_matrix()
+2626|        n_adj = 0
+2627|        for i in range(self.size):
+2628|            for j in range(self.size):
+2629|                if i == j:
+2630|                    continue
+2631|                if self_adj_mat[i, j] * other_adj_mat[i, j] == 1:
+2632|                    n_adj += 1
+2633|        d = self.size - n_adj - 1
+2634|        return d
+2635|
+2636|    def get_positional_distance(self, other):
+2637|        """
+2638|        Computes the positional distance between two permutations.
+2639|
+2640|        Examples
+2641|        ========
+2642|
+2643|        >>> from sympy.combinatorics.permutations import Permutation
+2644|        >>> p = Permutation([0, 3, 1, 2, 4])
+2645|        >>> q = Permutation.josephus(4, 5, 2)
+2646|        >>> r = Permutation([3, 1, 4, 0, 2])
+2647|        >>> p.get_positional_distance(q)
+2648|        12
+2649|        >>> p.get_positional_distance(r)
+2650|        12
+2651|
+2652|        See Also
+2653|        ========
+2654|
+2655|        get_precedence_distance, get_adjacency_distance
+2656|        """
+2657|        a = self.array_form
+2658|        b = other.array_form
+2659|        if len(a) != len(b):
+2660|            raise ValueError("The permutations must be of the same size.")
+2661|        return sum([abs(a[i] - b[i]) for i in range(len(a))])
+2662|
+2663|    @classmethod
+2664|    def josephus(self, m, n, s=1):
+2665|        """Return as a permutation the shuffling of range(n) using the Josephus
+2666|        scheme in which every m-th item is selected until all have been chosen.
+2667|        The returned permutation has elements listed by the order in which they
+2668|        were selected.
+2669|
+2670|        The parameter ``s`` stops the selection process when there are ``s``
+2671|        items remaining and these are selected by continuing the selection,
+2672|        counting by 1 rather than by ``m``.
+2673|
+2674|        Consider selecting every 3rd item from 6 until only 2 remain::
+2675|
+2676|            choices    chosen
+2677|            ========   ======
+2678|              012345
+2679|              01 345   2
+2680|              01 34    25
+2681|              01  4    253
+2682|              0   4    2531
+2683|              0        25314
+2684|                       253140
+2685|
+2686|        Examples
+2687|        ========
+2688|
+2689|        >>> from sympy.combinatorics import Permutation
+2690|        >>> Permutation.josephus(3, 6, 2).array_form
+2691|        [2, 5, 3, 1, 4, 0]
+2692|
+2693|        References
+2694|        ==========
+2695|
+2696|        1. http://en.wikipedia.org/wiki/Flavius_Josephus
+2697|        2. http://en.wikipedia.org/wiki/Josephus_problem
+2698|        3. http://www.wou.edu/~burtonl/josephus.html
+2699|
+2700|        """
+2701|        from collections import deque
+2702|        m -= 1
+2703|        Q = deque(list(range(n)))
+2704|        perm = []
+2705|        while len(Q) > max(s, 1):
+2706|            for dp in range(m):
+2707|                Q.append(Q.popleft())
+2708|            perm.append(Q.popleft())
+2709|        perm.extend(list(Q))
+2710|        return Perm(perm)
+2711|
+2712|    @classmethod
+2713|    def from_inversion_vector(self, inversion):
+2714|        """
+2715|        Calculates the permutation from the inversion vector.
+2716|
+2717|        Examples
+2718|        ========
+2719|
+2720|        >>> from sympy.combinatorics.permutations import Permutation
+2721|        >>> Permutation.print_cyclic = False
+2722|        >>> Permutation.from_inversion_vector([3, 2, 1, 0, 0])
+2723|        Permutation([3, 2, 1, 0, 4, 5])
+2724|
+2725|        """
+2726|        size = len(inversion)
+2727|        N = list(range(size + 1))
+2728|        perm = []
+2729|        try:
+2730|            for k in range(size):
+2731|                val = N[inversion[k]]
+2732|                perm.append(val)
+2733|                N.remove(val)
+2734|        except IndexError:
+2735|            raise ValueError("The inversion vector is not valid.")
+2736|        perm.extend(N)
+2737|        return _af_new(perm)
+2738|
+2739|    @classmethod
+2740|    def random(self, n):
+2741|        """
+2742|        Generates a random permutation of length ``n``.
+2743|
+2744|        Uses the underlying Python pseudo-random number generator.
+2745|
+2746|        Examples
+2747|        ========
+2748|
+2749|        >>> from sympy.combinatorics.permutations import Permutation
+2750|        >>> Permutation.random(2) in (Permutation([1, 0]), Permutation([0, 1]))
+2751|        True
+2752|
+2753|        """
+2754|        perm_array = list(range(n))
+2755|        random.shuffle(perm_array)
+2756|        return _af_new(perm_array)
+2757|
+2758|    @classmethod
+2759|    def unrank_lex(self, size, rank):
+2760|        """
+2761|        Lexicographic permutation unranking.
+2762|
+2763|        Examples
+2764|        ========
+2765|
+2766|        >>> from sympy.combinatorics.permutations import Permutation
+2767|        >>> Permutation.print_cyclic = False
+2768|        >>> a = Permutation.unrank_lex(5, 10)
+2769|        >>> a.rank()
+2770|        10
+2771|        >>> a
+2772|        Permutation([0, 2, 4, 1, 3])
+2773|
+2774|        See Also
+2775|        ========
+2776|
+2777|        rank, next_lex
+2778|        """
+2779|        perm_array = [0] * size
+2780|        psize = 1
+2781|        for i in range(size):
+2782|            new_psize = psize*(i + 1)
+2783|            d = (rank % new_psize) // psize
+2784|            rank -= d*psize
+2785|            perm_array[size - i - 1] = d
+2786|            for j in range(size - i, size):
+2787|                if perm_array[j] > d - 1:
+2788|                    perm_array[j] += 1
+2789|            psize = new_psize
+2790|        return _af_new(perm_array)
+2791|
+2792|    # global flag to control how permutations are printed
+2793|    # when True, Permutation([0, 2, 1, 3]) -> Cycle(1, 2)
+2794|    # when False, Permutation([0, 2, 1, 3]) -> Permutation([0, 2, 1])
+2795|    print_cyclic = True
+2796|
+2797|
+2798|def _merge(arr, temp, left, mid, right):
+2799|    """
+2800|    Merges two sorted arrays and calculates the inversion count.
+2801|
+2802|    Helper function for calculating inversions. This method is
+2803|    for internal use only.
+2804|    """
+2805|    i = k = left
+...
+2820|        k += 1
+2821|        i += 1
+2822|    if j <= right:
+2823|        k += right - j + 1
+2824|        j += right - j + 1
+2825|        arr[left:k + 1] = temp[left:k + 1]
+2826|    else:
+2827|        arr[left:right + 1] = temp[left:right + 1]
+2828|    return inv_count
+2829|
+2830|Perm = Permutation
+2831|_af_new = Perm._af_new
+
+
+
+
+###
+
+Please provide the class name, function or method name, or the exact line numbers that need to be edited.
+### Examples:
+```
+full_path1/file1.py
+line: 10
+class: MyClass1
+line: 51
+
+full_path2/file2.py
+function: MyClass2.my_method
+line: 12
+
+full_path3/file3.py
+function: my_function
+line: 24
+line: 156
+```
+
+Return just the location(s)
+
+2024-08-21 22:06:59,449 - INFO - ================================================================================
+2024-08-21 22:07:03,022 - INFO - ==== raw output ====
+2024-08-21 22:07:03,022 - INFO - ```
+sympy/combinatorics/permutations.py
+line: 801
+line: 922
+line: 947
+class: Permutation
+function: _af_new
+```
+2024-08-21 22:07:03,022 - INFO - ================================================================================
+2024-08-21 22:07:03,022 - INFO - ==== extracted locs ====
+2024-08-21 22:07:03,022 - INFO - ['line: 801\nline: 922\nline: 947\nclass: Permutation\nfunction: _af_new']
+2024-08-21 22:07:03,022 - INFO - ['']
+2024-08-21 22:07:03,023 - INFO - ['']
+2024-08-21 22:07:03,023 - INFO - ================================================================================
+2024-08-21 22:07:03,023 - INFO - ==== Input coarse_locs
+2024-08-21 22:07:03,023 - INFO - 
+### sympy/combinatorics/permutations.py
+function: _af_new
+class: Permutation
+function: Permutation.__new__
+variable: Perm
+### sympy/core/basic.py
+
+### sympy/core/function.py
+
+

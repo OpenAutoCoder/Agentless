@@ -1,0 +1,3203 @@
+2024-08-21 14:34:28,907 - INFO - Processing bug matplotlib__matplotlib-23476
+2024-08-21 14:34:29,001 - INFO - ================ localize matplotlib__matplotlib-23476 ================
+2024-08-21 14:34:29,007 - INFO - prompting with message:
+Please look through the following GitHub problem description and Repository structure and provide a list of files that one would need to edit to fix the problem.
+
+### GitHub Problem Description ###
+[Bug]: DPI of a figure is doubled after unpickling on M1 Mac
+### Bug summary
+
+When a figure is unpickled, it's dpi is doubled. This behaviour happens every time and if done in a loop it can cause an `OverflowError`.
+
+### Code for reproduction
+
+```python
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import pickle
+import platform
+
+print(matplotlib.get_backend())
+print('Matplotlib ver:', matplotlib.__version__)
+print('Platform:', platform.platform())
+print('System:', platform.system())
+print('Release:', platform.release())
+print('Python ver:', platform.python_version())
+
+
+def dump_load_get_dpi(fig):
+    with open('sinus.pickle','wb') as file:
+        pickle.dump(fig, file)
+
+    with open('sinus.pickle', 'rb') as blob:
+        fig2 = pickle.load(blob)
+    return fig2, fig2.dpi
+
+
+def run():
+    fig = plt.figure()
+    x = np.linspace(0,2*np.pi)
+    y = np.sin(x)
+
+    for i in range(32):
+        print(f'{i}: {fig.dpi}')
+        fig, dpi = dump_load_get_dpi(fig)
+
+
+if __name__ == '__main__':
+    run()
+```
+
+
+### Actual outcome
+
+```
+MacOSX
+Matplotlib ver: 3.5.2
+Platform: macOS-12.4-arm64-arm-64bit
+System: Darwin
+Release: 21.5.0
+Python ver: 3.9.12
+0: 200.0
+1: 400.0
+2: 800.0
+3: 1600.0
+4: 3200.0
+5: 6400.0
+6: 12800.0
+7: 25600.0
+8: 51200.0
+9: 102400.0
+10: 204800.0
+11: 409600.0
+12: 819200.0
+13: 1638400.0
+14: 3276800.0
+15: 6553600.0
+16: 13107200.0
+17: 26214400.0
+18: 52428800.0
+19: 104857600.0
+20: 209715200.0
+21: 419430400.0
+Traceback (most recent call last):
+  File "/Users/wsykala/projects/matplotlib/example.py", line 34, in <module>
+    run()
+  File "/Users/wsykala/projects/matplotlib/example.py", line 30, in run
+    fig, dpi = dump_load_get_dpi(fig)
+  File "/Users/wsykala/projects/matplotlib/example.py", line 20, in dump_load_get_dpi
+    fig2 = pickle.load(blob)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/figure.py", line 2911, in __setstate__
+    mgr = plt._backend_mod.new_figure_manager_given_figure(num, self)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/backend_bases.py", line 3499, in new_figure_manager_given_figure
+    canvas = cls.FigureCanvas(figure)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/backends/backend_macosx.py", line 32, in __init__
+    _macosx.FigureCanvas.__init__(self, width, height)
+OverflowError: signed integer is greater than maximum
+```
+
+### Expected outcome
+
+```
+MacOSX
+Matplotlib ver: 3.5.2
+Platform: macOS-12.4-arm64-arm-64bit
+System: Darwin
+Release: 21.5.0
+Python ver: 3.9.12
+0: 200.0
+1: 200.0
+2: 200.0
+3: 200.0
+4: 200.0
+5: 200.0
+6: 200.0
+7: 200.0
+8: 200.0
+9: 200.0
+10: 200.0
+11: 200.0
+12: 200.0
+13: 200.0
+14: 200.0
+15: 200.0
+16: 200.0
+17: 200.0
+18: 200.0
+19: 200.0
+20: 200.0
+21: 200.0
+22: 200.0
+```
+
+### Additional information
+
+This seems to happen only on M1 MacBooks and the version of python doesn't matter.
+
+### Operating system
+
+OS/X
+
+### Matplotlib Version
+
+3.5.2
+
+### Matplotlib Backend
+
+MacOSX
+
+### Python version
+
+3.9.12
+
+### Jupyter version
+
+_No response_
+
+### Installation
+
+pip
+
+
+###
+
+### Repository Structure ###
+matplotlib/
+    setupext.py
+    setup.py
+tools/
+    gh_api.py
+    boilerplate.py
+    cache_zenodo_svg.py
+    github_stats.py
+    embed_js.py
+    triage_tests.py
+    run_examples.py
+    subset.py
+    visualize_tests.py
+    memleak.py
+    make_icons.py
+ci/
+    check_wheel_licenses.py
+examples/
+    statistics/
+        boxplot_vs_violin.py
+        confidence_ellipse.py
+        hist.py
+        boxplot.py
+        histogram_histtypes.py
+        customized_violin.py
+        histogram_features.py
+        histogram_multihist.py
+        boxplot_demo.py
+        barchart_demo.py
+        bxp.py
+        errorbar_limits.py
+        multiple_histograms_side_by_side.py
+        errorbars_and_boxes.py
+        histogram_cumulative.py
+        errorbar_features.py
+        boxplot_color.py
+        errorbar.py
+        hexbin_demo.py
+        time_series_histogram.py
+        violinplot.py
+    pie_and_polar_charts/
+        polar_demo.py
+        pie_and_donut_labels.py
+        pie_demo2.py
+        nested_pie.py
+        polar_bar.py
+        pie_features.py
+        bar_of_pie.py
+        polar_legend.py
+        polar_scatter.py
+    misc/
+        contour_manual.py
+        svg_filter_pie.py
+        set_and_get.py
+        anchored_artists.py
+        print_stdout_sgskip.py
+        transoffset.py
+        pythonic_matplotlib.py
+        packed_bubbles.py
+        rasterization_demo.py
+        demo_agg_filter.py
+        keyword_plotting.py
+        patheffect_demo.py
+        hyperlinks_sgskip.py
+        tickedstroke_demo.py
+        bbox_intersect.py
+        ftface_props.py
+        logos2.py
+        table_demo.py
+        fill_spiral.py
+        svg_filter_line.py
+        histogram_path.py
+        customize_rc.py
+        findobj_demo.py
+        zorder_demo.py
+        font_indexing.py
+        multipage_pdf.py
+        multiprocess_sgskip.py
+        demo_ribbon_box.py
+        coords_report.py
+        custom_projection.py
+        image_thumbnail_sgskip.py
+    axes_grid1/
+        simple_axes_divider3.py
+        demo_axes_grid.py
+        simple_colorbar.py
+        simple_anchored_artists.py
+        demo_imagegrid_aspect.py
+        demo_anchored_direction_arrows.py
+        demo_colorbar_with_axes_divider.py
+        inset_locator_demo.py
+        parasite_simple2.py
+        demo_axes_divider.py
+        demo_fixed_size_axes.py
+        simple_axesgrid.py
+        parasite_simple.py
+        scatter_hist_locatable_axes.py
+        demo_axes_rgb.py
+        make_room_for_ylabel_using_axesgrid.py
+        demo_edge_colorbar.py
+        demo_colorbar_of_inset_axes.py
+        demo_axes_hbox_divider.py
+        inset_locator_demo2.py
+        simple_axes_divider1.py
+        demo_axes_grid2.py
+        simple_axisline4.py
+        demo_colorbar_with_inset_locator.py
+        simple_axesgrid2.py
+    ticks/
+        date_demo_convert.py
+        scalarformatter.py
+        ticks_too_many.py
+        tick_label_right.py
+        date_concise_formatter.py
+        centered_ticklabels.py
+        custom_ticker1.py
+        date_formatters_locators.py
+        tick_labels_from_values.py
+        tick-locators.py
+        tick-formatters.py
+        date_index_formatter.py
+        ticklabels_rotation.py
+        auto_ticks.py
+        major_minor_demo.py
+        date_precision_and_epochs.py
+        colorbar_tick_labelling_demo.py
+        tick_xlabel_top.py
+        date_demo_rrule.py
+    userdemo/
+        simple_legend01.py
+        demo_gridspec03.py
+        demo_gridspec06.py
+        connectionstyle_demo.py
+        annotate_simple02.py
+        annotate_simple03.py
+        pgf_preamble_sgskip.py
+        annotate_simple_coord01.py
+        simple_annotate01.py
+        annotate_simple_coord02.py
+        connect_simple01.py
+        annotate_explain.py
+        annotate_simple04.py
+        custom_boxstyle01.py
+        annotate_simple01.py
+        pgf_fonts.py
+        annotate_simple_coord03.py
+        demo_gridspec01.py
+        annotate_text_arrow.py
+        pgf_texsystem.py
+        anchored_box04.py
+        simple_legend02.py
+    images_contours_and_fields/
+        image_nonuniform.py
+        demo_bboximage.py
+        image_zcoord.py
+        spy_demos.py
+        layer_images.py
+        multi_image.py
+        triinterp_demo.py
+        irregulardatagrid.py
+        contour_image.py
+        image_demo.py
+        image_antialiasing.py
+        barb_demo.py
+        colormap_normalizations.py
+        matshow.py
+        quadmesh_demo.py
+        contours_in_optimization_demo.py
+        figimage_demo.py
+        triplot_demo.py
+        image_transparency_blend.py
+        tricontour_demo.py
+        interpolation_methods.py
+        contourf_log.py
+        barcode_demo.py
+        pcolormesh_levels.py
+        watermark_image.py
+        contour_corner_mask.py
+        pcolor_demo.py
+        specgram_demo.py
+        image_clip_path.py
+        plot_streamplot.py
+        colormap_normalizations_symlognorm.py
+        image_masked.py
+        contour_demo.py
+        image_annotated_heatmap.py
+        contour_label_demo.py
+        tricontour_smooth_delaunay.py
+        tripcolor_demo.py
+        colormap_interactive_adjustment.py
+        affine_image.py
+        trigradient_demo.py
+        shading_example.py
+        pcolormesh_grids.py
+        contourf_demo.py
+        contourf_hatching.py
+        quiver_demo.py
+        quiver_simple_demo.py
+        tricontour_smooth_user.py
+    pyplots/
+        text_layout.py
+        pyplot_simple.py
+        fig_axes_labels_simple.py
+        pyplot_formatstr.py
+        annotate_transform.py
+        annotation_basic.py
+        fig_axes_customize_simple.py
+        pyplot_two_subplots.py
+        dollar_ticks.py
+        pyplot_three.py
+        boxplot_demo_pyplot.py
+        fig_x.py
+        align_ylabels.py
+        annotation_polar.py
+        pyplot_text.py
+        pyplot_mathtext.py
+        auto_subplots_adjust.py
+        axline.py
+        text_commands.py
+    color/
+        custom_cmap.py
+        colorbar_basics.py
+        color_cycle_default.py
+        named_colors.py
+        color_demo.py
+        color_by_yvalue.py
+        colormap_reference.py
+    user_interfaces/
+        toolmanager_sgskip.py
+        embedding_webagg_sgskip.py
+        embedding_in_wx3_sgskip.py
+        pylab_with_gtk3_sgskip.py
+        canvasagg.py
+        embedding_in_gtk3_panzoom_sgskip.py
+        web_application_server_sgskip.py
+        embedding_in_wx5_sgskip.py
+        pylab_with_gtk4_sgskip.py
+        gtk4_spreadsheet_sgskip.py
+        embedding_in_wx2_sgskip.py
+        embedding_in_gtk4_panzoom_sgskip.py
+        embedding_in_wx4_sgskip.py
+        mathtext_wx_sgskip.py
+        embedding_in_tk_sgskip.py
+        mpl_with_glade3_sgskip.py
+        embedding_in_gtk4_sgskip.py
+        gtk3_spreadsheet_sgskip.py
+        svg_histogram_sgskip.py
+        embedding_in_qt_sgskip.py
+        embedding_in_gtk3_sgskip.py
+        svg_tooltip_sgskip.py
+        fourier_demo_wx_sgskip.py
+        wxcursor_demo_sgskip.py
+    animation/
+        frame_grabbing_sgskip.py
+        pause_resume.py
+        animate_decay.py
+        dynamic_image.py
+        bayes_update.py
+        strip_chart.py
+        animation_demo.py
+        unchained.py
+        random_walk.py
+        animated_histogram.py
+        simple_anim.py
+        rain.py
+        double_pendulum.py
+    specialty_plots/
+        advanced_hillshading.py
+        topographic_hillshading.py
+        sankey_links.py
+        sankey_rankine.py
+        anscombe.py
+        hinton_demo.py
+        leftventricle_bulleye.py
+        mri_demo.py
+        radar_chart.py
+        sankey_basics.py
+        skewt.py
+        mri_with_eeg.py
+    mplot3d/
+        box3d.py
+        pathpatch3d.py
+        tricontour3d.py
+        surface3d.py
+        voxels_numpy_logo.py
+        2dcollections3d.py
+        contour3d.py
+        tricontourf3d.py
+        stem3d_demo.py
+        wire3d_animation_sgskip.py
+        voxels_rgb.py
+        bars3d.py
+        contourf3d.py
+        surface3d_2.py
+        hist3d.py
+        subplot3d.py
+        surface3d_radial.py
+        voxels_torus.py
+        mixed_subplots.py
+        scatter3d.py
+        offset.py
+        surface3d_3.py
+        custom_shaded_3d_surface.py
+        contourf3d_2.py
+        rotate_axes3d_sgskip.py
+        lines3d.py
+        3d_bars.py
+        lorenz_attractor.py
+        errorbar3d.py
+        trisurf3d_2.py
+        wire3d_zero_stride.py
+        voxels.py
+        text3d.py
+        projections.py
+        trisurf3d.py
+        wire3d.py
+        contour3d_3.py
+        quiver3d.py
+        contour3d_2.py
+        polys3d.py
+    scales/
+        asinh_demo.py
+        semilogx_demo.py
+        custom_scale.py
+        symlog_demo.py
+        scales.py
+        logit_demo.py
+        log_bar.py
+        power_norm.py
+        log_demo.py
+        aspect_loglog.py
+    units/
+        artist_tests.py
+        bar_unit_demo.py
+        radian_demo.py
+        units_scatter.py
+        ellipse_with_units.py
+        units_sample.py
+        evans_test.py
+        annotate_with_units.py
+        bar_demo2.py
+        basic_units.py
+    style_sheets/
+        grayscale.py
+        dark_background.py
+        bmh.py
+        fivethirtyeight.py
+        plot_solarizedlight2.py
+        ggplot.py
+        style_sheets_reference.py
+    event_handling/
+        looking_glass.py
+        pick_event_demo2.py
+        trifinder_event_demo.py
+        resample.py
+        pong_sgskip.py
+        poly_editor.py
+        cursor_demo.py
+        image_slices_viewer.py
+        ginput_manual_clabel_sgskip.py
+        zoom_window.py
+        pick_event_demo.py
+        legend_picking.py
+        keypress_demo.py
+        viewlims.py
+        data_browser.py
+        lasso_demo.py
+        path_editor.py
+        timers.py
+        coords_demo.py
+        close_event.py
+        figure_axes_enter_leave.py
+    spines/
+        multiple_yaxis_with_spines.py
+        spines_dropped.py
+        centered_spines_with_arrows.py
+        spines.py
+        spine_placement_demo.py
+        spines_bounds.py
+    shapes_and_collections/
+        fancybox_demo.py
+        donut.py
+        dolphin.py
+        patch_collection.py
+        hatch_demo.py
+        quad_bezier.py
+        hatch_style_reference.py
+        ellipse_collection.py
+        compound_path.py
+        path_patch.py
+        collections.py
+        scatter.py
+        arrow_guide.py
+        ellipse_demo.py
+        line_collection.py
+        artist_reference.py
+    text_labels_and_annotations/
+        text_fontdict.py
+        unicode_minus.py
+        text_rotation_relative_to_line.py
+        rainbow_text.py
+        placing_text_boxes.py
+        usetex_baseline_test.py
+        text_alignment.py
+        usetex_fonteffects.py
+        figlegend_demo.py
+        arrow_demo.py
+        mathtext_fontfamily_example.py
+        titles_demo.py
+        angle_annotation.py
+        mathtext_asarray.py
+        label_subplots.py
+        fonts_demo_kw.py
+        engineering_formatter.py
+        fancytextbox_demo.py
+        fancyarrow_demo.py
+        font_table.py
+        mathtext_demo.py
+        legend.py
+        demo_text_rotation_mode.py
+        line_with_text.py
+        mathtext_examples.py
+        font_family_rc.py
+        stix_fonts_demo.py
+        annotation_demo.py
+        dfrac_demo.py
+        multiline.py
+        custom_legends.py
+        tex_demo.py
+        demo_annotation_box.py
+        autowrap.py
+        fonts_demo.py
+        text_rotation.py
+        legend_demo.py
+        accented_text.py
+        demo_text_path.py
+        date.py
+        watermark_text.py
+        font_file.py
+    showcase/
+        firefox.py
+        integral.py
+        anatomy.py
+        mandelbrot.py
+        xkcd.py
+        stock_prices.py
+    axisartist/
+        demo_parasite_axes2.py
+        demo_floating_axis.py
+        simple_axisline3.py
+        demo_curvelinear_grid2.py
+        demo_parasite_axes.py
+        simple_axis_pad.py
+        simple_axisline.py
+        demo_axisline_style.py
+        simple_axis_direction03.py
+        demo_ticklabel_direction.py
+        simple_axis_direction01.py
+        simple_axisartist1.py
+        demo_ticklabel_alignment.py
+        demo_axis_direction.py
+        axis_direction.py
+        demo_floating_axes.py
+        demo_curvelinear_grid.py
+    lines_bars_and_markers/
+        curve_error_band.py
+        eventcollection_demo.py
+        multicolored_line.py
+        scatter_with_legend.py
+        linestyles.py
+        line_demo_dash_control.py
+        timeline.py
+        vline_hline_demo.py
+        categorical_variables.py
+        eventplot_demo.py
+        fill.py
+        span_regions.py
+        bar_stacked.py
+        gradient_bar.py
+        xcorr_acorr_demo.py
+        fill_betweenx_demo.py
+        scatter_custom_symbol.py
+        markevery_demo.py
+        barh.py
+        stairs_demo.py
+        step_demo.py
+        horizontal_barchart_distribution.py
+        scatter_star_poly.py
+        stackplot_demo.py
+        hat_graph.py
+        spectrum_demo.py
+        csd_demo.py
+        barchart.py
+        fill_between_alpha.py
+        scatter_masked.py
+        scatter_hist.py
+        filled_step.py
+        stem_plot.py
+        psd_demo.py
+        joinstyle.py
+        masked_demo.py
+        lines_with_ticks_demo.py
+        bar_label_demo.py
+        fill_between_demo.py
+        marker_reference.py
+        errorbar_limits_simple.py
+        cohere.py
+        simple_plot.py
+        capstyle.py
+        scatter_demo2.py
+        errorbar_subsample.py
+        multivariate_marker_plot.py
+        broken_barh.py
+    widgets/
+        lasso_selector_demo_sgskip.py
+        radio_buttons.py
+        check_buttons.py
+        slider_demo.py
+        span_selector.py
+        multicursor.py
+        annotated_cursor.py
+        rectangle_selector.py
+        menu.py
+        textbox.py
+        slider_snap_demo.py
+        mouse_cursor.py
+        buttons.py
+        range_slider.py
+        polygon_selector_demo.py
+        cursor.py
+        polygon_selector_simple.py
+    subplots_axes_and_figures/
+        subplots_demo.py
+        gridspec_nested.py
+        ganged_plots.py
+        shared_axis_demo.py
+        figure_title.py
+        axis_equal_demo.py
+        axes_margins.py
+        multiple_figs_demo.py
+        secondary_axis.py
+        subfigures.py
+        subplot.py
+        share_axis_lims_views.py
+        axes_props.py
+        demo_constrained_layout.py
+        colorbar_placement.py
+        axes_zoom_effect.py
+        figure_size_units.py
+        custom_figure_class.py
+        axhspan_demo.py
+        gridspec_multicolumn.py
+        subplots_adjust.py
+        broken_axis.py
+        align_labels_demo.py
+        gridspec_and_subplots.py
+        demo_tight_layout.py
+        geo_demo.py
+        axis_labels_demo.py
+        axes_demo.py
+        two_scales.py
+        axes_box_aspect.py
+        fahrenheit_celsius_scales.py
+        zoom_inset_axes.py
+        invert_axes.py
+plot_types/
+    basic/
+        plot.py
+        fill_between.py
+        step.py
+        scatter_plot.py
+        stackplot.py
+        stem.py
+        bar.py
+    arrays/
+        quiver.py
+        imshow.py
+        pcolormesh.py
+        contourf.py
+        barbs.py
+        contour.py
+        streamplot.py
+    unstructured/
+        tricontourf.py
+        tripcolor.py
+        triplot.py
+        tricontour.py
+    stats/
+        hist_plot.py
+        hist2d.py
+        pie.py
+        hexbin.py
+        boxplot_plot.py
+        violin.py
+        errorbar_plot.py
+        eventplot.py
+lib/
+    pylab.py
+    mpl_toolkits/
+        __init__.py
+        axes_grid1/
+            inset_locator.py
+            axes_grid.py
+            parasite_axes.py
+            anchored_artists.py
+            __init__.py
+            axes_size.py
+            mpl_axes.py
+            axes_rgb.py
+            axes_divider.py
+        mplot3d/
+            proj3d.py
+            __init__.py
+            axes3d.py
+            axis3d.py
+            art3d.py
+        axisartist/
+            axislines.py
+            axes_grid.py
+            grid_finder.py
+            parasite_axes.py
+            axis_artist.py
+            axisline_style.py
+            __init__.py
+            angle_helper.py
+            grid_helper_curvelinear.py
+            clip_path.py
+            floating_axes.py
+            axes_rgb.py
+            axes_divider.py
+    matplotlib/
+        _tight_layout.py
+        hatch.py
+        transforms.py
+        legend_handler.py
+        axis.py
+        _tight_bbox.py
+        textpath.py
+        quiver.py
+        backend_bases.py
+        units.py
+        pylab.py
+        colorbar.py
+        _cm.py
+        backend_managers.py
+        mathtext.py
+        _fontconfig_pattern.py
+        font_manager.py
+        bezier.py
+        _afm.py
+        cm.py
+        legend.py
+        figure.py
+        __init__.py
+        _mathtext.py
+        _enums.py
+        offsetbox.py
+        tight_bbox.py
+        container.py
+        gridspec.py
+        lines.py
+        widgets.py
+        blocking_input.py
+        dviread.py
+        animation.py
+        type1font.py
+        _mathtext_data.py
+        artist.py
+        backend_tools.py
+        docstring.py
+        _internal_utils.py
+        _color_data.py
+        texmanager.py
+        afm.py
+        patches.py
+        stackplot.py
+        collections.py
+        spines.py
+        _text_helpers.py
+        text.py
+        markers.py
+        mlab.py
+        layout_engine.py
+        _blocking_input.py
+        fontconfig_pattern.py
+        _pylab_helpers.py
+        tight_layout.py
+        _cm_listed.py
+        dates.py
+        table.py
+        _animation_data.py
+        pyplot.py
+        _type1font.py
+        rcsetup.py
+        ticker.py
+        _docstring.py
+        path.py
+        _layoutgrid.py
+        contour.py
+        image.py
+        scale.py
+        category.py
+        _constrained_layout.py
+        sankey.py
+        patheffects.py
+        streamplot.py
+        colors.py
+        tri/
+            trirefine.py
+            tripcolor.py
+            trifinder.py
+            __init__.py
+            triplot.py
+            tritools.py
+            tricontour.py
+            triangulation.py
+            triinterpolate.py
+        axes/
+            _axes.py
+            _base.py
+            _subplots.py
+            __init__.py
+            _secondary_axes.py
+        sphinxext/
+            __init__.py
+            mathmpl.py
+            plot_directive.py
+        cbook/
+            __init__.py
+        backends/
+            _backend_gtk.py
+            backend_template.py
+            backend_qtcairo.py
+            backend_qt.py
+            backend_gtk3cairo.py
+            backend_tkagg.py
+            backend_gtk4agg.py
+            backend_qt5agg.py
+            backend_qt5.py
+            backend_gtk3agg.py
+            backend_cairo.py
+            backend_pdf.py
+            backend_wxagg.py
+            backend_pgf.py
+            backend_mixed.py
+            backend_macosx.py
+            backend_gtk4.py
+            __init__.py
+            backend_tkcairo.py
+            backend_gtk3.py
+            backend_wxcairo.py
+            backend_nbagg.py
+            backend_webagg_core.py
+            backend_gtk4cairo.py
+            backend_wx.py
+            backend_qt5cairo.py
+            _backend_tk.py
+            qt_compat.py
+            backend_svg.py
+            _backend_pdf_ps.py
+            backend_webagg.py
+            backend_ps.py
+            backend_qtagg.py
+            backend_agg.py
+            qt_editor/
+                _formlayout.py
+                __init__.py
+                figureoptions.py
+        _api/
+            deprecation.py
+            __init__.py
+        style/
+            __init__.py
+            core.py
+        projections/
+            geo.py
+            polar.py
+            __init__.py
+tutorials/
+    advanced/
+        transforms_tutorial.py
+        path_tutorial.py
+        patheffects_guide.py
+        blitting.py
+    toolkits/
+        axisartist.py
+        axes_grid.py
+        mplot3d.py
+    provisional/
+        mosaic.py
+    colors/
+        colorbar_only.py
+        colormaps.py
+        colormapnorms.py
+        colormap-manipulation.py
+        colors.py
+    text/
+        text_intro.py
+        mathtext.py
+        text_props.py
+        pgf.py
+        annotations.py
+        usetex.py
+    intermediate/
+        constrainedlayout_guide.py
+        color_cycle.py
+        arranging_axes.py
+        tight_layout_guide.py
+        legend_guide.py
+        imshow_extent.py
+        artists.py
+        autoscale.py
+    introductory/
+        quick_start.py
+        customizing.py
+        lifecycle.py
+        images.py
+        pyplot.py
+doc/
+    conf.py
+    sphinxext/
+        missing_references.py
+        math_symbol_table.py
+        __init__.py
+        mock_gui_toolkits.py
+        gallery_order.py
+        redirect_from.py
+        skip_deprecated.py
+        github.py
+        custom_roles.py
+    users/
+        generate_credits.py
+
+###
+
+Please only provide the full path and return at most 5 files.
+The returned files should be separated by new lines ordered by most to least important and wrapped with ```
+For example:
+```
+file1.py
+file2.py
+```
+2024-08-21 14:34:29,008 - INFO - ================================================================================
+2024-08-21 14:34:31,742 - INFO - ```
+lib/matplotlib/backends/backend_macosx.py
+lib/matplotlib/_tight_layout.py
+lib/matplotlib/figure.py
+lib/matplotlib/backend_bases.py
+lib/matplotlib/pyplot.py
+```
+2024-08-21 14:34:32,534 - INFO - Creating API request
+2024-08-21 14:34:50,082 - INFO - API response Message(id='msg_01HWq2ssdjLS1speTcVS1MtG', content=[TextBlock(text="Thank you for providing the problem description and selected file contents. Here's my critique of the file selection:\n\n1. Relevance:\n   The selected files are generally relevant to the described problem, but not all of them are directly related to the core issue.\n\n   - lib/matplotlib/backends/backend_macosx.py: This file is highly relevant as it contains the MacOSX-specific backend implementation, which is likely where the DPI issue is occurring.\n   - lib/matplotlib/_tight_layout.py: This file is not directly relevant to the DPI issue and can be removed from the selection.\n   - lib/matplotlib/figure.py: This file is relevant as it contains the Figure class, which is involved in the pickling process.\n   - lib/matplotlib/backend_bases.py: This file is relevant as it contains base classes for backends, which may be involved in the DPI handling.\n   - lib/matplotlib/pyplot.py: This file is not directly relevant to the core issue and can be removed from the selection.\n\n2. Completeness:\n   The selection is missing some potentially important files:\n\n   - lib/matplotlib/backends/backend_agg.py: This file might be relevant as it's the base for many other backends and could be involved in the DPI handling.\n   - lib/matplotlib/transforms.py: This file might be", type='text')], model='claude-3-5-sonnet-20240620', role='assistant', stop_reason='max_tokens', stop_sequence=None, type='message', usage=Usage(input_tokens=62113, output_tokens=300))
+2024-08-21 14:34:50,089 - INFO - prompting with refined message:
+Use the reflection to rethink the github problem description and code structure to see if any changes are needed in the list of initial selected
+files to fix the problem.
+
+### GitHub Problem Description ###
+[Bug]: DPI of a figure is doubled after unpickling on M1 Mac
+### Bug summary
+
+When a figure is unpickled, it's dpi is doubled. This behaviour happens every time and if done in a loop it can cause an `OverflowError`.
+
+### Code for reproduction
+
+```python
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import pickle
+import platform
+
+print(matplotlib.get_backend())
+print('Matplotlib ver:', matplotlib.__version__)
+print('Platform:', platform.platform())
+print('System:', platform.system())
+print('Release:', platform.release())
+print('Python ver:', platform.python_version())
+
+
+def dump_load_get_dpi(fig):
+    with open('sinus.pickle','wb') as file:
+        pickle.dump(fig, file)
+
+    with open('sinus.pickle', 'rb') as blob:
+        fig2 = pickle.load(blob)
+    return fig2, fig2.dpi
+
+
+def run():
+    fig = plt.figure()
+    x = np.linspace(0,2*np.pi)
+    y = np.sin(x)
+
+    for i in range(32):
+        print(f'{i}: {fig.dpi}')
+        fig, dpi = dump_load_get_dpi(fig)
+
+
+if __name__ == '__main__':
+    run()
+```
+
+
+### Actual outcome
+
+```
+MacOSX
+Matplotlib ver: 3.5.2
+Platform: macOS-12.4-arm64-arm-64bit
+System: Darwin
+Release: 21.5.0
+Python ver: 3.9.12
+0: 200.0
+1: 400.0
+2: 800.0
+3: 1600.0
+4: 3200.0
+5: 6400.0
+6: 12800.0
+7: 25600.0
+8: 51200.0
+9: 102400.0
+10: 204800.0
+11: 409600.0
+12: 819200.0
+13: 1638400.0
+14: 3276800.0
+15: 6553600.0
+16: 13107200.0
+17: 26214400.0
+18: 52428800.0
+19: 104857600.0
+20: 209715200.0
+21: 419430400.0
+Traceback (most recent call last):
+  File "/Users/wsykala/projects/matplotlib/example.py", line 34, in <module>
+    run()
+  File "/Users/wsykala/projects/matplotlib/example.py", line 30, in run
+    fig, dpi = dump_load_get_dpi(fig)
+  File "/Users/wsykala/projects/matplotlib/example.py", line 20, in dump_load_get_dpi
+    fig2 = pickle.load(blob)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/figure.py", line 2911, in __setstate__
+    mgr = plt._backend_mod.new_figure_manager_given_figure(num, self)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/backend_bases.py", line 3499, in new_figure_manager_given_figure
+    canvas = cls.FigureCanvas(figure)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/backends/backend_macosx.py", line 32, in __init__
+    _macosx.FigureCanvas.__init__(self, width, height)
+OverflowError: signed integer is greater than maximum
+```
+
+### Expected outcome
+
+```
+MacOSX
+Matplotlib ver: 3.5.2
+Platform: macOS-12.4-arm64-arm-64bit
+System: Darwin
+Release: 21.5.0
+Python ver: 3.9.12
+0: 200.0
+1: 200.0
+2: 200.0
+3: 200.0
+4: 200.0
+5: 200.0
+6: 200.0
+7: 200.0
+8: 200.0
+9: 200.0
+10: 200.0
+11: 200.0
+12: 200.0
+13: 200.0
+14: 200.0
+15: 200.0
+16: 200.0
+17: 200.0
+18: 200.0
+19: 200.0
+20: 200.0
+21: 200.0
+22: 200.0
+```
+
+### Additional information
+
+This seems to happen only on M1 MacBooks and the version of python doesn't matter.
+
+### Operating system
+
+OS/X
+
+### Matplotlib Version
+
+3.5.2
+
+### Matplotlib Backend
+
+MacOSX
+
+### Python version
+
+3.9.12
+
+### Jupyter version
+
+_No response_
+
+### Installation
+
+pip
+
+
+###
+
+### Repository Structure ###
+matplotlib/
+    setupext.py
+    setup.py
+tools/
+    gh_api.py
+    boilerplate.py
+    cache_zenodo_svg.py
+    github_stats.py
+    embed_js.py
+    triage_tests.py
+    run_examples.py
+    subset.py
+    visualize_tests.py
+    memleak.py
+    make_icons.py
+ci/
+    check_wheel_licenses.py
+examples/
+    statistics/
+        boxplot_vs_violin.py
+        confidence_ellipse.py
+        hist.py
+        boxplot.py
+        histogram_histtypes.py
+        customized_violin.py
+        histogram_features.py
+        histogram_multihist.py
+        boxplot_demo.py
+        barchart_demo.py
+        bxp.py
+        errorbar_limits.py
+        multiple_histograms_side_by_side.py
+        errorbars_and_boxes.py
+        histogram_cumulative.py
+        errorbar_features.py
+        boxplot_color.py
+        errorbar.py
+        hexbin_demo.py
+        time_series_histogram.py
+        violinplot.py
+    pie_and_polar_charts/
+        polar_demo.py
+        pie_and_donut_labels.py
+        pie_demo2.py
+        nested_pie.py
+        polar_bar.py
+        pie_features.py
+        bar_of_pie.py
+        polar_legend.py
+        polar_scatter.py
+    misc/
+        contour_manual.py
+        svg_filter_pie.py
+        set_and_get.py
+        anchored_artists.py
+        print_stdout_sgskip.py
+        transoffset.py
+        pythonic_matplotlib.py
+        packed_bubbles.py
+        rasterization_demo.py
+        demo_agg_filter.py
+        keyword_plotting.py
+        patheffect_demo.py
+        hyperlinks_sgskip.py
+        tickedstroke_demo.py
+        bbox_intersect.py
+        ftface_props.py
+        logos2.py
+        table_demo.py
+        fill_spiral.py
+        svg_filter_line.py
+        histogram_path.py
+        customize_rc.py
+        findobj_demo.py
+        zorder_demo.py
+        font_indexing.py
+        multipage_pdf.py
+        multiprocess_sgskip.py
+        demo_ribbon_box.py
+        coords_report.py
+        custom_projection.py
+        image_thumbnail_sgskip.py
+    axes_grid1/
+        simple_axes_divider3.py
+        demo_axes_grid.py
+        simple_colorbar.py
+        simple_anchored_artists.py
+        demo_imagegrid_aspect.py
+        demo_anchored_direction_arrows.py
+        demo_colorbar_with_axes_divider.py
+        inset_locator_demo.py
+        parasite_simple2.py
+        demo_axes_divider.py
+        demo_fixed_size_axes.py
+        simple_axesgrid.py
+        parasite_simple.py
+        scatter_hist_locatable_axes.py
+        demo_axes_rgb.py
+        make_room_for_ylabel_using_axesgrid.py
+        demo_edge_colorbar.py
+        demo_colorbar_of_inset_axes.py
+        demo_axes_hbox_divider.py
+        inset_locator_demo2.py
+        simple_axes_divider1.py
+        demo_axes_grid2.py
+        simple_axisline4.py
+        demo_colorbar_with_inset_locator.py
+        simple_axesgrid2.py
+    ticks/
+        date_demo_convert.py
+        scalarformatter.py
+        ticks_too_many.py
+        tick_label_right.py
+        date_concise_formatter.py
+        centered_ticklabels.py
+        custom_ticker1.py
+        date_formatters_locators.py
+        tick_labels_from_values.py
+        tick-locators.py
+        tick-formatters.py
+        date_index_formatter.py
+        ticklabels_rotation.py
+        auto_ticks.py
+        major_minor_demo.py
+        date_precision_and_epochs.py
+        colorbar_tick_labelling_demo.py
+        tick_xlabel_top.py
+        date_demo_rrule.py
+    userdemo/
+        simple_legend01.py
+        demo_gridspec03.py
+        demo_gridspec06.py
+        connectionstyle_demo.py
+        annotate_simple02.py
+        annotate_simple03.py
+        pgf_preamble_sgskip.py
+        annotate_simple_coord01.py
+        simple_annotate01.py
+        annotate_simple_coord02.py
+        connect_simple01.py
+        annotate_explain.py
+        annotate_simple04.py
+        custom_boxstyle01.py
+        annotate_simple01.py
+        pgf_fonts.py
+        annotate_simple_coord03.py
+        demo_gridspec01.py
+        annotate_text_arrow.py
+        pgf_texsystem.py
+        anchored_box04.py
+        simple_legend02.py
+    images_contours_and_fields/
+        image_nonuniform.py
+        demo_bboximage.py
+        image_zcoord.py
+        spy_demos.py
+        layer_images.py
+        multi_image.py
+        triinterp_demo.py
+        irregulardatagrid.py
+        contour_image.py
+        image_demo.py
+        image_antialiasing.py
+        barb_demo.py
+        colormap_normalizations.py
+        matshow.py
+        quadmesh_demo.py
+        contours_in_optimization_demo.py
+        figimage_demo.py
+        triplot_demo.py
+        image_transparency_blend.py
+        tricontour_demo.py
+        interpolation_methods.py
+        contourf_log.py
+        barcode_demo.py
+        pcolormesh_levels.py
+        watermark_image.py
+        contour_corner_mask.py
+        pcolor_demo.py
+        specgram_demo.py
+        image_clip_path.py
+        plot_streamplot.py
+        colormap_normalizations_symlognorm.py
+        image_masked.py
+        contour_demo.py
+        image_annotated_heatmap.py
+        contour_label_demo.py
+        tricontour_smooth_delaunay.py
+        tripcolor_demo.py
+        colormap_interactive_adjustment.py
+        affine_image.py
+        trigradient_demo.py
+        shading_example.py
+        pcolormesh_grids.py
+        contourf_demo.py
+        contourf_hatching.py
+        quiver_demo.py
+        quiver_simple_demo.py
+        tricontour_smooth_user.py
+    pyplots/
+        text_layout.py
+        pyplot_simple.py
+        fig_axes_labels_simple.py
+        pyplot_formatstr.py
+        annotate_transform.py
+        annotation_basic.py
+        fig_axes_customize_simple.py
+        pyplot_two_subplots.py
+        dollar_ticks.py
+        pyplot_three.py
+        boxplot_demo_pyplot.py
+        fig_x.py
+        align_ylabels.py
+        annotation_polar.py
+        pyplot_text.py
+        pyplot_mathtext.py
+        auto_subplots_adjust.py
+        axline.py
+        text_commands.py
+    color/
+        custom_cmap.py
+        colorbar_basics.py
+        color_cycle_default.py
+        named_colors.py
+        color_demo.py
+        color_by_yvalue.py
+        colormap_reference.py
+    user_interfaces/
+        toolmanager_sgskip.py
+        embedding_webagg_sgskip.py
+        embedding_in_wx3_sgskip.py
+        pylab_with_gtk3_sgskip.py
+        canvasagg.py
+        embedding_in_gtk3_panzoom_sgskip.py
+        web_application_server_sgskip.py
+        embedding_in_wx5_sgskip.py
+        pylab_with_gtk4_sgskip.py
+        gtk4_spreadsheet_sgskip.py
+        embedding_in_wx2_sgskip.py
+        embedding_in_gtk4_panzoom_sgskip.py
+        embedding_in_wx4_sgskip.py
+        mathtext_wx_sgskip.py
+        embedding_in_tk_sgskip.py
+        mpl_with_glade3_sgskip.py
+        embedding_in_gtk4_sgskip.py
+        gtk3_spreadsheet_sgskip.py
+        svg_histogram_sgskip.py
+        embedding_in_qt_sgskip.py
+        embedding_in_gtk3_sgskip.py
+        svg_tooltip_sgskip.py
+        fourier_demo_wx_sgskip.py
+        wxcursor_demo_sgskip.py
+    animation/
+        frame_grabbing_sgskip.py
+        pause_resume.py
+        animate_decay.py
+        dynamic_image.py
+        bayes_update.py
+        strip_chart.py
+        animation_demo.py
+        unchained.py
+        random_walk.py
+        animated_histogram.py
+        simple_anim.py
+        rain.py
+        double_pendulum.py
+    specialty_plots/
+        advanced_hillshading.py
+        topographic_hillshading.py
+        sankey_links.py
+        sankey_rankine.py
+        anscombe.py
+        hinton_demo.py
+        leftventricle_bulleye.py
+        mri_demo.py
+        radar_chart.py
+        sankey_basics.py
+        skewt.py
+        mri_with_eeg.py
+    mplot3d/
+        box3d.py
+        pathpatch3d.py
+        tricontour3d.py
+        surface3d.py
+        voxels_numpy_logo.py
+        2dcollections3d.py
+        contour3d.py
+        tricontourf3d.py
+        stem3d_demo.py
+        wire3d_animation_sgskip.py
+        voxels_rgb.py
+        bars3d.py
+        contourf3d.py
+        surface3d_2.py
+        hist3d.py
+        subplot3d.py
+        surface3d_radial.py
+        voxels_torus.py
+        mixed_subplots.py
+        scatter3d.py
+        offset.py
+        surface3d_3.py
+        custom_shaded_3d_surface.py
+        contourf3d_2.py
+        rotate_axes3d_sgskip.py
+        lines3d.py
+        3d_bars.py
+        lorenz_attractor.py
+        errorbar3d.py
+        trisurf3d_2.py
+        wire3d_zero_stride.py
+        voxels.py
+        text3d.py
+        projections.py
+        trisurf3d.py
+        wire3d.py
+        contour3d_3.py
+        quiver3d.py
+        contour3d_2.py
+        polys3d.py
+    scales/
+        asinh_demo.py
+        semilogx_demo.py
+        custom_scale.py
+        symlog_demo.py
+        scales.py
+        logit_demo.py
+        log_bar.py
+        power_norm.py
+        log_demo.py
+        aspect_loglog.py
+    units/
+        artist_tests.py
+        bar_unit_demo.py
+        radian_demo.py
+        units_scatter.py
+        ellipse_with_units.py
+        units_sample.py
+        evans_test.py
+        annotate_with_units.py
+        bar_demo2.py
+        basic_units.py
+    style_sheets/
+        grayscale.py
+        dark_background.py
+        bmh.py
+        fivethirtyeight.py
+        plot_solarizedlight2.py
+        ggplot.py
+        style_sheets_reference.py
+    event_handling/
+        looking_glass.py
+        pick_event_demo2.py
+        trifinder_event_demo.py
+        resample.py
+        pong_sgskip.py
+        poly_editor.py
+        cursor_demo.py
+        image_slices_viewer.py
+        ginput_manual_clabel_sgskip.py
+        zoom_window.py
+        pick_event_demo.py
+        legend_picking.py
+        keypress_demo.py
+        viewlims.py
+        data_browser.py
+        lasso_demo.py
+        path_editor.py
+        timers.py
+        coords_demo.py
+        close_event.py
+        figure_axes_enter_leave.py
+    spines/
+        multiple_yaxis_with_spines.py
+        spines_dropped.py
+        centered_spines_with_arrows.py
+        spines.py
+        spine_placement_demo.py
+        spines_bounds.py
+    shapes_and_collections/
+        fancybox_demo.py
+        donut.py
+        dolphin.py
+        patch_collection.py
+        hatch_demo.py
+        quad_bezier.py
+        hatch_style_reference.py
+        ellipse_collection.py
+        compound_path.py
+        path_patch.py
+        collections.py
+        scatter.py
+        arrow_guide.py
+        ellipse_demo.py
+        line_collection.py
+        artist_reference.py
+    text_labels_and_annotations/
+        text_fontdict.py
+        unicode_minus.py
+        text_rotation_relative_to_line.py
+        rainbow_text.py
+        placing_text_boxes.py
+        usetex_baseline_test.py
+        text_alignment.py
+        usetex_fonteffects.py
+        figlegend_demo.py
+        arrow_demo.py
+        mathtext_fontfamily_example.py
+        titles_demo.py
+        angle_annotation.py
+        mathtext_asarray.py
+        label_subplots.py
+        fonts_demo_kw.py
+        engineering_formatter.py
+        fancytextbox_demo.py
+        fancyarrow_demo.py
+        font_table.py
+        mathtext_demo.py
+        legend.py
+        demo_text_rotation_mode.py
+        line_with_text.py
+        mathtext_examples.py
+        font_family_rc.py
+        stix_fonts_demo.py
+        annotation_demo.py
+        dfrac_demo.py
+        multiline.py
+        custom_legends.py
+        tex_demo.py
+        demo_annotation_box.py
+        autowrap.py
+        fonts_demo.py
+        text_rotation.py
+        legend_demo.py
+        accented_text.py
+        demo_text_path.py
+        date.py
+        watermark_text.py
+        font_file.py
+    showcase/
+        firefox.py
+        integral.py
+        anatomy.py
+        mandelbrot.py
+        xkcd.py
+        stock_prices.py
+    axisartist/
+        demo_parasite_axes2.py
+        demo_floating_axis.py
+        simple_axisline3.py
+        demo_curvelinear_grid2.py
+        demo_parasite_axes.py
+        simple_axis_pad.py
+        simple_axisline.py
+        demo_axisline_style.py
+        simple_axis_direction03.py
+        demo_ticklabel_direction.py
+        simple_axis_direction01.py
+        simple_axisartist1.py
+        demo_ticklabel_alignment.py
+        demo_axis_direction.py
+        axis_direction.py
+        demo_floating_axes.py
+        demo_curvelinear_grid.py
+    lines_bars_and_markers/
+        curve_error_band.py
+        eventcollection_demo.py
+        multicolored_line.py
+        scatter_with_legend.py
+        linestyles.py
+        line_demo_dash_control.py
+        timeline.py
+        vline_hline_demo.py
+        categorical_variables.py
+        eventplot_demo.py
+        fill.py
+        span_regions.py
+        bar_stacked.py
+        gradient_bar.py
+        xcorr_acorr_demo.py
+        fill_betweenx_demo.py
+        scatter_custom_symbol.py
+        markevery_demo.py
+        barh.py
+        stairs_demo.py
+        step_demo.py
+        horizontal_barchart_distribution.py
+        scatter_star_poly.py
+        stackplot_demo.py
+        hat_graph.py
+        spectrum_demo.py
+        csd_demo.py
+        barchart.py
+        fill_between_alpha.py
+        scatter_masked.py
+        scatter_hist.py
+        filled_step.py
+        stem_plot.py
+        psd_demo.py
+        joinstyle.py
+        masked_demo.py
+        lines_with_ticks_demo.py
+        bar_label_demo.py
+        fill_between_demo.py
+        marker_reference.py
+        errorbar_limits_simple.py
+        cohere.py
+        simple_plot.py
+        capstyle.py
+        scatter_demo2.py
+        errorbar_subsample.py
+        multivariate_marker_plot.py
+        broken_barh.py
+    widgets/
+        lasso_selector_demo_sgskip.py
+        radio_buttons.py
+        check_buttons.py
+        slider_demo.py
+        span_selector.py
+        multicursor.py
+        annotated_cursor.py
+        rectangle_selector.py
+        menu.py
+        textbox.py
+        slider_snap_demo.py
+        mouse_cursor.py
+        buttons.py
+        range_slider.py
+        polygon_selector_demo.py
+        cursor.py
+        polygon_selector_simple.py
+    subplots_axes_and_figures/
+        subplots_demo.py
+        gridspec_nested.py
+        ganged_plots.py
+        shared_axis_demo.py
+        figure_title.py
+        axis_equal_demo.py
+        axes_margins.py
+        multiple_figs_demo.py
+        secondary_axis.py
+        subfigures.py
+        subplot.py
+        share_axis_lims_views.py
+        axes_props.py
+        demo_constrained_layout.py
+        colorbar_placement.py
+        axes_zoom_effect.py
+        figure_size_units.py
+        custom_figure_class.py
+        axhspan_demo.py
+        gridspec_multicolumn.py
+        subplots_adjust.py
+        broken_axis.py
+        align_labels_demo.py
+        gridspec_and_subplots.py
+        demo_tight_layout.py
+        geo_demo.py
+        axis_labels_demo.py
+        axes_demo.py
+        two_scales.py
+        axes_box_aspect.py
+        fahrenheit_celsius_scales.py
+        zoom_inset_axes.py
+        invert_axes.py
+plot_types/
+    basic/
+        plot.py
+        fill_between.py
+        step.py
+        scatter_plot.py
+        stackplot.py
+        stem.py
+        bar.py
+    arrays/
+        quiver.py
+        imshow.py
+        pcolormesh.py
+        contourf.py
+        barbs.py
+        contour.py
+        streamplot.py
+    unstructured/
+        tricontourf.py
+        tripcolor.py
+        triplot.py
+        tricontour.py
+    stats/
+        hist_plot.py
+        hist2d.py
+        pie.py
+        hexbin.py
+        boxplot_plot.py
+        violin.py
+        errorbar_plot.py
+        eventplot.py
+lib/
+    pylab.py
+    mpl_toolkits/
+        __init__.py
+        axes_grid1/
+            inset_locator.py
+            axes_grid.py
+            parasite_axes.py
+            anchored_artists.py
+            __init__.py
+            axes_size.py
+            mpl_axes.py
+            axes_rgb.py
+            axes_divider.py
+        mplot3d/
+            proj3d.py
+            __init__.py
+            axes3d.py
+            axis3d.py
+            art3d.py
+        axisartist/
+            axislines.py
+            axes_grid.py
+            grid_finder.py
+            parasite_axes.py
+            axis_artist.py
+            axisline_style.py
+            __init__.py
+            angle_helper.py
+            grid_helper_curvelinear.py
+            clip_path.py
+            floating_axes.py
+            axes_rgb.py
+            axes_divider.py
+    matplotlib/
+        _tight_layout.py
+        hatch.py
+        transforms.py
+        legend_handler.py
+        axis.py
+        _tight_bbox.py
+        textpath.py
+        quiver.py
+        backend_bases.py
+        units.py
+        pylab.py
+        colorbar.py
+        _cm.py
+        backend_managers.py
+        mathtext.py
+        _fontconfig_pattern.py
+        font_manager.py
+        bezier.py
+        _afm.py
+        cm.py
+        legend.py
+        figure.py
+        __init__.py
+        _mathtext.py
+        _enums.py
+        offsetbox.py
+        tight_bbox.py
+        container.py
+        gridspec.py
+        lines.py
+        widgets.py
+        blocking_input.py
+        dviread.py
+        animation.py
+        type1font.py
+        _mathtext_data.py
+        artist.py
+        backend_tools.py
+        docstring.py
+        _internal_utils.py
+        _color_data.py
+        texmanager.py
+        afm.py
+        patches.py
+        stackplot.py
+        collections.py
+        spines.py
+        _text_helpers.py
+        text.py
+        markers.py
+        mlab.py
+        layout_engine.py
+        _blocking_input.py
+        fontconfig_pattern.py
+        _pylab_helpers.py
+        tight_layout.py
+        _cm_listed.py
+        dates.py
+        table.py
+        _animation_data.py
+        pyplot.py
+        _type1font.py
+        rcsetup.py
+        ticker.py
+        _docstring.py
+        path.py
+        _layoutgrid.py
+        contour.py
+        image.py
+        scale.py
+        category.py
+        _constrained_layout.py
+        sankey.py
+        patheffects.py
+        streamplot.py
+        colors.py
+        tri/
+            trirefine.py
+            tripcolor.py
+            trifinder.py
+            __init__.py
+            triplot.py
+            tritools.py
+            tricontour.py
+            triangulation.py
+            triinterpolate.py
+        axes/
+            _axes.py
+            _base.py
+            _subplots.py
+            __init__.py
+            _secondary_axes.py
+        sphinxext/
+            __init__.py
+            mathmpl.py
+            plot_directive.py
+        cbook/
+            __init__.py
+        backends/
+            _backend_gtk.py
+            backend_template.py
+            backend_qtcairo.py
+            backend_qt.py
+            backend_gtk3cairo.py
+            backend_tkagg.py
+            backend_gtk4agg.py
+            backend_qt5agg.py
+            backend_qt5.py
+            backend_gtk3agg.py
+            backend_cairo.py
+            backend_pdf.py
+            backend_wxagg.py
+            backend_pgf.py
+            backend_mixed.py
+            backend_macosx.py
+            backend_gtk4.py
+            __init__.py
+            backend_tkcairo.py
+            backend_gtk3.py
+            backend_wxcairo.py
+            backend_nbagg.py
+            backend_webagg_core.py
+            backend_gtk4cairo.py
+            backend_wx.py
+            backend_qt5cairo.py
+            _backend_tk.py
+            qt_compat.py
+            backend_svg.py
+            _backend_pdf_ps.py
+            backend_webagg.py
+            backend_ps.py
+            backend_qtagg.py
+            backend_agg.py
+            qt_editor/
+                _formlayout.py
+                __init__.py
+                figureoptions.py
+        _api/
+            deprecation.py
+            __init__.py
+        style/
+            __init__.py
+            core.py
+        projections/
+            geo.py
+            polar.py
+            __init__.py
+tutorials/
+    advanced/
+        transforms_tutorial.py
+        path_tutorial.py
+        patheffects_guide.py
+        blitting.py
+    toolkits/
+        axisartist.py
+        axes_grid.py
+        mplot3d.py
+    provisional/
+        mosaic.py
+    colors/
+        colorbar_only.py
+        colormaps.py
+        colormapnorms.py
+        colormap-manipulation.py
+        colors.py
+    text/
+        text_intro.py
+        mathtext.py
+        text_props.py
+        pgf.py
+        annotations.py
+        usetex.py
+    intermediate/
+        constrainedlayout_guide.py
+        color_cycle.py
+        arranging_axes.py
+        tight_layout_guide.py
+        legend_guide.py
+        imshow_extent.py
+        artists.py
+        autoscale.py
+    introductory/
+        quick_start.py
+        customizing.py
+        lifecycle.py
+        images.py
+        pyplot.py
+doc/
+    conf.py
+    sphinxext/
+        missing_references.py
+        math_symbol_table.py
+        __init__.py
+        mock_gui_toolkits.py
+        gallery_order.py
+        redirect_from.py
+        skip_deprecated.py
+        github.py
+        custom_roles.py
+    users/
+        generate_credits.py
+
+### Initial Selected Files ###
+lib/matplotlib/backends/backend_macosx.py
+lib/matplotlib/_tight_layout.py
+lib/matplotlib/figure.py
+lib/matplotlib/backend_bases.py
+lib/matplotlib/pyplot.py
+
+###
+
+### Reflection ###
+Thank you for providing the problem description and selected file contents. Here's my critique of the file selection:
+
+1. Relevance:
+   The selected files are generally relevant to the described problem, but not all of them are directly related to the core issue.
+
+   - lib/matplotlib/backends/backend_macosx.py: This file is highly relevant as it contains the MacOSX-specific backend implementation, which is likely where the DPI issue is occurring.
+   - lib/matplotlib/_tight_layout.py: This file is not directly relevant to the DPI issue and can be removed from the selection.
+   - lib/matplotlib/figure.py: This file is relevant as it contains the Figure class, which is involved in the pickling process.
+   - lib/matplotlib/backend_bases.py: This file is relevant as it contains base classes for backends, which may be involved in the DPI handling.
+   - lib/matplotlib/pyplot.py: This file is not directly relevant to the core issue and can be removed from the selection.
+
+2. Completeness:
+   The selection is missing some potentially important files:
+
+   - lib/matplotlib/backends/backend_agg.py: This file might be relevant as it's the base for many other backends and could be involved in the DPI handling.
+   - lib/matplotlib/transforms.py: This file might be
+
+You need to return at most 5 files and retunr the full file paths for 
+both the inital selected files which should be kept as is and the new files that you think should be added.
+The returned files should be separated by new lines ordered by most to least important and wrapped with ```
+For example:
+```
+file1.py
+file2.py
+```
+2024-08-21 14:34:50,091 - INFO - ================================================================================
+2024-08-21 14:34:52,863 - INFO - ```
+lib/matplotlib/backends/backend_macosx.py
+lib/matplotlib/figure.py
+lib/matplotlib/backends/backend_agg.py
+lib/matplotlib/backend_bases.py
+lib/matplotlib/transforms.py
+```
+2024-08-21 14:34:53,137 - INFO - prompting with message:
+
+Please look through the following GitHub Problem Description and the Skeleton of Relevant Files.
+Identify all locations that need inspection or editing to fix the problem, including directly related areas as well as any potentially related global variables, functions, and classes.
+For each location you provide, either give the name of the class, the name of a method in a class, the name of a function, or the name of a global variable.
+
+### GitHub Problem Description ###
+[Bug]: DPI of a figure is doubled after unpickling on M1 Mac
+### Bug summary
+
+When a figure is unpickled, it's dpi is doubled. This behaviour happens every time and if done in a loop it can cause an `OverflowError`.
+
+### Code for reproduction
+
+```python
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import pickle
+import platform
+
+print(matplotlib.get_backend())
+print('Matplotlib ver:', matplotlib.__version__)
+print('Platform:', platform.platform())
+print('System:', platform.system())
+print('Release:', platform.release())
+print('Python ver:', platform.python_version())
+
+
+def dump_load_get_dpi(fig):
+    with open('sinus.pickle','wb') as file:
+        pickle.dump(fig, file)
+
+    with open('sinus.pickle', 'rb') as blob:
+        fig2 = pickle.load(blob)
+    return fig2, fig2.dpi
+
+
+def run():
+    fig = plt.figure()
+    x = np.linspace(0,2*np.pi)
+    y = np.sin(x)
+
+    for i in range(32):
+        print(f'{i}: {fig.dpi}')
+        fig, dpi = dump_load_get_dpi(fig)
+
+
+if __name__ == '__main__':
+    run()
+```
+
+
+### Actual outcome
+
+```
+MacOSX
+Matplotlib ver: 3.5.2
+Platform: macOS-12.4-arm64-arm-64bit
+System: Darwin
+Release: 21.5.0
+Python ver: 3.9.12
+0: 200.0
+1: 400.0
+2: 800.0
+3: 1600.0
+4: 3200.0
+5: 6400.0
+6: 12800.0
+7: 25600.0
+8: 51200.0
+9: 102400.0
+10: 204800.0
+11: 409600.0
+12: 819200.0
+13: 1638400.0
+14: 3276800.0
+15: 6553600.0
+16: 13107200.0
+17: 26214400.0
+18: 52428800.0
+19: 104857600.0
+20: 209715200.0
+21: 419430400.0
+Traceback (most recent call last):
+  File "/Users/wsykala/projects/matplotlib/example.py", line 34, in <module>
+    run()
+  File "/Users/wsykala/projects/matplotlib/example.py", line 30, in run
+    fig, dpi = dump_load_get_dpi(fig)
+  File "/Users/wsykala/projects/matplotlib/example.py", line 20, in dump_load_get_dpi
+    fig2 = pickle.load(blob)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/figure.py", line 2911, in __setstate__
+    mgr = plt._backend_mod.new_figure_manager_given_figure(num, self)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/backend_bases.py", line 3499, in new_figure_manager_given_figure
+    canvas = cls.FigureCanvas(figure)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/backends/backend_macosx.py", line 32, in __init__
+    _macosx.FigureCanvas.__init__(self, width, height)
+OverflowError: signed integer is greater than maximum
+```
+
+### Expected outcome
+
+```
+MacOSX
+Matplotlib ver: 3.5.2
+Platform: macOS-12.4-arm64-arm-64bit
+System: Darwin
+Release: 21.5.0
+Python ver: 3.9.12
+0: 200.0
+1: 200.0
+2: 200.0
+3: 200.0
+4: 200.0
+5: 200.0
+6: 200.0
+7: 200.0
+8: 200.0
+9: 200.0
+10: 200.0
+11: 200.0
+12: 200.0
+13: 200.0
+14: 200.0
+15: 200.0
+16: 200.0
+17: 200.0
+18: 200.0
+19: 200.0
+20: 200.0
+21: 200.0
+22: 200.0
+```
+
+### Additional information
+
+This seems to happen only on M1 MacBooks and the version of python doesn't matter.
+
+### Operating system
+
+OS/X
+
+### Matplotlib Version
+
+3.5.2
+
+### Matplotlib Backend
+
+MacOSX
+
+### Python version
+
+3.9.12
+
+### Jupyter version
+
+_No response_
+
+### Installation
+
+pip
+
+
+### Skeleton of Relevant Files ###
+
+### File: lib/matplotlib/backends/backend_macosx.py ###
+```python
+
+
+class TimerMac(_macosx.Timer, TimerBase):
+    pass
+
+
+class FigureCanvasMac(FigureCanvasAgg, _macosx.FigureCanvas, FigureCanvasBase):
+    # docstring inherited
+
+    # Ideally this class would be `class FCMacAgg(FCAgg, FCMac)`
+    # (FC=FigureCanvas) where FCMac would be an ObjC-implemented mac-specific
+    # class also inheriting from FCBase (this is the approach with other GUI
+    # toolkits).  However, writing an extension type inheriting from a Python
+    # base class is slightly tricky (the extension type must be a heap type),
+    # and we can just as well lift the FCBase base up one level, keeping it *at
+    # the end* to have the right method resolution order.
+
+    # Events such as button presses, mouse movements, and key presses are
+    # handled in C and events (MouseEvent, etc.) are triggered from there.
+
+    required_interactive_framework = "macosx"
+    _timer_cls = TimerMac
+    manager_class = _api.classproperty(lambda cls: FigureManagerMac)
+
+    def __init__(self, figure):
+...
+    def draw(self):
+...
+    def draw_idle(self):
+...
+    def _single_shot_timer(self, callback):
+...
+    def _draw_idle(self):
+...
+    def blit(self, bbox=None):
+...
+    def resize(self, width, height):
+...
+
+class NavigationToolbar2Mac(_macosx.NavigationToolbar2, NavigationToolbar2):
+
+    def __init__(self, canvas):
+...
+    def draw_rubberband(self, event, x0, y0, x1, y1):
+...
+    def remove_rubberband(self):
+...
+    def save_figure(self, *args):
+...
+    def prepare_configure_subplots(self):
+...
+
+class FigureManagerMac(_macosx.FigureManager, FigureManagerBase):
+    _toolbar2_class = NavigationToolbar2Mac
+
+    def __init__(self, canvas, num):
+...
+    def _close_button_pressed(self):
+...
+    @_api.deprecated("3.6")
+    def close(self):
+...
+    def show(self):
+...
+
+@_Backend.export
+class _BackendMac(_Backend):
+    FigureCanvas = FigureCanvasMac
+    FigureManager = FigureManagerMac
+
+    @staticmethod
+    def mainloop():
+
+```
+
+### File: lib/matplotlib/figure.py ###
+```python
+
+_log = logging.getLogger(__name__)
+
+
+def _stale_figure_callback(self, val):
+...
+
+class _AxesStack:
+
+    def __init__(self):
+...
+    def as_list(self):
+...
+    def remove(self, a):
+...
+    def bubble(self, a):
+...
+    def add(self, a):
+...
+    def current(self):
+...
+
+class SubplotParams:
+
+    def __init__(self, left=None, bottom=None, right=None, top=None,
+                 wspace=None, hspace=None):
+...
+    # Also remove _validate after deprecation elapses.
+    validate = _api.deprecate_privatize_attribute("3.5")
+
+    def update(self, left=None, bottom=None, right=None, top=None,
+               wspace=None, hspace=None):
+...
+
+class FigureBase(Artist):
+    def __init__(self, **kwargs):
+...
+    def _get_draw_artists(self, renderer):
+...
+    def autofmt_xdate(
+            self, bottom=0.2, rotation=30, ha='right', which='major'):
+...
+    def get_children(self):
+...
+    def contains(self, mouseevent):
+...
+    @_api.delete_parameter("3.6", "args")
+    @_api.delete_parameter("3.6", "kwargs")
+    def get_window_extent(self, renderer=None, *args, **kwargs):
+...
+    def _suplabels(self, t, info, **kwargs):
+...
+    @_docstring.Substitution(x0=0.5, y0=0.98, name='suptitle', ha='center',
+                             va='top')
+    @_docstring.copy(_suplabels)
+    def suptitle(self, t, **kwargs):
+...
+    @_docstring.Substitution(x0=0.5, y0=0.01, name='supxlabel', ha='center',
+                             va='bottom')
+    @_docstring.copy(_suplabels)
+    def supxlabel(self, t, **kwargs):
+...
+    @_docstring.Substitution(x0=0.02, y0=0.5, name='supylabel', ha='left',
+                             va='center')
+    @_docstring.copy(_suplabels)
+    def supylabel(self, t, **kwargs):
+...
+    def get_edgecolor(self):
+...
+    def get_facecolor(self):
+...
+    def get_frameon(self):
+...
+    def set_linewidth(self, linewidth):
+...
+    def get_linewidth(self):
+...
+    def set_edgecolor(self, color):
+...
+    def set_facecolor(self, color):
+...
+    def set_frameon(self, b):
+...
+    frameon = property(get_frameon, set_frameon)
+
+    def add_artist(self, artist, clip=False):
+...
+    @_docstring.dedent_interpd
+    def add_axes(self, *args, **kwargs):
+...
+    @_docstring.dedent_interpd
+    def add_subplot(self, *args, **kwargs):
+...
+    def _add_axes_internal(self, ax, key):
+...
+    def subplots(self, nrows=1, ncols=1, *, sharex=False, sharey=False,
+                 squeeze=True, width_ratios=None, height_ratios=None,
+                 subplot_kw=None, gridspec_kw=None):
+...
+    def delaxes(self, ax):
+...
+    def clear(self, keep_observers=False):
+...
+    # synonym for `clear`.
+    def clf(self, keep_observers=False):
+...
+    # Note: in the docstring below, the newlines in the examples after the
+    # calls to legend() allow replacing it with figlegend() to generate the
+    # docstring of pyplot.figlegend.
+    @_docstring.dedent_interpd
+    def legend(self, *args, **kwargs):
+...
+    @_docstring.dedent_interpd
+    def text(self, x, y, s, fontdict=None, **kwargs):
+...
+    @_docstring.dedent_interpd
+    def colorbar(
+            self, mappable, cax=None, ax=None, use_gridspec=True, **kwargs):
+...
+    def subplots_adjust(self, left=None, bottom=None, right=None, top=None,
+                        wspace=None, hspace=None):
+...
+    def align_xlabels(self, axs=None):
+...
+    def align_ylabels(self, axs=None):
+...
+    def align_labels(self, axs=None):
+...
+    def add_gridspec(self, nrows=1, ncols=1, **kwargs):
+...
+    def subfigures(self, nrows=1, ncols=1, squeeze=True,
+                   wspace=None, hspace=None,
+                   width_ratios=None, height_ratios=None,
+                   **kwargs):
+...
+    def add_subfigure(self, subplotspec, **kwargs):
+...
+    def sca(self, a):
+...
+    def gca(self):
+...
+    def _gci(self):
+...
+    def _process_projection_requirements(
+            self, *args, axes_class=None, polar=False, projection=None,
+            **kwargs):
+...
+    def get_default_bbox_extra_artists(self):
+...
+    def get_tightbbox(self, renderer=None, bbox_extra_artists=None):
+...
+    @staticmethod
+    def _normalize_grid_string(layout):
+...
+    def subplot_mosaic(self, mosaic, *, sharex=False, sharey=False,
+                       width_ratios=None, height_ratios=None,
+                       empty_sentinel='.', subplot_kw=None, gridspec_kw=None):
+...
+    def _set_artist_props(self, a):
+...
+
+@_docstring.interpd
+class SubFigure(FigureBase):
+    callbacks = _api.deprecated(
+            "3.6", alternative=("the 'resize_event' signal in "
+                                "Figure.canvas.callbacks")
+            )(property(lambda self: self._fig_callbacks))
+
+    def __init__(self, parent, subplotspec, *,
+                 facecolor=None,
+                 edgecolor=None,
+                 linewidth=0.0,
+                 frameon=None,
+                 **kwargs):
+...
+    @property
+    def dpi(self):
+...
+    @dpi.setter
+    def dpi(self, value):
+...
+    def get_dpi(self):
+...
+    def set_dpi(self, val):
+...
+    def _get_renderer(self):
+...
+    def _redo_transform_rel_fig(self, bbox=None):
+...
+    def get_constrained_layout(self):
+...
+    def get_constrained_layout_pads(self, relative=False):
+...
+    def get_layout_engine(self):
+...
+    @property
+    def axes(self):
+...
+    get_axes = axes.fget
+
+    def draw(self, renderer):
+...
+
+@_docstring.interpd
+class Figure(FigureBase):
+    # Remove the self._fig_callbacks properties on figure and subfigure
+    # after the deprecation expires.
+    callbacks = _api.deprecated(
+        "3.6", alternative=("the 'resize_event' signal in "
+                            "Figure.canvas.callbacks")
+        )(property(lambda self: self._fig_callbacks))
+
+    def __str__(self):
+...
+    def __repr__(self):
+...
+    @_api.make_keyword_only("3.6", "facecolor")
+    def __init__(self,
+                 figsize=None,
+                 dpi=None,
+                 facecolor=None,
+                 edgecolor=None,
+                 linewidth=0.0,
+                 frameon=None,
+                 subplotpars=None,  # rc figure.subplot.*
+                 tight_layout=None,  # rc figure.autolayout
+                 constrained_layout=None,  # rc figure.constrained_layout.use
+                 *,
+                 layout=None,
+                 **kwargs
+                 ):
+...
+    def pick(self, mouseevent):
+...
+    def _check_layout_engines_compat(self, old, new):
+...
+    def set_layout_engine(self, layout=None, **kwargs):
+...
+    def get_layout_engine(self):
+...
+    # TODO: I'd like to dynamically add the _repr_html_ method
+    # to the figure in the right context, but then IPython doesn't
+    # use it, for some reason.
+
+    def _repr_html_(self):
+...
+    def show(self, warn=True):
+...
+    @property
+    def axes(self):
+...
+    get_axes = axes.fget
+
+    def _get_renderer(self):
+...
+    def _get_dpi(self):
+...
+    def _set_dpi(self, dpi, forward=True):
+...
+    dpi = property(_get_dpi, _set_dpi, doc="The resolution in dots per inch.")
+
+    def get_tight_layout(self):
+...
+    @_api.deprecated("3.6", alternative="set_layout_engine",
+                     pending=True)
+    def set_tight_layout(self, tight):
+...
+    def get_constrained_layout(self):
+...
+    @_api.deprecated("3.6", alternative="set_layout_engine('constrained')",
+                     pending=True)
+    def set_constrained_layout(self, constrained):
+...
+    @_api.deprecated(
+         "3.6", alternative="figure.get_layout_engine().set()",
+         pending=True)
+    def set_constrained_layout_pads(self, **kwargs):
+...
+    @_api.deprecated("3.6", alternative="fig.get_layout_engine().get()",
+                     pending=True)
+    def get_constrained_layout_pads(self, relative=False):
+...
+    def set_canvas(self, canvas):
+...
+    @_docstring.interpd
+    def figimage(self, X, xo=0, yo=0, alpha=None, norm=None, cmap=None,
+                 vmin=None, vmax=None, origin=None, resize=False, **kwargs):
+...
+    def set_size_inches(self, w, h=None, forward=True):
+...
+    def get_size_inches(self):
+...
+    def get_figwidth(self):
+...
+    def get_figheight(self):
+...
+    def get_dpi(self):
+...
+    def set_dpi(self, val):
+...
+    def set_figwidth(self, val, forward=True):
+...
+    def set_figheight(self, val, forward=True):
+...
+    def clear(self, keep_observers=False):
+...
+    @_finalize_rasterization
+    @allow_rasterization
+    def draw(self, renderer):
+...
+    def draw_without_rendering(self):
+...
+    def draw_artist(self, a):
+...
+    def __getstate__(self):
+...
+    def __setstate__(self, state):
+...
+    def add_axobserver(self, func):
+...
+    def savefig(self, fname, *, transparent=None, **kwargs):
+...
+    def ginput(self, n=1, timeout=30, show_clicks=True,
+               mouse_add=MouseButton.LEFT,
+               mouse_pop=MouseButton.RIGHT,
+               mouse_stop=MouseButton.MIDDLE):
+...
+    def waitforbuttonpress(self, timeout=-1):
+...
+    @_api.deprecated("3.6", alternative="figure.get_layout_engine().execute()")
+    def execute_constrained_layout(self, renderer=None):
+...
+    def tight_layout(self, *, pad=1.08, h_pad=None, w_pad=None, rect=None):
+...
+
+def figaspect(arg):
+
+```
+
+### File: lib/matplotlib/backends/backend_agg.py ###
+```python
+
+
+backend_version = 'v2.2'
+
+
+def get_hinting_flag():
+...
+
+class RendererAgg(RendererBase):
+
+    # we want to cache the fonts at the class level so that when
+    # multiple figures are created we can reuse them.  This helps with
+    # a bug on windows where the creation of too many figures leads to
+    # too many open file handles.  However, storing them at the class
+    # level is not thread safe.  The solution here is to let the
+    # FigureCanvas acquire a lock on the fontd at the start of the
+    # draw, and release it when it is done.  This allows multiple
+    # renderers to share the cached fonts, but only one figure can
+    # draw at time and so the font cache is used by only one
+    # renderer at a time.
+
+    lock = threading.RLock()
+
+    def __init__(self, width, height, dpi):
+...
+    def __getstate__(self):
+...
+    def __setstate__(self, state):
+...
+    def _update_methods(self):
+...
+    def draw_path(self, gc, path, transform, rgbFace=None):
+...
+    def draw_mathtext(self, gc, x, y, s, prop, angle):
+...
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
+...
+    def get_text_width_height_descent(self, s, prop, ismath):
+...
+    def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
+...
+    def get_canvas_width_height(self):
+...
+    def _prepare_font(self, font_prop):
+...
+    def points_to_pixels(self, points):
+...
+    def buffer_rgba(self):
+...
+    def tostring_argb(self):
+...
+    def tostring_rgb(self):
+...
+    def clear(self):
+...
+    def option_image_nocomposite(self):
+...
+    def option_scale_image(self):
+...
+    def restore_region(self, region, bbox=None, xy=None):
+...
+    def start_filter(self):
+...
+    def stop_filter(self, post_processing):
+...
+
+class FigureCanvasAgg(FigureCanvasBase):
+    # docstring inherited
+
+    _lastKey = None  # Overwritten per-instance on the first draw.
+
+    def copy_from_bbox(self, bbox):
+...
+    def restore_region(self, region, bbox=None, xy=None):
+...
+    def draw(self):
+...
+    @_api.delete_parameter("3.6", "cleared", alternative="renderer.clear()")
+    def get_renderer(self, cleared=False):
+...
+    def tostring_rgb(self):
+...
+    def tostring_argb(self):
+...
+    def buffer_rgba(self):
+...
+    @_api.delete_parameter("3.5", "args")
+    def print_raw(self, filename_or_obj, *args):
+...
+    print_rgba = print_raw
+
+    def _print_pil(self, filename_or_obj, fmt, pil_kwargs, metadata=None):
+...
+    @_api.delete_parameter("3.5", "args")
+    def print_png(self, filename_or_obj, *args,
+                  metadata=None, pil_kwargs=None):
+...
+    def print_to_buffer(self):
+...
+    # Note that these methods should typically be called via savefig() and
+    # print_figure(), and the latter ensures that `self.figure.dpi` already
+    # matches the dpi kwarg (if any).
+
+    @_api.delete_parameter("3.5", "args")
+    def print_jpg(self, filename_or_obj, *args, pil_kwargs=None):
+...
+    print_jpeg = print_jpg
+
+    def print_tif(self, filename_or_obj, *, pil_kwargs=None):
+...
+    print_tiff = print_tif
+
+    def print_webp(self, filename_or_obj, *, pil_kwargs=None):
+...
+    print_jpg.__doc__, print_tif.__doc__, print_webp.__doc__ = map(
+        """
+        Write the figure to a {} file.
+
+        Parameters
+        ----------
+        filename_or_obj : str or path-like or file-like
+            The file to write to.
+        pil_kwargs : dict, optional
+            Additional keyword arguments that are passed to
+            `PIL.Image.Image.save` when saving the figure.
+        """.format, ["JPEG", "TIFF", "WebP"])
+
+
+@_Backend.export
+class _BackendAgg(_Backend):
+    FigureCanvas = FigureCanvasAgg
+    FigureManager = FigureManagerBase
+```
+
+
+###
+
+Please provide the complete set of locations as either a class name, a function name, or a variable name.
+Note that if you include a class, you do not need to list its specific methods.
+You can include either the entire class or don't include the class name and instead include specific methods in the class.
+### Examples:
+```
+full_path1/file1.py
+function: my_function_1
+class: MyClass1
+function: MyClass2.my_method
+
+full_path2/file2.py
+variable: my_var
+function: MyClass3.my_method
+
+full_path3/file3.py
+function: my_function_2
+function: my_function_3
+function: MyClass4.my_method_1
+class: MyClass5
+```
+
+Return just the locations.
+
+2024-08-21 14:34:53,137 - INFO - ================================================================================
+2024-08-21 14:34:56,184 - INFO - ==== raw output ====
+2024-08-21 14:34:56,184 - INFO - ```
+lib/matplotlib/backends/backend_macosx.py
+function: FigureCanvasMac.__init__
+lib/matplotlib/figure.py
+function: Figure.__setstate__
+function: Figure._set_dpi
+function: SubFigure.dpi
+function: SubFigure.get_dpi
+function: SubFigure.set_dpi
+```
+2024-08-21 14:34:56,184 - INFO - ================================================================================
+2024-08-21 14:34:56,184 - INFO - ==== extracted locs ====
+2024-08-21 14:34:56,184 - INFO - ['function: FigureCanvasMac.__init__']
+2024-08-21 14:34:56,184 - INFO - ['function: Figure.__setstate__\nfunction: Figure._set_dpi\nfunction: SubFigure.dpi\nfunction: SubFigure.get_dpi\nfunction: SubFigure.set_dpi']
+2024-08-21 14:34:56,184 - INFO - ['']
+2024-08-21 14:34:56,184 - INFO - ================================================================================
+2024-08-21 14:34:56,941 - INFO - prompting with message:
+
+Please review the following GitHub problem description and relevant files, and provide a set of locations that need to be edited to fix the issue.
+The locations can be specified as class names, function or method names, or exact line numbers that require modification.
+
+### GitHub Problem Description ###
+[Bug]: DPI of a figure is doubled after unpickling on M1 Mac
+### Bug summary
+
+When a figure is unpickled, it's dpi is doubled. This behaviour happens every time and if done in a loop it can cause an `OverflowError`.
+
+### Code for reproduction
+
+```python
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import pickle
+import platform
+
+print(matplotlib.get_backend())
+print('Matplotlib ver:', matplotlib.__version__)
+print('Platform:', platform.platform())
+print('System:', platform.system())
+print('Release:', platform.release())
+print('Python ver:', platform.python_version())
+
+
+def dump_load_get_dpi(fig):
+    with open('sinus.pickle','wb') as file:
+        pickle.dump(fig, file)
+
+    with open('sinus.pickle', 'rb') as blob:
+        fig2 = pickle.load(blob)
+    return fig2, fig2.dpi
+
+
+def run():
+    fig = plt.figure()
+    x = np.linspace(0,2*np.pi)
+    y = np.sin(x)
+
+    for i in range(32):
+        print(f'{i}: {fig.dpi}')
+        fig, dpi = dump_load_get_dpi(fig)
+
+
+if __name__ == '__main__':
+    run()
+```
+
+
+### Actual outcome
+
+```
+MacOSX
+Matplotlib ver: 3.5.2
+Platform: macOS-12.4-arm64-arm-64bit
+System: Darwin
+Release: 21.5.0
+Python ver: 3.9.12
+0: 200.0
+1: 400.0
+2: 800.0
+3: 1600.0
+4: 3200.0
+5: 6400.0
+6: 12800.0
+7: 25600.0
+8: 51200.0
+9: 102400.0
+10: 204800.0
+11: 409600.0
+12: 819200.0
+13: 1638400.0
+14: 3276800.0
+15: 6553600.0
+16: 13107200.0
+17: 26214400.0
+18: 52428800.0
+19: 104857600.0
+20: 209715200.0
+21: 419430400.0
+Traceback (most recent call last):
+  File "/Users/wsykala/projects/matplotlib/example.py", line 34, in <module>
+    run()
+  File "/Users/wsykala/projects/matplotlib/example.py", line 30, in run
+    fig, dpi = dump_load_get_dpi(fig)
+  File "/Users/wsykala/projects/matplotlib/example.py", line 20, in dump_load_get_dpi
+    fig2 = pickle.load(blob)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/figure.py", line 2911, in __setstate__
+    mgr = plt._backend_mod.new_figure_manager_given_figure(num, self)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/backend_bases.py", line 3499, in new_figure_manager_given_figure
+    canvas = cls.FigureCanvas(figure)
+  File "/Users/wsykala/miniconda3/envs/playground/lib/python3.9/site-packages/matplotlib/backends/backend_macosx.py", line 32, in __init__
+    _macosx.FigureCanvas.__init__(self, width, height)
+OverflowError: signed integer is greater than maximum
+```
+
+### Expected outcome
+
+```
+MacOSX
+Matplotlib ver: 3.5.2
+Platform: macOS-12.4-arm64-arm-64bit
+System: Darwin
+Release: 21.5.0
+Python ver: 3.9.12
+0: 200.0
+1: 200.0
+2: 200.0
+3: 200.0
+4: 200.0
+5: 200.0
+6: 200.0
+7: 200.0
+8: 200.0
+9: 200.0
+10: 200.0
+11: 200.0
+12: 200.0
+13: 200.0
+14: 200.0
+15: 200.0
+16: 200.0
+17: 200.0
+18: 200.0
+19: 200.0
+20: 200.0
+21: 200.0
+22: 200.0
+```
+
+### Additional information
+
+This seems to happen only on M1 MacBooks and the version of python doesn't matter.
+
+### Operating system
+
+OS/X
+
+### Matplotlib Version
+
+3.5.2
+
+### Matplotlib Backend
+
+MacOSX
+
+### Python version
+
+3.9.12
+
+### Jupyter version
+
+_No response_
+
+### Installation
+
+pip
+
+
+###
+### lib/matplotlib/backends/backend_macosx.py
+...
+28|    # and we can just as well lift the FCBase base up one level, keeping it *at
+29|    # the end* to have the right method resolution order.
+30|
+31|    # Events such as button presses, mouse movements, and key presses are
+32|    # handled in C and events (MouseEvent, etc.) are triggered from there.
+33|
+34|    required_interactive_framework = "macosx"
+35|    _timer_cls = TimerMac
+36|    manager_class = _api.classproperty(lambda cls: FigureManagerMac)
+37|
+38|    def __init__(self, figure):
+39|        super().__init__(figure=figure)
+40|        self._draw_pending = False
+41|        self._is_drawing = False
+42|
+43|    def draw(self):
+44|        """Render the figure and update the macosx canvas."""
+45|        # The renderer draw is done here; delaying causes problems with code
+46|        # that uses the result of the draw() to update plot elements.
+47|        if self._is_drawing:
+48|            return
+49|        with cbook._setattr_cm(self, _is_drawing=True):
+50|            super().draw()
+51|        self.update()
+...
+
+
+### lib/matplotlib/figure.py
+...
+2080|
+2081|        self.patch = Rectangle(
+2082|            xy=(0, 0), width=1, height=1, visible=frameon,
+2083|            facecolor=facecolor, edgecolor=edgecolor, linewidth=linewidth,
+2084|            # Don't let the figure patch influence bbox calculation.
+2085|            in_layout=False, transform=self.transSubfigure)
+2086|        self._set_artist_props(self.patch)
+2087|        self.patch.set_antialiased(False)
+2088|
+2089|    @property
+2090|    def dpi(self):
+2091|        return self._parent.dpi
+2092|
+2093|    @dpi.setter
+2094|    def dpi(self, value):
+2095|        self._parent.dpi = value
+2096|
+2097|    def get_dpi(self):
+2098|        """
+2099|        Return the resolution of the parent figure in dots-per-inch as a float.
+2100|        """
+2101|        return self._parent.dpi
+2102|
+2103|    def set_dpi(self, val):
+2104|        """
+2105|        Set the resolution of parent figure in dots-per-inch.
+2106|
+2107|        Parameters
+2108|        ----------
+2109|        val : float
+2110|        """
+2111|        self._parent.dpi = val
+2112|        self.stale = True
+2113|
+2114|    def _get_renderer(self):
+2115|        return self._parent._get_renderer()
+2116|
+2117|    def _redo_transform_rel_fig(self, bbox=None):
+2118|        """
+2119|        Make the transSubfigure bbox relative to Figure transform.
+2120|
+2121|        Parameters
+2122|        ----------
+...
+2569|        if self._cachedRenderer is not None:
+2570|            return self._cachedRenderer
+2571|        elif hasattr(self.canvas, 'get_renderer'):
+2572|            return self.canvas.get_renderer()
+2573|        else:
+2574|            return _get_renderer(self)
+2575|
+2576|    def _get_dpi(self):
+2577|        return self._dpi
+2578|
+2579|    def _set_dpi(self, dpi, forward=True):
+2580|        """
+2581|        Parameters
+2582|        ----------
+2583|        dpi : float
+2584|
+2585|        forward : bool
+2586|            Passed on to `~.Figure.set_size_inches`
+2587|        """
+2588|        if dpi == self._dpi:
+2589|            # We don't want to cause undue events in backends.
+2590|            return
+2591|        self._dpi = dpi
+2592|        self.dpi_scale_trans.clear().scale(dpi)
+2593|        w, h = self.get_size_inches()
+2594|        self.set_size_inches(w, h, forward=forward)
+2595|        self._fig_callbacks.process('dpi_changed', self)
+2596|
+2597|    dpi = property(_get_dpi, _set_dpi, doc="The resolution in dots per inch.")
+2598|
+2599|    def get_tight_layout(self):
+2600|        """Return whether `.tight_layout` is called when drawing."""
+2601|        return isinstance(self.get_layout_engine(), TightLayoutEngine)
+2602|
+2603|    @_api.deprecated("3.6", alternative="set_layout_engine",
+2604|                     pending=True)
+2605|    def set_tight_layout(self, tight):
+...
+3025|
+3026|        # add version information to the state
+3027|        state['__mpl_version__'] = mpl.__version__
+3028|
+3029|        # check whether the figure manager (if any) is registered with pyplot
+3030|        from matplotlib import _pylab_helpers
+3031|        if self.canvas.manager in _pylab_helpers.Gcf.figs.values():
+3032|            state['_restore_to_pylab'] = True
+3033|        return state
+3034|
+3035|    def __setstate__(self, state):
+3036|        version = state.pop('__mpl_version__')
+3037|        restore_to_pylab = state.pop('_restore_to_pylab', False)
+3038|
+3039|        if version != mpl.__version__:
+3040|            _api.warn_external(
+3041|                f"This figure was saved with matplotlib version {version} and "
+3042|                f"is unlikely to function correctly.")
+3043|
+3044|        self.__dict__ = state
+3045|
+3046|        # re-initialise some of the unstored state information
+3047|        FigureCanvasBase(self)  # Set self.canvas.
+3048|
+3049|        if restore_to_pylab:
+3050|            # lazy import to avoid circularity
+3051|            import matplotlib.pyplot as plt
+3052|            import matplotlib._pylab_helpers as pylab_helpers
+3053|            allnums = plt.get_fignums()
+3054|            num = max(allnums) + 1 if allnums else 1
+3055|            mgr = plt._backend_mod.new_figure_manager_given_figure(num, self)
+3056|            pylab_helpers.Gcf._set_new_active_manager(mgr)
+3057|            plt.draw_if_interactive()
+3058|
+3059|        self.stale = True
+3060|
+3061|    def add_axobserver(self, func):
+3062|        """Whenever the Axes state change, ``func(self)`` will be called."""
+3063|        # Connect a wrapper lambda and not func itself, to avoid it being
+3064|        # weakref-collected.
+3065|        self._axobservers.connect("_axes_change_event", lambda arg: func(arg))
+3066|
+3067|    def savefig(self, fname, *, transparent=None, **kwargs):
+3068|        """
+3069|        Save the current figure.
+...
+
+
+
+
+###
+
+Please provide the class name, function or method name, or the exact line numbers that need to be edited.
+### Examples:
+```
+full_path1/file1.py
+line: 10
+class: MyClass1
+line: 51
+
+full_path2/file2.py
+function: MyClass2.my_method
+line: 12
+
+full_path3/file3.py
+function: my_function
+line: 24
+line: 156
+```
+
+Return just the location(s)
+
+2024-08-21 14:34:56,941 - INFO - ================================================================================
+2024-08-21 14:34:59,174 - INFO - ==== raw output ====
+2024-08-21 14:34:59,174 - INFO - ```
+lib/matplotlib/backends/backend_macosx.py
+line: 32
+lib/matplotlib/figure.py
+line: 3055
+```
+2024-08-21 14:34:59,174 - INFO - ================================================================================
+2024-08-21 14:34:59,174 - INFO - ==== extracted locs ====
+2024-08-21 14:34:59,174 - INFO - ['line: 32']
+2024-08-21 14:34:59,174 - INFO - ['line: 3055']
+2024-08-21 14:34:59,174 - INFO - ['']
+2024-08-21 14:34:59,174 - INFO - ================================================================================
+2024-08-21 14:34:59,174 - INFO - ==== Input coarse_locs
+2024-08-21 14:34:59,174 - INFO - 
+### lib/matplotlib/backends/backend_macosx.py
+function: FigureCanvasMac.__init__
+### lib/matplotlib/figure.py
+function: Figure.__setstate__
+function: Figure._set_dpi
+function: SubFigure.dpi
+function: SubFigure.get_dpi
+function: SubFigure.set_dpi
+### lib/matplotlib/backends/backend_agg.py
+
+
+2024-08-21 20:41:46,304 - INFO - Processing bug matplotlib__matplotlib-23476
+2024-08-21 20:41:46,304 - INFO - Skipping existing instance_id: matplotlib__matplotlib-23476
+2024-08-21 21:00:13,936 - INFO - Processing bug matplotlib__matplotlib-23476
+2024-08-21 21:00:13,936 - INFO - Skipping existing instance_id: matplotlib__matplotlib-23476
+2024-08-21 21:46:26,879 - INFO - Processing bug matplotlib__matplotlib-23476
+2024-08-21 21:46:26,879 - INFO - Skipping existing instance_id: matplotlib__matplotlib-23476
+2024-08-21 21:46:57,822 - INFO - Processing bug matplotlib__matplotlib-23476
+2024-08-21 21:46:57,822 - INFO - Skipping existing instance_id: matplotlib__matplotlib-23476
