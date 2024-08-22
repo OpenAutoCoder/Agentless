@@ -36,6 +36,7 @@ class DependencyGraphBuilder:
                     'depends_on': {
                         'files': [],
                         'external': [],
+                        'imported_entities': {}  # Renamed to 'imported_entities'
                     },
                     'depended_by': []
                 }
@@ -56,8 +57,19 @@ class DependencyGraphBuilder:
                     from_module = node.children[1].text.decode("utf-8")
                     absolute_import_path = self.resolve_path(file_dir, from_module)
                     file_dependency = self.find_file_from_import_path(absolute_import_path)
+                    
+                    # Extract imported entities
+                    imported_entities = []
+                    for child in node.children[3:]:
+                        if child.type in ['dotted_name', 'name']:
+                            imported_entities.append(child.text.decode("utf-8"))
+                                                   
                     if file_dependency and file_dependency in self.codebase:
                         self.dependency_graph[file_path]['depends_on']['files'].append(file_dependency)
+                        self.dependency_graph[file_path]['depends_on']['imported_entities'][file_dependency] = imported_entities
+                    else:
+                        self.dependency_graph[file_path]['depends_on']['external'].append(from_module)
+                        self.dependency_graph[file_path]['depends_on']['imported_entities'][from_module] = imported_entities
                 else:
                     # Handle 'import ...' syntax
                     for child in node.children:
@@ -122,6 +134,7 @@ class DependencyGraphBuilder:
             # print(f"Error making absolute path: {e}")
             pass
 
+    
     def build_reverse_dependencies(self) -> None:
         """Builds a list of the files that each file is depended on by."""
         # Create a list of items to iterate over to prevent RuntimeError
@@ -133,13 +146,13 @@ class DependencyGraphBuilder:
                 else:
                     # Handle the case where the dependency is an external module
                     if dependency not in self.dependency_graph:
-                        self.dependency_graph[dependency] = {'depends_on': {'files': [], 'external': []}, 'depended_by': [file]}
+                        self.dependency_graph[dependency] = {'depends_on': {'files': [], 'external': [], 'imported_entities': {}}, 'depended_by': [file]}
 
     def find_dependents_of_file(self, filename: str) -> List[str]:
         return self.dependency_graph.get(filename, {}).get('depended_by', [])
 
     def find_dependencies_of_file(self, filename: str) -> Dict[str, List[str]]:
-        return self.dependency_graph.get(filename, {}).get('depends_on', {'files': [], 'external': []})
+        return self.dependency_graph.get(filename, {}).get('depends_on', {'files': [], 'external': [], 'imported_entities': {}})
 
     def _parse_code(self, code: str, file_extension: str) -> Union[None, Node]:
         try:
