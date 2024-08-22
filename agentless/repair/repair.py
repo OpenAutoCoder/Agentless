@@ -6,6 +6,7 @@ from difflib import unified_diff
 
 from datasets import load_dataset
 from tqdm import tqdm
+from agentless.repair.syntax_error_fixing.fix_syntax_errors import DiffPatchError, fix_syntax_error_diff_files
 
 from agentless.util.api_requests import num_tokens_from_messages
 from agentless.util.model import make_model
@@ -518,7 +519,17 @@ def post_process_raw_output(
                 "\ No newline at end of file\n", ""
             )
 
-            syntax_success = check_syntax(new_content)
+            try:
+                syntax_success = check_syntax(new_content)
+            except SyntaxError as e:
+                print(f'Error checking syntax: {e}')
+                try:
+                    new_content = fix_syntax_error_diff_files(new_content, content, logger)
+                    syntax_success = True
+                except DiffPatchError as e:
+                    print(f'Error fixing syntax: {e}')
+                    syntax_success = False
+            
             lint_success, prev_errors, errors = lint_code(
                 "playground", "test.py", new_content, file_contents[edited_file]
             )

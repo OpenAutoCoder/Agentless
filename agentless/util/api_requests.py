@@ -7,8 +7,6 @@ import anthropic
 import tiktoken
 import google.generativeai as genai
 
-
-
 def num_tokens_from_messages(message, model="gpt-3.5-turbo-0301"):
     """Returns the number of tokens used by a list of messages."""
     try:
