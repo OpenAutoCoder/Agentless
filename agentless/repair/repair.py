@@ -525,6 +525,7 @@ def post_process_raw_output(
                 print(f'Error checking syntax: {e}')
                 try:
                     new_content = fix_syntax_error_diff_files(new_content, content, logger)
+                    print(f"success fixed syntax: {new_content}")
                     syntax_success = True
                 except DiffPatchError as e:
                     print(f'Error fixing syntax: {e}')
