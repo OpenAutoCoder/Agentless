@@ -149,7 +149,7 @@ class OpenAIChatDecoder(DecoderBase):
     def __init__(self, name: str, logger, **kwargs) -> None:
         super().__init__(name, logger, **kwargs)
 
-    def codegen(self, message: str, num_samples: int = 1) -> List[dict]:
+    def codegen(self, message: str, num_samples: int = 1, system_message: str = "You are a helpful assistant.") -> List[dict]:
         if self.temperature == 0:
             assert num_samples == 1
         batch_size = min(self.batch_size, num_samples)
@@ -160,6 +160,7 @@ class OpenAIChatDecoder(DecoderBase):
             temperature=self.temperature,
             batch_size=batch_size,
             model=self.name,
+            system_message=system_message
         )
         ret = request_chatgpt_engine(config, self.logger)
         if ret:
@@ -206,7 +207,7 @@ class DeepSeekChatDecoder(DecoderBase):
     def __init__(self, name: str, logger, **kwargs) -> None:
         super().__init__(name, logger, **kwargs)
 
-    def codegen(self, message: str, num_samples: int = 1) -> List[dict]:
+    def codegen(self, message: str, num_samples: int = 1, system_message: str = "You are a helpful assistant.") -> List[dict]:
         import os 
         if self.temperature == 0:
             assert num_samples == 1
@@ -219,6 +220,7 @@ class DeepSeekChatDecoder(DecoderBase):
                 temperature=self.temperature,
                 batch_size=1,
                 model=self.name,
+                system_message=system_message
             )
             ret = request_chatgpt_engine(
                 config, self.logger, api_key=os.environ.get("DEEPSEEK_API_KEY", None),base_url="https://api.deepseek.com"
