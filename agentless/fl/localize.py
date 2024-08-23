@@ -107,7 +107,6 @@ def localize_instance(
     test = generate_unit_test(
         args, instance_id, bug["problem_statement"], d["structure"]
     )
-    print(test)
 
     logger.info(f"================ localize {instance_id} ================")
 
@@ -157,16 +156,19 @@ def localize_instance(
                     ]
                     related_loc_traj = locs["related_loc_traj"]
                 break
-    
+
     if args.reflection and args.file_level:
-        # perform reflection on the found files by passing 
+        # perform reflection on the found files by passing
         # the content of the files to the LLM and asking it to justify the choices
         # the LLM makes.
-        found_files, refined_additional_artifact_loc_file, refined_file_traj = fl.refine_localize(
+        (
+            found_files,
+            refined_additional_artifact_loc_file,
+            refined_file_traj,
+        ) = fl.refine_localize(
             found_files, args.reflection_model, args.reflection_backend
         )
 
-        
     # related class, functions, global var localization
     if args.related_level:
         if len(found_files) != 0:
@@ -361,10 +363,20 @@ def main():
         "--reflection_model",
         type=str,
         default="claude-3-5-sonnet-20240620",
-        choices=["gpt-4o-2024-05-13", "gpt-4o-mini","deepseek-coder", "gpt-4o-mini-2024-07-18", "claude-3-5-sonnet-20240620", "gemini-1.5-flash"],
+        choices=[
+            "gpt-4o-2024-05-13",
+            "gpt-4o-mini",
+            "deepseek-coder",
+            "gpt-4o-mini-2024-07-18",
+            "claude-3-5-sonnet-20240620",
+            "gemini-1.5-flash",
+        ],
     )
     parser.add_argument(
-        "--reflection_backend", type=str, default="anthropic", choices=["openai", "deepseek", "anthropic", "gemini"]
+        "--reflection_backend",
+        type=str,
+        default="anthropic",
+        choices=["openai", "deepseek", "anthropic", "gemini"],
     )
 
     parser.add_argument("--output_folder", type=str, required=True)

@@ -57,8 +57,6 @@ def ingest_repo(args):
         "Name": repo_name,
         "Url": "https://github.com/" + repo_name + ".git",
         "IsPublic": False,
-        "UserUUID": "658eafe4-ecd1-11ee-9f36-acde48001122",
-        "GithubAccessToken": "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",
         "RootDir": os.path.abspath(repo_playground),
     }
 
