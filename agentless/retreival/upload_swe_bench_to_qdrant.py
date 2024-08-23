@@ -60,21 +60,12 @@ def ensure_tmp_permissions():
 @timing_decorator
 def load_swe_bench_dataset():
     """
-    Load the SWE-bench Lite dataset from HuggingFace or local file.
+    Load the SWE-bench dataset from HuggingFace or local file.
     """
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    local_file = os.path.join(current_dir, 'swe_bench_lite.jsonl')
-    if os.path.exists(local_file):
-        print("Loading local file")
-        return load_jsonl(local_file)
-    else:
-        print("Loading from HuggingFace")
-        dataset = load_dataset("princeton-nlp/SWE-bench_Verified", split="test")
-        with open(local_file, 'w') as f:
-            for item in dataset:
-                json.dump(item, f)
-                f.write('\n')
-        return dataset
+   
+    print("Loading from HuggingFace")
+    dataset = load_dataset("princeton-nlp/SWE-bench_Lite", split="test")
+    return dataset
     
 def get_all_instance_ids(repo_name: str = None):
     data = load_swe_bench_dataset()

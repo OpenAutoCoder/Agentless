@@ -2,6 +2,8 @@ import os
 from typing import Dict, List, Union
 from tree_sitter import Node
 from agentless.retreival.TextChunker.CodeParser import CodeParser
+from agentless.retreival.upload_swe_bench_to_qdrant import init_repo, load_swe_bench_dataset
+from eval_retrieval import get_affected_files
 
 class DependencyGraphBuilder:
 
@@ -63,6 +65,11 @@ class DependencyGraphBuilder:
                     for child in node.children[3:]:
                         if child.type in ['dotted_name', 'name']:
                             imported_entities.append(child.text.decode("utf-8"))
+                        elif child.type == 'import_statement':
+                            # Handle multi-line imports
+                            for subchild in child.children:
+                                if subchild.type in ['dotted_name', 'name']:
+                                    imported_entities.append(subchild.text.decode("utf-8"))
                                                    
                     if file_dependency and file_dependency in self.codebase:
                         self.dependency_graph[file_path]['depends_on']['files'].append(file_dependency)
@@ -179,3 +186,60 @@ class DependencyGraphBuilder:
         relevant_files.discard(coding_file_name)  # Using discard to avoid KeyError if the item is not present
 
         return list(relevant_files)
+    
+
+    def find_test_files_that_depend_on_coding_file(self, coding_file_name: str) -> List[str]:
+        """
+        Finds all test files that depend on the given coding file.
+        
+        :param coding_file_name: The name of the coding file to check for dependent test files.
+        :return: A list of test file names that depend on the given coding file.
+        """
+        test_files = []
+        
+        # Get all files that depend on the coding file
+        dependent_files = self.find_dependents_of_file(coding_file_name)
+        
+        # Filter for test files
+        for file in dependent_files:
+            # Check if the file name contains 'test' or ends with '_test.py' or '.test.js'
+            if 'test' in file.lower() or file.lower().endswith(('_test.py', '.test.js')):
+                test_files.append(file)
+        
+        return test_files
+    
+def main(instance_id: str):
+    """
+    Gets the tests for a given instance_id
+    """
+    data = load_swe_bench_dataset()
+    print(data)
+
+    # Filter the data to include only the specified instance_ids from the jsonl file
+    data_subset = [item for item in data if item['instance_id'] == instance_id]
+
+    for item in data_subset:
+        # Extract owner and repo name from the 'repo' field
+        owner, repo_name = item['repo'].split('/')
+        
+        # Use custom_init_repo to initialize the repository
+        fs = init_repo(owner, repo_name, item['base_commit'])
+
+        code_dict = fs.get_code_dict()
+
+        affected_files = get_affected_files(item['patch'])
+
+        print(affected_files)
+
+        dependency_graph_builder = DependencyGraphBuilder(code_dict)
+        dependency_graph_builder.build_complete_dependency_graph()
+        depends_on = dependency_graph_builder.find_dependents_of_file(affected_files[0])
+        print(depends_on)
+        
+        for file in affected_files:
+            print(f"Dependencies for {file}:")
+            print(dependency_graph_builder.dependency_graph.get(file, "No dependencies found"))
+    
+if __name__ == "__main__":
+    instance_id = 'sympy__sympy-13647'
+    main(instance_id)

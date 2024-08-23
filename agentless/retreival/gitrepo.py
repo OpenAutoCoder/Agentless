@@ -151,3 +151,22 @@ class GitRepo(FileStorage):
 
     def get_diff_patch(self):
         return self.repo.git.diff('HEAD')
+    
+    def get_file_names_changed_between_commits(self, commit1: str, commit2: str):
+        """
+        Get the names of files that have changed between two commits.
+
+        Args:
+            commit1 (str): The SHA or reference of the first commit.
+            commit2 (str): The SHA or reference of the second commit.
+
+        Returns:
+            str: A string containing the names of the files that have changed,
+                 with each filename on a new line.
+
+        Note:
+            This method uses the 'git diff' command with the '--name-only' option
+            to list only the names of the files that have changed between the
+            two specified commits.
+        """
+        return self.repo.git.diff(commit1, commit2, name_only=True)
