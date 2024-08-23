@@ -7,6 +7,8 @@ from datasets import load_dataset
 from tqdm import tqdm
 
 from agentless.fl.FL import LLMFL
+from agentless.util.api_requests import num_tokens_from_messages
+from agentless.util.model import make_model
 from agentless.util.preprocess_data import (
     filter_none_python,
     filter_out_test_files,
@@ -28,9 +30,54 @@ from get_repo_structure.get_repo_structure import (
 PROJECT_FILE_LOC = os.environ.get("PROJECT_FILE_LOC", None)
 
 
+def generate_unit_test(args, instance_id, problem_statement, file_content):
+
+    log_file = os.path.join(args.output_folder, "unit_test_logs", f"{instance_id}.log")
+    logger = setup_logger(log_file)
+    model = make_model(
+        model=args.model,
+        backend=args.backend,
+        logger=logger,
+        max_tokens=8192,
+        temperature=0.2,
+        batch_size=1,
+    )
+
+    logger.info(f"Generating unit test for {instance_id}")
+    logger.info("=====================================")
+    logger.info(f"Problem statement: {problem_statement}")
+    logger.info("=====================================")
+    logger.info(f"File content: {file_content}")
+    logger.info("=====================================")
+
+    prompt = f"""Generate a set of unit tests for the following code based on the problem description.  The unit tests should accurately test out whether or not the issue has been resolved.  Check all edge cases and ensure that the code is functioning as expected. Do not include any extra text about the tests or anything else. The output format should just be the code for the unit tests and nothing else.
+
+        Problem: {problem_statement}
+        """
+
+    prompt_long = f"""Generate a set of unit tests for the following code based on the problem description.  The unit tests should accurately test out whether or not the issue has been resolved.  Check all edge cases and ensure that the code is functioning as expected.
+
+        Problem: {problem_statement}
+
+        Code:
+        ```python
+            {file_content}
+        ```
+        """
+    logger.info("Unit test prompt: " + str(prompt))
+    response = model.codegen(prompt, num_samples=1)
+    logger.info("Unit test: " + str(response[0]))
+
+    test_log_file = os.path.join(args.output_folder, "test", f"{instance_id}.log")
+    logger = setup_logger(test_log_file)
+    logger.info(str(response[0].content.text))
+    return response
+
+
 def localize_instance(
     bug, args, swe_bench_data, start_file_locs, existing_instance_ids
 ):
+
     instance_id = bug["instance_id"]
     log_file = os.path.join(
         args.output_folder, "localization_logs", f"{instance_id}.log"
@@ -54,6 +101,13 @@ def localize_instance(
         d = get_project_structure_from_scratch(
             bug["repo"], bug["base_commit"], bug["instance_id"], "playground"
         )
+
+    print(f"================ generate unit test {instance_id} ================")
+
+    test = generate_unit_test(
+        args, instance_id, bug["problem_statement"], d["structure"]
+    )
+    print(test)
 
     logger.info(f"================ localize {instance_id} ================")
 
@@ -160,7 +214,8 @@ def localize_instance(
         (
             found_edit_locs,
             additional_artifact_loc_edit_location,
-            edit_loc_traj, final_status
+            edit_loc_traj,
+            final_status,
         ) = fl.localize_line_from_coarse_function_locs(
             pred_files,
             coarse_found_locs,
@@ -231,6 +286,7 @@ def localize(args):
                 for bug in swe_bench_data
             ]
             concurrent.futures.wait(futures)
+
 
 def merge(args):
     """Merge predicted locations."""
@@ -357,10 +413,20 @@ def main():
         "--model",
         type=str,
         default="claude-3-5-sonnet-20240620",
-        choices=["gpt-4o-2024-05-13", "gpt-4o-mini","deepseek-coder", "gpt-4o-mini-2024-07-18", "claude-3-5-sonnet-20240620", "gemini-1.5-flash"],
+        choices=[
+            "gpt-4o-2024-05-13",
+            "gpt-4o-mini",
+            "deepseek-coder",
+            "gpt-4o-mini-2024-07-18",
+            "claude-3-5-sonnet-20240620",
+            "gemini-1.5-flash",
+        ],
     )
     parser.add_argument(
-        "--backend", type=str, default="anthropic", choices=["openai", "deepseek", "anthropic", "gemini"]
+        "--backend",
+        type=str,
+        default="anthropic",
+        choices=["openai", "deepseek", "anthropic", "gemini"],
     )
 
     args = parser.parse_args()

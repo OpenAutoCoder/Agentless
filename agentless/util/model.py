@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from agentless.util.api_requests import create_chatgpt_config, request_chatgpt_engine, request_anthropic_engine, request_gemini_engine
+from agentless.util.api_requests import (
+    create_chatgpt_config,
+    request_anthropic_engine,
+    request_chatgpt_engine,
+    request_gemini_engine,
+)
 
 
 class DecoderBase(ABC):
@@ -33,13 +38,18 @@ class DecoderBase(ABC):
 
     def __str__(self) -> str:
         return self.name
-    
+
 
 class GeminiChatDecoder(DecoderBase):
     def __init__(self, name: str, logger, **kwargs) -> None:
         super().__init__(name, logger, **kwargs)
-    
-    def codegen(self, message: str, num_samples: int = 1, system_message: str = "You are a helpful assistant.") -> List[dict]:
+
+    def codegen(
+        self,
+        message: str,
+        num_samples: int = 1,
+        system_message: str = "You are a helpful assistant.",
+    ) -> List[dict]:
         if self.temperature == 0:
             assert num_samples == 1
         assert num_samples == 1, "Gemini does not support batching"
@@ -49,7 +59,7 @@ class GeminiChatDecoder(DecoderBase):
             "temperature": self.temperature,
             "system_message": system_message,
             # "n": batch_size,
-            "message": message
+            "message": message,
         }
         ret = request_gemini_engine(config, self.logger)
 
@@ -106,7 +116,9 @@ class AnthropicChatDecoder(DecoderBase):
         ret = request_anthropic_engine(config, self.logger)
 
         if ret:
-            responses = [content.text for content in ret.content if content.type == "text"]
+            responses = [
+                content.text for content in ret.content if content.type == "text"
+            ]
             completion_tokens = ret.usage.output_tokens
             prompt_tokens = ret.usage.input_tokens
         else:

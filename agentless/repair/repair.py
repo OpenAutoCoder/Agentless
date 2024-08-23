@@ -34,10 +34,10 @@ Below are some code segments, each from a relevant file. One or more of these fi
 """
 repair_relevant_file_with_scope_instruction = """
 Below are some code segments, each from a relevant file. One or more of these files may contain bugs.
-In the file below, "..." refers to some less relevant content being omited for brebity.
+In the file below, "..." refers to some less relevant content being ommited for brevity.
 """
 with_scope_explanation = """
-Note that "..." refers to some omited content that is not actually in the files. Your *SEARCH/REPLACE* edit must not contain such "...".
+Note that "..." refers to some ommited content that is not actually in the files. Your *SEARCH/REPLACE* edit must not contain such "...".
 """
 repair_relevant_file_with_suspicious_loc_instruction = """
 Below are some code segments, each from a relevant file. One or more of these files may contain bugs. Some suspicious locations are provided for closer inspection.
