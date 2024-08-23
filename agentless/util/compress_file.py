@@ -139,7 +139,7 @@ def test():
 
 """
 
-code = open("/Users/ig/Documents/AgentlessModal/Agentless/playground/OpenDevin_OpenDevin/openhands/memory/memory.py", "r").read()
+# code = open("/Users/ig/Documents/AgentlessModal/Agentless/playground/OpenDevin_OpenDevin/openhands/memory/memory.py", "r").read()
 
 def get_skeleton(raw_code, keep_constant: bool = True, with_annotations: bool = False):
     try:
