@@ -16,7 +16,7 @@ def check_syntax(code):
     try:
         ast.parse(code)
     except SyntaxError as e:
-        return False
+        raise SyntaxError(e)
     return True
 
 

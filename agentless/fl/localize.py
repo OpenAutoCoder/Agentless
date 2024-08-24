@@ -7,6 +7,8 @@ from datasets import load_dataset
 from tqdm import tqdm
 
 from agentless.fl.FL import LLMFL
+from agentless.util.api_requests import num_tokens_from_messages
+from agentless.util.model import make_model
 from agentless.util.preprocess_data import (
     filter_none_python,
     filter_out_test_files,
@@ -28,9 +30,54 @@ from get_repo_structure.get_repo_structure import (
 PROJECT_FILE_LOC = os.environ.get("PROJECT_FILE_LOC", None)
 
 
+def generate_unit_test(args, instance_id, problem_statement, file_content):
+
+    log_file = os.path.join(args.output_folder, "unit_test_logs", f"{instance_id}.log")
+    logger = setup_logger(log_file)
+    model = make_model(
+        model=args.model,
+        backend=args.backend,
+        logger=logger,
+        max_tokens=8192,
+        temperature=0.2,
+        batch_size=1,
+    )
+
+    logger.info(f"Generating unit test for {instance_id}")
+    logger.info("=====================================")
+    logger.info(f"Problem statement: {problem_statement}")
+    logger.info("=====================================")
+    logger.info(f"File content: {file_content}")
+    logger.info("=====================================")
+
+    prompt = f"""Generate a set of unit tests for the following code based on the problem description.  The unit tests should accurately test out whether or not the issue has been resolved.  Check all edge cases and ensure that the code is functioning as expected. Do not include any extra text about the tests or anything else. The output format should just be the code for the unit tests and nothing else.
+
+        Problem: {problem_statement}
+        """
+
+    prompt_long = f"""Generate a set of unit tests for the following code based on the problem description.  The unit tests should accurately test out whether or not the issue has been resolved.  Check all edge cases and ensure that the code is functioning as expected.
+
+        Problem: {problem_statement}
+
+        Code:
+        ```python
+            {file_content}
+        ```
+        """
+    logger.info("Unit test prompt: " + str(prompt))
+    response = model.codegen(prompt, num_samples=1)
+    logger.info("Unit test: " + str(response[0]))
+
+    test_log_file = os.path.join(args.output_folder, "test", f"{instance_id}.log")
+    logger = setup_logger(test_log_file)
+    logger.info(str(response[0].content.text))
+    return response
+
+
 def localize_instance(
     bug, args, swe_bench_data, start_file_locs, existing_instance_ids
 ):
+
     instance_id = bug["instance_id"]
     log_file = os.path.join(
         args.output_folder, "localization_logs", f"{instance_id}.log"
@@ -54,6 +101,12 @@ def localize_instance(
         d = get_project_structure_from_scratch(
             bug["repo"], bug["base_commit"], bug["instance_id"], "playground"
         )
+
+    print(f"================ generate unit test {instance_id} ================")
+
+    test = generate_unit_test(
+        args, instance_id, bug["problem_statement"], d["structure"]
+    )
 
     logger.info(f"================ localize {instance_id} ================")
 
@@ -104,6 +157,18 @@ def localize_instance(
                     related_loc_traj = locs["related_loc_traj"]
                 break
 
+    if args.reflection and args.file_level:
+        # perform reflection on the found files by passing
+        # the content of the files to the LLM and asking it to justify the choices
+        # the LLM makes.
+        (
+            found_files,
+            refined_additional_artifact_loc_file,
+            refined_file_traj,
+        ) = fl.refine_localize(
+            found_files, args.reflection_model, args.reflection_backend
+        )
+
     # related class, functions, global var localization
     if args.related_level:
         if len(found_files) != 0:
@@ -152,6 +217,7 @@ def localize_instance(
             found_edit_locs,
             additional_artifact_loc_edit_location,
             edit_loc_traj,
+            final_status,
         ) = fl.localize_line_from_coarse_function_locs(
             pred_files,
             coarse_found_locs,
@@ -163,6 +229,8 @@ def localize_instance(
             temperature=args.temperature,
             num_samples=args.num_samples,
         )
+        if not final_status:
+            return
         additional_artifact_loc_edit_location = [additional_artifact_loc_edit_location]
 
     with open(args.output_file, "a") as f:
@@ -179,6 +247,8 @@ def localize_instance(
                     "found_edit_locs": found_edit_locs,
                     "additional_artifact_loc_edit_location": additional_artifact_loc_edit_location,
                     "edit_loc_traj": edit_loc_traj,
+                    "refined_additional_artifact_loc_file": refined_additional_artifact_loc_file,
+                    "refined_file_traj": refined_file_traj,
                 }
             )
             + "\n"
@@ -186,7 +256,12 @@ def localize_instance(
 
 
 def localize(args):
-    swe_bench_data = load_dataset("princeton-nlp/SWE-bench_Lite", split="test")
+    swe_bench_data = load_dataset("exploiter345/SWE-bench_Verified_50", split="test")
+    # swe_bench_data = swe_bench_data.filter(lambda x : x["repo"] == "django/django")
+    # add support to only iterate over a subset of the dataset
+    if args.run_top_n > 0:
+        swe_bench_data = swe_bench_data.select(range(args.run_top_n))
+
     start_file_locs = load_jsonl(args.start_file) if args.start_file else None
     existing_instance_ids = (
         load_existing_instance_ids(args.output_file) if args.skip_existing else set()
@@ -281,6 +356,28 @@ def merge(args):
 
 def main():
     parser = argparse.ArgumentParser()
+    # enable using LLM to perform reflection
+    parser.add_argument("--reflection", action="store_true")
+    parser.add_argument("--no_reflection", action="store_false", dest="merge")
+    parser.add_argument(
+        "--reflection_model",
+        type=str,
+        default="claude-3-5-sonnet-20240620",
+        choices=[
+            "gpt-4o-2024-05-13",
+            "gpt-4o-mini",
+            "deepseek-coder",
+            "gpt-4o-mini-2024-07-18",
+            "claude-3-5-sonnet-20240620",
+            "gemini-1.5-flash",
+        ],
+    )
+    parser.add_argument(
+        "--reflection_backend",
+        type=str,
+        default="anthropic",
+        choices=["openai", "deepseek", "anthropic", "gemini"],
+    )
 
     parser.add_argument("--output_folder", type=str, required=True)
     parser.add_argument("--output_file", type=str, default="loc_outputs.jsonl")
@@ -296,8 +393,10 @@ def main():
     parser.add_argument("--top_n", type=int, default=3)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--num_samples", type=int, default=1)
+    parser.add_argument("--run_top_n", type=int, default=-1)
     parser.add_argument("--compress", action="store_true")
     parser.add_argument("--merge", action="store_true")
+    parser.add_argument("--no_merge", action="store_false", dest="merge")
     parser.add_argument("--add_space", action="store_true")
     parser.add_argument("--no_line_number", action="store_true")
     parser.add_argument("--sticky_scroll", action="store_true")
@@ -325,11 +424,21 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4o-2024-05-13",
-        choices=["gpt-4o-2024-05-13", "deepseek-coder", "gpt-4o-mini-2024-07-18"],
+        default="claude-3-5-sonnet-20240620",
+        choices=[
+            "gpt-4o-2024-05-13",
+            "gpt-4o-mini",
+            "deepseek-coder",
+            "gpt-4o-mini-2024-07-18",
+            "claude-3-5-sonnet-20240620",
+            "gemini-1.5-flash",
+        ],
     )
     parser.add_argument(
-        "--backend", type=str, default="openai", choices=["openai", "deepseek"]
+        "--backend",
+        type=str,
+        default="anthropic",
+        choices=["openai", "deepseek", "anthropic", "gemini"],
     )
 
     args = parser.parse_args()

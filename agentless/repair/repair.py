@@ -6,6 +6,7 @@ from difflib import unified_diff
 
 from datasets import load_dataset
 from tqdm import tqdm
+from agentless.repair.syntax_error_fixing.fix_syntax_errors import DiffPatchError, fix_syntax_error_diff_files
 
 from agentless.util.api_requests import num_tokens_from_messages
 from agentless.util.model import make_model
@@ -33,10 +34,10 @@ Below are some code segments, each from a relevant file. One or more of these fi
 """
 repair_relevant_file_with_scope_instruction = """
 Below are some code segments, each from a relevant file. One or more of these files may contain bugs.
-In the file below, "..." refers to some less relevant content being omited for brebity.
+In the file below, "..." refers to some less relevant content being ommited for brevity.
 """
 with_scope_explanation = """
-Note that "..." refers to some omited content that is not actually in the files. Your *SEARCH/REPLACE* edit must not contain such "...".
+Note that "..." refers to some ommited content that is not actually in the files. Your *SEARCH/REPLACE* edit must not contain such "...".
 """
 repair_relevant_file_with_suspicious_loc_instruction = """
 Below are some code segments, each from a relevant file. One or more of these files may contain bugs. Some suspicious locations are provided for closer inspection.
@@ -518,7 +519,18 @@ def post_process_raw_output(
                 "\ No newline at end of file\n", ""
             )
 
-            syntax_success = check_syntax(new_content)
+            try:
+                syntax_success = check_syntax(new_content)
+            except SyntaxError as e:
+                print(f'Error checking syntax: {e}')
+                try:
+                    new_content = fix_syntax_error_diff_files(new_content, content, logger)
+                    print(f"success fixed syntax: {new_content}")
+                    syntax_success = True
+                except DiffPatchError as e:
+                    print(f'Error fixing syntax: {e}')
+                    syntax_success = False
+            
             lint_success, prev_errors, errors = lint_code(
                 "playground", "test.py", new_content, file_contents[edited_file]
             )

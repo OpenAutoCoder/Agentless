@@ -1,0 +1,2752 @@
+2024-08-22 13:59:27,764 - INFO - ================ repairing django__django-16642 ================
+2024-08-22 13:59:28,457 - INFO - prompting with message:
+We are currently solving the following issue within our repository. Here is the issue text:
+--- BEGIN ISSUE ---
+Improper guessing of Mime Type for "br" and "Z" file types
+Description
+	
+Below FileResponse will set the content type as text/html, even if the last file extension is "Z' or "br".
+FileResponse(open('test.html.Z', 'rb'))
+FileResponse(open('test.html.br', 'rb'))
+
+--- END ISSUE ---
+
+
+Below are some code segments, each from a relevant file. One or more of these files may contain bugs.
+
+--- BEGIN FILE ---
+```
+### django/http/response.py
+...
+            )
+            filelike.seek(-int(self.headers["Content-Length"]), io.SEEK_END)
+
+        filename = os.path.basename(self.filename or filename)
+        if self._no_explicit_content_type:
+            if filename:
+                content_type, encoding = mimetypes.guess_type(filename)
+                # Encoding isn't set to prevent browsers from automatically
+                # uncompressing files.
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+                self.headers["Content-Type"] = (
+                    content_type or "application/octet-stream"
+                )
+            else:
+                self.headers["Content-Type"] = "application/octet-stream"
+
+        if content_disposition := content_disposition_header(
+            self.as_attachment, filename
+        ):
+...
+```
+--- END FILE ---
+
+Please first localize the bug based on the issue statement, and then generate *SEARCH/REPLACE* edits to fix the issue.
+
+Every *SEARCH/REPLACE* edit must use this format:
+1. The file path
+2. The start of search block: <<<<<<< SEARCH
+3. A contiguous chunk of lines to search for in the existing source code
+4. The dividing line: =======
+5. The lines to replace into the source code
+6. The end of the replace block: >>>>>>> REPLACE
+
+Here is an example:
+
+```python
+### mathweb/flask/app.py
+<<<<<<< SEARCH
+from flask import Flask
+=======
+import math
+from flask import Flask
+>>>>>>> REPLACE
+```
+
+Please note that the *SEARCH/REPLACE* edit REQUIRES PROPER INDENTATION. If you would like to add the line '        print(x)', you must fully write that out, with all those spaces before the code!
+Wrap the *SEARCH/REPLACE* edit in blocks ```python...```.
+2024-08-22 13:59:28,463 - INFO - Creating API request
+2024-08-22 13:59:32,969 - INFO - API response ChatCompletion(id='chatcmpl-9z9BwGcGQVbVjBNINhBHQgL3k9Zwa', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='To address the issue of improper guessing of MIME types for "br" and "Z" file types in the provided code segment, we need to ensure that the `mimetypes` module correctly identifies these file types. The current implementation does not account for these specific extensions, which leads to the incorrect assignment of the content type.\n\nWe can add specific MIME type mappings for the "br" and "Z" file extensions to the `mimetypes` module. Here’s how we can do that:\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                content_type = {\n                    "bzip2": "application/x-bzip",\n                    "gzip": "application/gzip",\n                    "xz": "application/x-xz",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    "bzip2": "application/x-bzip",\n                    "gzip": "application/gzip",\n                    "xz": "application/x-xz",\n                    "br": "application/brotli",  # Add MIME type for .br files\n                    "compress": "application/x-compress",  # Add MIME type for .Z files\n                }.get(encoding, content_type)\n>>>>>>> REPLACE\n```\n\nIn this edit, we have added the MIME type for `.br` files as `application/brotli` and for `.Z` files as `application/x-compress`. This should resolve the issue of improper MIME type guessing for these file types.', refusal=None, role='assistant', function_call=None, tool_calls=None))], created=1724360368, model='gpt-4o-mini-2024-07-18', object='chat.completion', service_tier=None, system_fingerprint='fp_48196bc67a', usage=CompletionUsage(completion_tokens=301, prompt_tokens=542, total_tokens=843))
+2024-08-22 13:59:32,986 - INFO - Creating API request
+2024-08-22 13:59:37,174 - INFO - API response ChatCompletion(id='chatcmpl-9z9C1R5nfv3XHEEQVD2reqtjRr0Yi', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='To address the issue with improper guessing of the MIME type for the "Z" and "br" file types, we need to adjust the logic in the `django/http/response.py` file to correctly identify these file types.\n\nHere\'s the necessary *SEARCH/REPLACE* edit:\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Add additional MIME types for "Z" and "br"\n                content_type = {\n                    "Z": "application/x-compress",\n                    "br": "application/brotli",\n                }.get(os.path.splitext(filename)[1][1:], content_type)\n>>>>>>> REPLACE\n```\n\nIn this edit, we\'ve added a new dictionary that maps the extensions "Z" and "br" to their respective MIME types. This should resolve the issue described in the issue statement.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=1, logprobs=None, message=ChatCompletionMessage(content='To address the issue of improper guessing of Mime types for "br" and "Z" file types in the `django/http/response.py`, we need to enhance the `mimetypes.guess_type` functionality to correctly guess the content type for these specific extensions. \n\nHere\'s how we can implement the fix:\n\n1. Identify the section where the `mimetypes.guess_type` is being used.\n2. Modify the code to handle "Z" and "br" file extensions specifically.\n\nThe following edits can be made:\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                content_type, encoding = mimetypes.guess_type(filename)\n=======\n                content_type, encoding = mimetypes.guess_type(filename)\n                # Add explicit mappings for "br" and "Z" extensions\n                if filename.endswith(\'.br\'):\n                    content_type = \'application/brotli\'\n                elif filename.endswith(\'.Z\'):\n                    content_type = \'application/x-compress\'\n>>>>>>> REPLACE\n``` \n\nThis change checks if the filename ends with ".br" or ".Z" and sets the content type accordingly.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=2, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the problem is that the `FileResponse` is not properly guessing the MIME type for the file extensions `.Z` and `.br`. The `mimetypes.guess_type` function is likely not returning the correct MIME type for these extensions, so we need to handle them explicitly.\n\n### Proposed Fix\n\nI\'ll add explicit handling for `.Z` and `.br` file types to ensure that the `Content-Type` is set correctly.\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                content_type = {\n=======\n                content_type = {\n                    "br": "application/x-brotli",\n                    "Z": "application/x-compress",\n>>>>>>> REPLACE\n                    "bzip2": "application/x-bzip",\n                    "gzip": "application/gzip",\n                    "xz": "application/x-xz",\n                }.get(encoding, content_type)\n```\n\nThis change ensures that when the MIME type is guessed for files with the `.Z` and `.br` extensions, they are correctly identified with their respective MIME types: `application/x-compress` for `.Z` and `application/x-brotli` for `.br`.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=3, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the bug is related to the improper guessing of MIME types for files with the extensions `.Z` and `.br`. The existing code uses `mimetypes.guess_type()` which may not correctly identify these extensions. We need to explicitly define the content types for these file extensions.\n\nHere is the necessary **SEARCH/REPLACE** edit:\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Adding specific MIME types for "br" and "Z" file types\n                if filename.endswith(\'.Z\'):\n                    content_type = "application/x-compress"\n                elif filename.endswith(\'.br\'):\n                    content_type = "application/brotli"\n>>>>>>> REPLACE\n``` \n\nThis change explicitly sets the MIME types for files ending with `.Z` and `.br`, addressing the issue described.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=4, logprobs=None, message=ChatCompletionMessage(content='Based on the issue statement, the bug is in the `mimetypes.guess_type` method when it guesses the MIME types for files with extensions "Z" and "br". These extensions are not properly mapped to their correct MIME types, resulting in the incorrect content type being set as `text/html`.\n\nTo address this, we need to add the correct mappings for these extensions. The proper MIME types are:\n- `.Z` -> `application/x-compress`\n- `.br` -> `application/brotli`\n\nThus, we need to modify the code to include these mappings when guessing the content type.\n\nHere are the necessary *SEARCH/REPLACE* edits:\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    "br": "application/brotli",\n                    "Z": "application/x-compress",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE\n```\n\nThis change adds the mappings for the "Z" and "br" file types to ensure that the correct MIME type is set in the response headers.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=5, logprobs=None, message=ChatCompletionMessage(content='To address the issue of improper guessing of the MIME type for "br" and "Z" file types, we need to explicitly set their content types in the relevant code. The current implementation uses the `mimetypes.guess_type()` function, which does not correctly identify the MIME types for these extensions.\n\nBased on the provided code segment, we can enhance the MIME type detection for "br" (Brotli compressed file) and "Z" (compress file) by adding custom handling for these file types.\n\nHere are the necessary SEARCH/REPLACE edits:\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                content_type = {\n                    "bzip2": "application/x-bzip",\n                    "gzip": "application/gzip",\n                    "xz": "application/x-xz",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    "bzip2": "application/x-bzip",\n                    "gzip": "application/gzip",\n                    "xz": "application/x-xz",\n                    "br": "application/brotli",\n                    "Z": "application/x-compress",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE\n```\n\nThis modification introduces custom MIME types for the "br" and "Z" file extensions, ensuring that they are handled properly when files with these extensions are served.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=6, logprobs=None, message=ChatCompletionMessage(content='To address the issue of improper guessing of Mime Type for "br" and "Z" file types in the `django/http/response.py` file, we need to add specific content types for these extensions. The current code only includes mappings for certain types of compressed files and does not handle ".br" and ".Z" extensions, which are commonly used for Brotli and Unix compressed files respectively.\n\nHere’s how we can extend the content type guesser to include these file types.\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    "br": "application/brotli",\n                    "Z": "application/x-compress",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE\n```\n\nThis modification adds the necessary MIME types for the ".br" and ".Z" file extensions to the dictionary that maps encoding types to their corresponding content types. This will ensure that when a file with these extensions is handled, the correct content type is set.', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=7, logprobs=None, message=ChatCompletionMessage(content='To address the issue of improper guessing of Mime Types for "br" and "Z" file types, we need to modify the content type assignment logic in the `django/http/response.py` file. The current implementation does not handle the specific file extensions "br" and "Z", which should be assigned their respective Mime Types.\n\nHere’s the necessary edit:\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    "br": "application/x-brotli",\n                    "Z": "application/x-compress",\n                }.get(filename.split(\'.\')[-1], content_type)\n>>>>>>> REPLACE\n```\n\nThis edit checks the file extension and assigns the appropriate Mime Types for files ending in "br" and "Z".', refusal=None, role='assistant', function_call=None, tool_calls=None)), Choice(finish_reason='stop', index=8, logprobs=None, message=ChatCompletionMessage(content='To address the issue with improper guessing of MIME types for the "br" and "Z" file types, we need to update the existing code to add support for these specific file extensions. \n\nHere is the necessary *SEARCH/REPLACE* edit:\n\n```python\n### django/http/response.py\n<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    "br": "application/brotli",\n                    "Z": "application/x-compress",\n                }.get(filename.split(\'.\')[-1], content_type)\n>>>>>>> REPLACE\n```\n\nThis modification adds the proper MIME types for files with the "br" and "Z" extensions.', refusal=None, role='assistant', function_call=None, tool_calls=None))], created=1724360373, model='gpt-4o-mini-2024-07-18', object='chat.completion', service_tier=None, system_fingerprint='fp_48196bc67a', usage=CompletionUsage(completion_tokens=1860, prompt_tokens=542, total_tokens=2402))
+2024-08-22 13:59:37,175 - INFO - raw output:
+To address the issue of improper guessing of MIME types for "br" and "Z" file types in the provided code segment, we need to ensure that the `mimetypes` module correctly identifies these file types. The current implementation does not account for these specific extensions, which leads to the incorrect assignment of the content type.
+
+We can add specific MIME type mappings for the "br" and "Z" file extensions to the `mimetypes` module. Here’s how we can do that:
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",  # Add MIME type for .br files
+                    "compress": "application/x-compress",  # Add MIME type for .Z files
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+```
+
+In this edit, we have added the MIME type for `.br` files as `application/brotli` and for `.Z` files as `application/x-compress`. This should resolve the issue of improper MIME type guessing for these file types.
+2024-08-22 13:59:37,175 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,176 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",  # Add MIME type for .br files\n                    \"compress\": \"application/x-compress\",  # Add MIME type for .Z files\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,176 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,176 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,176 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",  # Add MIME type for .br files
+                    "compress": "application/x-compress",  # Add MIME type for .Z files
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 13:59:37,176 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,178 - INFO - extracted patch:
+2024-08-22 13:59:37,178 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",  # Add MIME type for .br files
++                    "compress": "application/x-compress",  # Add MIME type for .Z files
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 13:59:37,178 - INFO - raw output:
+To address the issue with improper guessing of the MIME type for the "Z" and "br" file types, we need to adjust the logic in the `django/http/response.py` file to correctly identify these file types.
+
+Here's the necessary *SEARCH/REPLACE* edit:
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Add additional MIME types for "Z" and "br"
+                content_type = {
+                    "Z": "application/x-compress",
+                    "br": "application/brotli",
+                }.get(os.path.splitext(filename)[1][1:], content_type)
+>>>>>>> REPLACE
+```
+
+In this edit, we've added a new dictionary that maps the extensions "Z" and "br" to their respective MIME types. This should resolve the issue described in the issue statement.
+2024-08-22 13:59:37,178 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,178 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Add additional MIME types for \"Z\" and \"br\"\n                content_type = {\n                    \"Z\": \"application/x-compress\",\n                    \"br\": \"application/brotli\",\n                }.get(os.path.splitext(filename)[1][1:], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,178 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,178 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,178 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Add additional MIME types for "Z" and "br"
+                content_type = {
+                    "Z": "application/x-compress",
+                    "br": "application/brotli",
+                }.get(os.path.splitext(filename)[1][1:], content_type)
+>>>>>>> REPLACE
+2024-08-22 13:59:37,178 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,179 - INFO - extracted patch:
+2024-08-22 13:59:37,179 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Add additional MIME types for "Z" and "br"
++                content_type = {
++                    "Z": "application/x-compress",
++                    "br": "application/brotli",
++                }.get(os.path.splitext(filename)[1][1:], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 13:59:37,179 - INFO - raw output:
+To address the issue of improper guessing of Mime types for "br" and "Z" file types in the `django/http/response.py`, we need to enhance the `mimetypes.guess_type` functionality to correctly guess the content type for these specific extensions. 
+
+Here's how we can implement the fix:
+
+1. Identify the section where the `mimetypes.guess_type` is being used.
+2. Modify the code to handle "Z" and "br" file extensions specifically.
+
+The following edits can be made:
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                content_type, encoding = mimetypes.guess_type(filename)
+=======
+                content_type, encoding = mimetypes.guess_type(filename)
+                # Add explicit mappings for "br" and "Z" extensions
+                if filename.endswith('.br'):
+                    content_type = 'application/brotli'
+                elif filename.endswith('.Z'):
+                    content_type = 'application/x-compress'
+>>>>>>> REPLACE
+``` 
+
+This change checks if the filename ends with ".br" or ".Z" and sets the content type accordingly.
+2024-08-22 13:59:37,179 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,179 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type, encoding = mimetypes.guess_type(filename)\n=======\n                content_type, encoding = mimetypes.guess_type(filename)\n                # Add explicit mappings for \"br\" and \"Z\" extensions\n                if filename.endswith('.br'):\n                    content_type = 'application/brotli'\n                elif filename.endswith('.Z'):\n                    content_type = 'application/x-compress'\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,179 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,179 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,179 - INFO - <<<<<<< SEARCH
+                content_type, encoding = mimetypes.guess_type(filename)
+=======
+                content_type, encoding = mimetypes.guess_type(filename)
+                # Add explicit mappings for "br" and "Z" extensions
+                if filename.endswith('.br'):
+                    content_type = 'application/brotli'
+                elif filename.endswith('.Z'):
+                    content_type = 'application/x-compress'
+>>>>>>> REPLACE
+2024-08-22 13:59:37,179 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,180 - INFO - extracted patch:
+2024-08-22 13:59:37,180 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -606,6 +606,11 @@
+         if self._no_explicit_content_type:
+             if filename:
+                 content_type, encoding = mimetypes.guess_type(filename)
++                # Add explicit mappings for "br" and "Z" extensions
++                if filename.endswith('.br'):
++                    content_type = 'application/brotli'
++                elif filename.endswith('.Z'):
++                    content_type = 'application/x-compress'
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
+2024-08-22 13:59:37,180 - INFO - raw output:
+Based on the issue statement, the problem is that the `FileResponse` is not properly guessing the MIME type for the file extensions `.Z` and `.br`. The `mimetypes.guess_type` function is likely not returning the correct MIME type for these extensions, so we need to handle them explicitly.
+
+### Proposed Fix
+
+I'll add explicit handling for `.Z` and `.br` file types to ensure that the `Content-Type` is set correctly.
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                content_type = {
+=======
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+>>>>>>> REPLACE
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+```
+
+This change ensures that when the MIME type is guessed for files with the `.Z` and `.br` extensions, they are correctly identified with their respective MIME types: `application/x-compress` for `.Z` and `application/x-brotli` for `.br`.
+2024-08-22 13:59:37,180 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,180 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n=======\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,180 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,180 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,180 - INFO - <<<<<<< SEARCH
+                content_type = {
+=======
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+>>>>>>> REPLACE
+2024-08-22 13:59:37,180 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,181 - INFO - extracted patch:
+2024-08-22 13:59:37,181 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -609,6 +609,8 @@
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+2024-08-22 13:59:37,182 - INFO - raw output:
+Based on the issue statement, the bug is related to the improper guessing of MIME types for files with the extensions `.Z` and `.br`. The existing code uses `mimetypes.guess_type()` which may not correctly identify these extensions. We need to explicitly define the content types for these file extensions.
+
+Here is the necessary **SEARCH/REPLACE** edit:
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Adding specific MIME types for "br" and "Z" file types
+                if filename.endswith('.Z'):
+                    content_type = "application/x-compress"
+                elif filename.endswith('.br'):
+                    content_type = "application/brotli"
+>>>>>>> REPLACE
+``` 
+
+This change explicitly sets the MIME types for files ending with `.Z` and `.br`, addressing the issue described.
+2024-08-22 13:59:37,182 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,182 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Adding specific MIME types for \"br\" and \"Z\" file types\n                if filename.endswith('.Z'):\n                    content_type = \"application/x-compress\"\n                elif filename.endswith('.br'):\n                    content_type = \"application/brotli\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,182 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,182 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,182 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Adding specific MIME types for "br" and "Z" file types
+                if filename.endswith('.Z'):
+                    content_type = "application/x-compress"
+                elif filename.endswith('.br'):
+                    content_type = "application/brotli"
+>>>>>>> REPLACE
+2024-08-22 13:59:37,182 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,184 - INFO - extracted patch:
+2024-08-22 13:59:37,184 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Adding specific MIME types for "br" and "Z" file types
++                if filename.endswith('.Z'):
++                    content_type = "application/x-compress"
++                elif filename.endswith('.br'):
++                    content_type = "application/brotli"
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 13:59:37,184 - INFO - raw output:
+Based on the issue statement, the bug is in the `mimetypes.guess_type` method when it guesses the MIME types for files with extensions "Z" and "br". These extensions are not properly mapped to their correct MIME types, resulting in the incorrect content type being set as `text/html`.
+
+To address this, we need to add the correct mappings for these extensions. The proper MIME types are:
+- `.Z` -> `application/x-compress`
+- `.br` -> `application/brotli`
+
+Thus, we need to modify the code to include these mappings when guessing the content type.
+
+Here are the necessary *SEARCH/REPLACE* edits:
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+```
+
+This change adds the mappings for the "Z" and "br" file types to ensure that the correct MIME type is set in the response headers.
+2024-08-22 13:59:37,184 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,184 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,184 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,184 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,184 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 13:59:37,184 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,186 - INFO - extracted patch:
+2024-08-22 13:59:37,186 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 13:59:37,186 - INFO - raw output:
+To address the issue of improper guessing of the MIME type for "br" and "Z" file types, we need to explicitly set their content types in the relevant code. The current implementation uses the `mimetypes.guess_type()` function, which does not correctly identify the MIME types for these extensions.
+
+Based on the provided code segment, we can enhance the MIME type detection for "br" (Brotli compressed file) and "Z" (compress file) by adding custom handling for these file types.
+
+Here are the necessary SEARCH/REPLACE edits:
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+```
+
+This modification introduces custom MIME types for the "br" and "Z" file extensions, ensuring that they are handled properly when files with these extensions are served.
+2024-08-22 13:59:37,186 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,186 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,186 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,186 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,186 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 13:59:37,186 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,187 - INFO - extracted patch:
+2024-08-22 13:59:37,187 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 13:59:37,187 - INFO - raw output:
+To address the issue of improper guessing of Mime Type for "br" and "Z" file types in the `django/http/response.py` file, we need to add specific content types for these extensions. The current code only includes mappings for certain types of compressed files and does not handle ".br" and ".Z" extensions, which are commonly used for Brotli and Unix compressed files respectively.
+
+Here’s how we can extend the content type guesser to include these file types.
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+```
+
+This modification adds the necessary MIME types for the ".br" and ".Z" file extensions to the dictionary that maps encoding types to their corresponding content types. This will ensure that when a file with these extensions is handled, the correct content type is set.
+2024-08-22 13:59:37,187 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,187 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,187 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,187 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,187 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 13:59:37,187 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,188 - INFO - extracted patch:
+2024-08-22 13:59:37,188 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 13:59:37,188 - INFO - raw output:
+To address the issue of improper guessing of Mime Types for "br" and "Z" file types, we need to modify the content type assignment logic in the `django/http/response.py` file. The current implementation does not handle the specific file extensions "br" and "Z", which should be assigned their respective Mime Types.
+
+Here’s the necessary edit:
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+```
+
+This edit checks the file extension and assigns the appropriate Mime Types for files ending in "br" and "Z".
+2024-08-22 13:59:37,188 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,188 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,188 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,188 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,188 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 13:59:37,188 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,189 - INFO - extracted patch:
+2024-08-22 13:59:37,189 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 13:59:37,189 - INFO - raw output:
+To address the issue with improper guessing of MIME types for the "br" and "Z" file types, we need to update the existing code to add support for these specific file extensions. 
+
+Here is the necessary *SEARCH/REPLACE* edit:
+
+```python
+### django/http/response.py
+<<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+```
+
+This modification adds the proper MIME types for files with the "br" and "Z" extensions.
+2024-08-22 13:59:37,190 - INFO - === file_to_commands: ===
+2024-08-22 13:59:37,190 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 13:59:37,190 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 13:59:37,190 - INFO - === edit_commands: ===
+2024-08-22 13:59:37,190 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 13:59:37,190 - INFO - 
+----------------------------------------
+2024-08-22 13:59:37,191 - INFO - extracted patch:
+2024-08-22 13:59:37,191 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:04:07,794 - INFO - === file_to_commands: ===
+2024-08-22 14:04:07,794 - INFO - === file_to_commands: ===
+2024-08-22 14:04:07,795 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",  # Add MIME type for .br files\n                    \"compress\": \"application/x-compress\",  # Add MIME type for .Z files\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:07,795 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",  # Add MIME type for .br files\n                    \"compress\": \"application/x-compress\",  # Add MIME type for .Z files\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:07,795 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:04:07,795 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:04:07,795 - INFO - === edit_commands: ===
+2024-08-22 14:04:07,795 - INFO - === edit_commands: ===
+2024-08-22 14:04:07,795 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",  # Add MIME type for .br files
+                    "compress": "application/x-compress",  # Add MIME type for .Z files
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:04:07,795 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",  # Add MIME type for .br files
+                    "compress": "application/x-compress",  # Add MIME type for .Z files
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:04:07,795 - INFO - 
+----------------------------------------
+2024-08-22 14:04:07,795 - INFO - 
+----------------------------------------
+2024-08-22 14:04:07,796 - INFO - extracted patch:
+2024-08-22 14:04:07,796 - INFO - extracted patch:
+2024-08-22 14:04:07,796 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",  # Add MIME type for .br files
++                    "compress": "application/x-compress",  # Add MIME type for .Z files
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:04:07,796 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",  # Add MIME type for .br files
++                    "compress": "application/x-compress",  # Add MIME type for .Z files
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:04:41,574 - INFO - === file_to_commands: ===
+2024-08-22 14:04:41,574 - INFO - === file_to_commands: ===
+2024-08-22 14:04:41,574 - INFO - === file_to_commands: ===
+2024-08-22 14:04:41,575 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Add additional MIME types for \"Z\" and \"br\"\n                content_type = {\n                    \"Z\": \"application/x-compress\",\n                    \"br\": \"application/brotli\",\n                }.get(os.path.splitext(filename)[1][1:], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:41,575 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Add additional MIME types for \"Z\" and \"br\"\n                content_type = {\n                    \"Z\": \"application/x-compress\",\n                    \"br\": \"application/brotli\",\n                }.get(os.path.splitext(filename)[1][1:], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:41,575 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Add additional MIME types for \"Z\" and \"br\"\n                content_type = {\n                    \"Z\": \"application/x-compress\",\n                    \"br\": \"application/brotli\",\n                }.get(os.path.splitext(filename)[1][1:], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:04:41,575 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:04:41,575 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:04:41,575 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:04:41,575 - INFO - === edit_commands: ===
+2024-08-22 14:04:41,575 - INFO - === edit_commands: ===
+2024-08-22 14:04:41,575 - INFO - === edit_commands: ===
+2024-08-22 14:04:41,575 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Add additional MIME types for "Z" and "br"
+                content_type = {
+                    "Z": "application/x-compress",
+                    "br": "application/brotli",
+                }.get(os.path.splitext(filename)[1][1:], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:04:41,575 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Add additional MIME types for "Z" and "br"
+                content_type = {
+                    "Z": "application/x-compress",
+                    "br": "application/brotli",
+                }.get(os.path.splitext(filename)[1][1:], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:04:41,575 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Add additional MIME types for "Z" and "br"
+                content_type = {
+                    "Z": "application/x-compress",
+                    "br": "application/brotli",
+                }.get(os.path.splitext(filename)[1][1:], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:04:41,575 - INFO - 
+----------------------------------------
+2024-08-22 14:04:41,575 - INFO - 
+----------------------------------------
+2024-08-22 14:04:41,575 - INFO - 
+----------------------------------------
+2024-08-22 14:04:41,576 - INFO - extracted patch:
+2024-08-22 14:04:41,576 - INFO - extracted patch:
+2024-08-22 14:04:41,576 - INFO - extracted patch:
+2024-08-22 14:04:41,576 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Add additional MIME types for "Z" and "br"
++                content_type = {
++                    "Z": "application/x-compress",
++                    "br": "application/brotli",
++                }.get(os.path.splitext(filename)[1][1:], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:04:41,576 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Add additional MIME types for "Z" and "br"
++                content_type = {
++                    "Z": "application/x-compress",
++                    "br": "application/brotli",
++                }.get(os.path.splitext(filename)[1][1:], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:04:41,576 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Add additional MIME types for "Z" and "br"
++                content_type = {
++                    "Z": "application/x-compress",
++                    "br": "application/brotli",
++                }.get(os.path.splitext(filename)[1][1:], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:05:12,037 - INFO - === file_to_commands: ===
+2024-08-22 14:05:12,037 - INFO - === file_to_commands: ===
+2024-08-22 14:05:12,037 - INFO - === file_to_commands: ===
+2024-08-22 14:05:12,037 - INFO - === file_to_commands: ===
+2024-08-22 14:05:12,038 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type, encoding = mimetypes.guess_type(filename)\n=======\n                content_type, encoding = mimetypes.guess_type(filename)\n                # Add explicit mappings for \"br\" and \"Z\" extensions\n                if filename.endswith('.br'):\n                    content_type = 'application/brotli'\n                elif filename.endswith('.Z'):\n                    content_type = 'application/x-compress'\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:12,038 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type, encoding = mimetypes.guess_type(filename)\n=======\n                content_type, encoding = mimetypes.guess_type(filename)\n                # Add explicit mappings for \"br\" and \"Z\" extensions\n                if filename.endswith('.br'):\n                    content_type = 'application/brotli'\n                elif filename.endswith('.Z'):\n                    content_type = 'application/x-compress'\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:12,038 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type, encoding = mimetypes.guess_type(filename)\n=======\n                content_type, encoding = mimetypes.guess_type(filename)\n                # Add explicit mappings for \"br\" and \"Z\" extensions\n                if filename.endswith('.br'):\n                    content_type = 'application/brotli'\n                elif filename.endswith('.Z'):\n                    content_type = 'application/x-compress'\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:12,038 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type, encoding = mimetypes.guess_type(filename)\n=======\n                content_type, encoding = mimetypes.guess_type(filename)\n                # Add explicit mappings for \"br\" and \"Z\" extensions\n                if filename.endswith('.br'):\n                    content_type = 'application/brotli'\n                elif filename.endswith('.Z'):\n                    content_type = 'application/x-compress'\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:12,038 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:05:12,038 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:05:12,038 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:05:12,038 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:05:12,038 - INFO - === edit_commands: ===
+2024-08-22 14:05:12,038 - INFO - === edit_commands: ===
+2024-08-22 14:05:12,038 - INFO - === edit_commands: ===
+2024-08-22 14:05:12,038 - INFO - === edit_commands: ===
+2024-08-22 14:05:12,038 - INFO - <<<<<<< SEARCH
+                content_type, encoding = mimetypes.guess_type(filename)
+=======
+                content_type, encoding = mimetypes.guess_type(filename)
+                # Add explicit mappings for "br" and "Z" extensions
+                if filename.endswith('.br'):
+                    content_type = 'application/brotli'
+                elif filename.endswith('.Z'):
+                    content_type = 'application/x-compress'
+>>>>>>> REPLACE
+2024-08-22 14:05:12,038 - INFO - <<<<<<< SEARCH
+                content_type, encoding = mimetypes.guess_type(filename)
+=======
+                content_type, encoding = mimetypes.guess_type(filename)
+                # Add explicit mappings for "br" and "Z" extensions
+                if filename.endswith('.br'):
+                    content_type = 'application/brotli'
+                elif filename.endswith('.Z'):
+                    content_type = 'application/x-compress'
+>>>>>>> REPLACE
+2024-08-22 14:05:12,038 - INFO - <<<<<<< SEARCH
+                content_type, encoding = mimetypes.guess_type(filename)
+=======
+                content_type, encoding = mimetypes.guess_type(filename)
+                # Add explicit mappings for "br" and "Z" extensions
+                if filename.endswith('.br'):
+                    content_type = 'application/brotli'
+                elif filename.endswith('.Z'):
+                    content_type = 'application/x-compress'
+>>>>>>> REPLACE
+2024-08-22 14:05:12,038 - INFO - <<<<<<< SEARCH
+                content_type, encoding = mimetypes.guess_type(filename)
+=======
+                content_type, encoding = mimetypes.guess_type(filename)
+                # Add explicit mappings for "br" and "Z" extensions
+                if filename.endswith('.br'):
+                    content_type = 'application/brotli'
+                elif filename.endswith('.Z'):
+                    content_type = 'application/x-compress'
+>>>>>>> REPLACE
+2024-08-22 14:05:12,039 - INFO - 
+----------------------------------------
+2024-08-22 14:05:12,039 - INFO - 
+----------------------------------------
+2024-08-22 14:05:12,039 - INFO - 
+----------------------------------------
+2024-08-22 14:05:12,039 - INFO - 
+----------------------------------------
+2024-08-22 14:05:12,039 - INFO - extracted patch:
+2024-08-22 14:05:12,039 - INFO - extracted patch:
+2024-08-22 14:05:12,039 - INFO - extracted patch:
+2024-08-22 14:05:12,039 - INFO - extracted patch:
+2024-08-22 14:05:12,039 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -606,6 +606,11 @@
+         if self._no_explicit_content_type:
+             if filename:
+                 content_type, encoding = mimetypes.guess_type(filename)
++                # Add explicit mappings for "br" and "Z" extensions
++                if filename.endswith('.br'):
++                    content_type = 'application/brotli'
++                elif filename.endswith('.Z'):
++                    content_type = 'application/x-compress'
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
+2024-08-22 14:05:12,039 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -606,6 +606,11 @@
+         if self._no_explicit_content_type:
+             if filename:
+                 content_type, encoding = mimetypes.guess_type(filename)
++                # Add explicit mappings for "br" and "Z" extensions
++                if filename.endswith('.br'):
++                    content_type = 'application/brotli'
++                elif filename.endswith('.Z'):
++                    content_type = 'application/x-compress'
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
+2024-08-22 14:05:12,039 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -606,6 +606,11 @@
+         if self._no_explicit_content_type:
+             if filename:
+                 content_type, encoding = mimetypes.guess_type(filename)
++                # Add explicit mappings for "br" and "Z" extensions
++                if filename.endswith('.br'):
++                    content_type = 'application/brotli'
++                elif filename.endswith('.Z'):
++                    content_type = 'application/x-compress'
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
+2024-08-22 14:05:12,039 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -606,6 +606,11 @@
+         if self._no_explicit_content_type:
+             if filename:
+                 content_type, encoding = mimetypes.guess_type(filename)
++                # Add explicit mappings for "br" and "Z" extensions
++                if filename.endswith('.br'):
++                    content_type = 'application/brotli'
++                elif filename.endswith('.Z'):
++                    content_type = 'application/x-compress'
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
+2024-08-22 14:05:46,687 - INFO - === file_to_commands: ===
+2024-08-22 14:05:46,687 - INFO - === file_to_commands: ===
+2024-08-22 14:05:46,687 - INFO - === file_to_commands: ===
+2024-08-22 14:05:46,687 - INFO - === file_to_commands: ===
+2024-08-22 14:05:46,687 - INFO - === file_to_commands: ===
+2024-08-22 14:05:46,688 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n=======\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:46,688 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n=======\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:46,688 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n=======\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:46,688 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n=======\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:46,688 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n=======\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:05:46,688 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:05:46,688 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:05:46,688 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:05:46,688 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:05:46,688 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:05:46,688 - INFO - === edit_commands: ===
+2024-08-22 14:05:46,688 - INFO - === edit_commands: ===
+2024-08-22 14:05:46,688 - INFO - === edit_commands: ===
+2024-08-22 14:05:46,688 - INFO - === edit_commands: ===
+2024-08-22 14:05:46,688 - INFO - === edit_commands: ===
+2024-08-22 14:05:46,688 - INFO - <<<<<<< SEARCH
+                content_type = {
+=======
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+>>>>>>> REPLACE
+2024-08-22 14:05:46,688 - INFO - <<<<<<< SEARCH
+                content_type = {
+=======
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+>>>>>>> REPLACE
+2024-08-22 14:05:46,688 - INFO - <<<<<<< SEARCH
+                content_type = {
+=======
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+>>>>>>> REPLACE
+2024-08-22 14:05:46,688 - INFO - <<<<<<< SEARCH
+                content_type = {
+=======
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+>>>>>>> REPLACE
+2024-08-22 14:05:46,688 - INFO - <<<<<<< SEARCH
+                content_type = {
+=======
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+>>>>>>> REPLACE
+2024-08-22 14:05:46,688 - INFO - 
+----------------------------------------
+2024-08-22 14:05:46,688 - INFO - 
+----------------------------------------
+2024-08-22 14:05:46,688 - INFO - 
+----------------------------------------
+2024-08-22 14:05:46,688 - INFO - 
+----------------------------------------
+2024-08-22 14:05:46,688 - INFO - 
+----------------------------------------
+2024-08-22 14:05:46,689 - INFO - extracted patch:
+2024-08-22 14:05:46,689 - INFO - extracted patch:
+2024-08-22 14:05:46,689 - INFO - extracted patch:
+2024-08-22 14:05:46,689 - INFO - extracted patch:
+2024-08-22 14:05:46,689 - INFO - extracted patch:
+2024-08-22 14:05:46,689 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -609,6 +609,8 @@
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+2024-08-22 14:05:46,689 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -609,6 +609,8 @@
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+2024-08-22 14:05:46,689 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -609,6 +609,8 @@
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+2024-08-22 14:05:46,689 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -609,6 +609,8 @@
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+2024-08-22 14:05:46,689 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -609,6 +609,8 @@
+                 # Encoding isn't set to prevent browsers from automatically
+                 # uncompressing files.
+                 content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+2024-08-22 14:06:19,925 - INFO - === file_to_commands: ===
+2024-08-22 14:06:19,925 - INFO - === file_to_commands: ===
+2024-08-22 14:06:19,925 - INFO - === file_to_commands: ===
+2024-08-22 14:06:19,925 - INFO - === file_to_commands: ===
+2024-08-22 14:06:19,925 - INFO - === file_to_commands: ===
+2024-08-22 14:06:19,925 - INFO - === file_to_commands: ===
+2024-08-22 14:06:19,926 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Adding specific MIME types for \"br\" and \"Z\" file types\n                if filename.endswith('.Z'):\n                    content_type = \"application/x-compress\"\n                elif filename.endswith('.br'):\n                    content_type = \"application/brotli\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:19,926 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Adding specific MIME types for \"br\" and \"Z\" file types\n                if filename.endswith('.Z'):\n                    content_type = \"application/x-compress\"\n                elif filename.endswith('.br'):\n                    content_type = \"application/brotli\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:19,926 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Adding specific MIME types for \"br\" and \"Z\" file types\n                if filename.endswith('.Z'):\n                    content_type = \"application/x-compress\"\n                elif filename.endswith('.br'):\n                    content_type = \"application/brotli\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:19,926 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Adding specific MIME types for \"br\" and \"Z\" file types\n                if filename.endswith('.Z'):\n                    content_type = \"application/x-compress\"\n                elif filename.endswith('.br'):\n                    content_type = \"application/brotli\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:19,926 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Adding specific MIME types for \"br\" and \"Z\" file types\n                if filename.endswith('.Z'):\n                    content_type = \"application/x-compress\"\n                elif filename.endswith('.br'):\n                    content_type = \"application/brotli\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:19,926 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                # Adding specific MIME types for \"br\" and \"Z\" file types\n                if filename.endswith('.Z'):\n                    content_type = \"application/x-compress\"\n                elif filename.endswith('.br'):\n                    content_type = \"application/brotli\"\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:19,926 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:19,926 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:19,926 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:19,926 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:19,926 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:19,926 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:19,926 - INFO - === edit_commands: ===
+2024-08-22 14:06:19,926 - INFO - === edit_commands: ===
+2024-08-22 14:06:19,926 - INFO - === edit_commands: ===
+2024-08-22 14:06:19,926 - INFO - === edit_commands: ===
+2024-08-22 14:06:19,926 - INFO - === edit_commands: ===
+2024-08-22 14:06:19,926 - INFO - === edit_commands: ===
+2024-08-22 14:06:19,926 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Adding specific MIME types for "br" and "Z" file types
+                if filename.endswith('.Z'):
+                    content_type = "application/x-compress"
+                elif filename.endswith('.br'):
+                    content_type = "application/brotli"
+>>>>>>> REPLACE
+2024-08-22 14:06:19,926 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Adding specific MIME types for "br" and "Z" file types
+                if filename.endswith('.Z'):
+                    content_type = "application/x-compress"
+                elif filename.endswith('.br'):
+                    content_type = "application/brotli"
+>>>>>>> REPLACE
+2024-08-22 14:06:19,926 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Adding specific MIME types for "br" and "Z" file types
+                if filename.endswith('.Z'):
+                    content_type = "application/x-compress"
+                elif filename.endswith('.br'):
+                    content_type = "application/brotli"
+>>>>>>> REPLACE
+2024-08-22 14:06:19,926 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Adding specific MIME types for "br" and "Z" file types
+                if filename.endswith('.Z'):
+                    content_type = "application/x-compress"
+                elif filename.endswith('.br'):
+                    content_type = "application/brotli"
+>>>>>>> REPLACE
+2024-08-22 14:06:19,926 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Adding specific MIME types for "br" and "Z" file types
+                if filename.endswith('.Z'):
+                    content_type = "application/x-compress"
+                elif filename.endswith('.br'):
+                    content_type = "application/brotli"
+>>>>>>> REPLACE
+2024-08-22 14:06:19,926 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                # Adding specific MIME types for "br" and "Z" file types
+                if filename.endswith('.Z'):
+                    content_type = "application/x-compress"
+                elif filename.endswith('.br'):
+                    content_type = "application/brotli"
+>>>>>>> REPLACE
+2024-08-22 14:06:19,926 - INFO - 
+----------------------------------------
+2024-08-22 14:06:19,926 - INFO - 
+----------------------------------------
+2024-08-22 14:06:19,926 - INFO - 
+----------------------------------------
+2024-08-22 14:06:19,926 - INFO - 
+----------------------------------------
+2024-08-22 14:06:19,926 - INFO - 
+----------------------------------------
+2024-08-22 14:06:19,926 - INFO - 
+----------------------------------------
+2024-08-22 14:06:19,927 - INFO - extracted patch:
+2024-08-22 14:06:19,927 - INFO - extracted patch:
+2024-08-22 14:06:19,927 - INFO - extracted patch:
+2024-08-22 14:06:19,927 - INFO - extracted patch:
+2024-08-22 14:06:19,927 - INFO - extracted patch:
+2024-08-22 14:06:19,927 - INFO - extracted patch:
+2024-08-22 14:06:19,927 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Adding specific MIME types for "br" and "Z" file types
++                if filename.endswith('.Z'):
++                    content_type = "application/x-compress"
++                elif filename.endswith('.br'):
++                    content_type = "application/brotli"
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:06:19,927 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Adding specific MIME types for "br" and "Z" file types
++                if filename.endswith('.Z'):
++                    content_type = "application/x-compress"
++                elif filename.endswith('.br'):
++                    content_type = "application/brotli"
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:06:19,927 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Adding specific MIME types for "br" and "Z" file types
++                if filename.endswith('.Z'):
++                    content_type = "application/x-compress"
++                elif filename.endswith('.br'):
++                    content_type = "application/brotli"
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:06:19,927 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Adding specific MIME types for "br" and "Z" file types
++                if filename.endswith('.Z'):
++                    content_type = "application/x-compress"
++                elif filename.endswith('.br'):
++                    content_type = "application/brotli"
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:06:19,927 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Adding specific MIME types for "br" and "Z" file types
++                if filename.endswith('.Z'):
++                    content_type = "application/x-compress"
++                elif filename.endswith('.br'):
++                    content_type = "application/brotli"
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:06:19,927 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,11 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                # Adding specific MIME types for "br" and "Z" file types
++                if filename.endswith('.Z'):
++                    content_type = "application/x-compress"
++                elif filename.endswith('.br'):
++                    content_type = "application/brotli"
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:06:58,782 - INFO - === file_to_commands: ===
+2024-08-22 14:06:58,782 - INFO - === file_to_commands: ===
+2024-08-22 14:06:58,782 - INFO - === file_to_commands: ===
+2024-08-22 14:06:58,782 - INFO - === file_to_commands: ===
+2024-08-22 14:06:58,782 - INFO - === file_to_commands: ===
+2024-08-22 14:06:58,782 - INFO - === file_to_commands: ===
+2024-08-22 14:06:58,782 - INFO - === file_to_commands: ===
+2024-08-22 14:06:58,783 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:58,783 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:58,783 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:58,783 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:58,783 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:58,783 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:58,783 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:06:58,784 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:58,784 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:58,784 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:58,784 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:58,784 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:58,784 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:58,784 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:06:58,784 - INFO - === edit_commands: ===
+2024-08-22 14:06:58,784 - INFO - === edit_commands: ===
+2024-08-22 14:06:58,784 - INFO - === edit_commands: ===
+2024-08-22 14:06:58,784 - INFO - === edit_commands: ===
+2024-08-22 14:06:58,784 - INFO - === edit_commands: ===
+2024-08-22 14:06:58,784 - INFO - === edit_commands: ===
+2024-08-22 14:06:58,784 - INFO - === edit_commands: ===
+2024-08-22 14:06:58,784 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:06:58,784 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:06:58,784 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:06:58,784 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:06:58,784 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:06:58,784 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:06:58,784 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:06:58,784 - INFO - 
+----------------------------------------
+2024-08-22 14:06:58,784 - INFO - 
+----------------------------------------
+2024-08-22 14:06:58,784 - INFO - 
+----------------------------------------
+2024-08-22 14:06:58,784 - INFO - 
+----------------------------------------
+2024-08-22 14:06:58,784 - INFO - 
+----------------------------------------
+2024-08-22 14:06:58,784 - INFO - 
+----------------------------------------
+2024-08-22 14:06:58,784 - INFO - 
+----------------------------------------
+2024-08-22 14:06:58,784 - INFO - extracted patch:
+2024-08-22 14:06:58,784 - INFO - extracted patch:
+2024-08-22 14:06:58,784 - INFO - extracted patch:
+2024-08-22 14:06:58,784 - INFO - extracted patch:
+2024-08-22 14:06:58,784 - INFO - extracted patch:
+2024-08-22 14:06:58,784 - INFO - extracted patch:
+2024-08-22 14:06:58,784 - INFO - extracted patch:
+2024-08-22 14:06:58,785 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:06:58,785 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:06:58,785 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:06:58,785 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:06:58,785 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:06:58,785 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:06:58,785 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:07:31,421 - INFO - === file_to_commands: ===
+2024-08-22 14:07:31,421 - INFO - === file_to_commands: ===
+2024-08-22 14:07:31,421 - INFO - === file_to_commands: ===
+2024-08-22 14:07:31,421 - INFO - === file_to_commands: ===
+2024-08-22 14:07:31,421 - INFO - === file_to_commands: ===
+2024-08-22 14:07:31,421 - INFO - === file_to_commands: ===
+2024-08-22 14:07:31,421 - INFO - === file_to_commands: ===
+2024-08-22 14:07:31,421 - INFO - === file_to_commands: ===
+2024-08-22 14:07:31,422 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:31,422 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:31,422 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:31,422 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:31,422 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:31,422 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:31,422 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:31,422 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                }.get(encoding, content_type)\n=======\n                content_type = {\n                    \"bzip2\": \"application/x-bzip\",\n                    \"gzip\": \"application/gzip\",\n                    \"xz\": \"application/x-xz\",\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:07:31,423 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:07:31,423 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:07:31,423 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:07:31,423 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:07:31,423 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:07:31,423 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:07:31,423 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:07:31,423 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:07:31,423 - INFO - === edit_commands: ===
+2024-08-22 14:07:31,423 - INFO - === edit_commands: ===
+2024-08-22 14:07:31,423 - INFO - === edit_commands: ===
+2024-08-22 14:07:31,423 - INFO - === edit_commands: ===
+2024-08-22 14:07:31,423 - INFO - === edit_commands: ===
+2024-08-22 14:07:31,423 - INFO - === edit_commands: ===
+2024-08-22 14:07:31,423 - INFO - === edit_commands: ===
+2024-08-22 14:07:31,423 - INFO - === edit_commands: ===
+2024-08-22 14:07:31,423 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:07:31,423 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:07:31,423 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:07:31,423 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:07:31,423 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:07:31,423 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:07:31,423 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:07:31,423 - INFO - <<<<<<< SEARCH
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                }.get(encoding, content_type)
+=======
+                content_type = {
+                    "bzip2": "application/x-bzip",
+                    "gzip": "application/gzip",
+                    "xz": "application/x-xz",
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:07:31,423 - INFO - 
+----------------------------------------
+2024-08-22 14:07:31,423 - INFO - 
+----------------------------------------
+2024-08-22 14:07:31,423 - INFO - 
+----------------------------------------
+2024-08-22 14:07:31,423 - INFO - 
+----------------------------------------
+2024-08-22 14:07:31,423 - INFO - 
+----------------------------------------
+2024-08-22 14:07:31,423 - INFO - 
+----------------------------------------
+2024-08-22 14:07:31,423 - INFO - 
+----------------------------------------
+2024-08-22 14:07:31,423 - INFO - 
+----------------------------------------
+2024-08-22 14:07:31,424 - INFO - extracted patch:
+2024-08-22 14:07:31,424 - INFO - extracted patch:
+2024-08-22 14:07:31,424 - INFO - extracted patch:
+2024-08-22 14:07:31,424 - INFO - extracted patch:
+2024-08-22 14:07:31,424 - INFO - extracted patch:
+2024-08-22 14:07:31,424 - INFO - extracted patch:
+2024-08-22 14:07:31,424 - INFO - extracted patch:
+2024-08-22 14:07:31,424 - INFO - extracted patch:
+2024-08-22 14:07:31,424 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:07:31,424 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:07:31,424 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:07:31,424 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:07:31,424 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:07:31,424 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:07:31,424 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:07:31,424 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:09,989 - INFO - === file_to_commands: ===
+2024-08-22 14:08:09,989 - INFO - === file_to_commands: ===
+2024-08-22 14:08:09,989 - INFO - === file_to_commands: ===
+2024-08-22 14:08:09,989 - INFO - === file_to_commands: ===
+2024-08-22 14:08:09,989 - INFO - === file_to_commands: ===
+2024-08-22 14:08:09,989 - INFO - === file_to_commands: ===
+2024-08-22 14:08:09,989 - INFO - === file_to_commands: ===
+2024-08-22 14:08:09,989 - INFO - === file_to_commands: ===
+2024-08-22 14:08:09,989 - INFO - === file_to_commands: ===
+2024-08-22 14:08:09,990 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:09,990 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:09,990 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:09,990 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:09,990 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:09,990 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:09,990 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:09,990 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:09,990 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(encoding, content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:09,990 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:09,990 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:09,990 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:09,990 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:09,990 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:09,990 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:09,990 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:09,990 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:09,990 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:09,990 - INFO - === edit_commands: ===
+2024-08-22 14:08:09,990 - INFO - === edit_commands: ===
+2024-08-22 14:08:09,990 - INFO - === edit_commands: ===
+2024-08-22 14:08:09,990 - INFO - === edit_commands: ===
+2024-08-22 14:08:09,990 - INFO - === edit_commands: ===
+2024-08-22 14:08:09,990 - INFO - === edit_commands: ===
+2024-08-22 14:08:09,990 - INFO - === edit_commands: ===
+2024-08-22 14:08:09,990 - INFO - === edit_commands: ===
+2024-08-22 14:08:09,990 - INFO - === edit_commands: ===
+2024-08-22 14:08:09,990 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:09,990 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:09,990 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:09,990 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:09,990 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:09,990 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:09,990 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:09,990 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:09,990 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(encoding, content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:09,990 - INFO - 
+----------------------------------------
+2024-08-22 14:08:09,990 - INFO - 
+----------------------------------------
+2024-08-22 14:08:09,990 - INFO - 
+----------------------------------------
+2024-08-22 14:08:09,990 - INFO - 
+----------------------------------------
+2024-08-22 14:08:09,990 - INFO - 
+----------------------------------------
+2024-08-22 14:08:09,990 - INFO - 
+----------------------------------------
+2024-08-22 14:08:09,990 - INFO - 
+----------------------------------------
+2024-08-22 14:08:09,990 - INFO - 
+----------------------------------------
+2024-08-22 14:08:09,990 - INFO - 
+----------------------------------------
+2024-08-22 14:08:09,991 - INFO - extracted patch:
+2024-08-22 14:08:09,991 - INFO - extracted patch:
+2024-08-22 14:08:09,991 - INFO - extracted patch:
+2024-08-22 14:08:09,991 - INFO - extracted patch:
+2024-08-22 14:08:09,991 - INFO - extracted patch:
+2024-08-22 14:08:09,991 - INFO - extracted patch:
+2024-08-22 14:08:09,991 - INFO - extracted patch:
+2024-08-22 14:08:09,991 - INFO - extracted patch:
+2024-08-22 14:08:09,991 - INFO - extracted patch:
+2024-08-22 14:08:09,991 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:09,991 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:09,991 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:09,991 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:09,991 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:09,991 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:09,991 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:09,991 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:09,991 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -612,6 +612,8 @@
+                     "bzip2": "application/x-bzip",
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
+                 }.get(encoding, content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - === file_to_commands: ===
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,804 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/x-brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - === edit_commands: ===
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/x-brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,805 - INFO - 
+----------------------------------------
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - extracted patch:
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:08:45,806 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/x-brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,028 - INFO - === file_to_commands: ===
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - {
+  "'django/http/response.py'": [
+    "<<<<<<< SEARCH\n                }.get(encoding, content_type)\n=======\n                }.get(encoding, content_type)\n                content_type = {\n                    \"br\": \"application/brotli\",\n                    \"Z\": \"application/x-compress\",\n                }.get(filename.split('.')[-1], content_type)\n>>>>>>> REPLACE"
+  ]
+}
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edited_file: 'django/http/response.py' ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - === edit_commands: ===
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - <<<<<<< SEARCH
+                }.get(encoding, content_type)
+=======
+                }.get(encoding, content_type)
+                content_type = {
+                    "br": "application/brotli",
+                    "Z": "application/x-compress",
+                }.get(filename.split('.')[-1], content_type)
+>>>>>>> REPLACE
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,030 - INFO - 
+----------------------------------------
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - extracted patch:
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
+2024-08-22 14:09:25,031 - INFO - --- django/http/response.py
++++ django/http/response.py
+@@ -613,6 +613,10 @@
+                     "gzip": "application/gzip",
+                     "xz": "application/x-xz",
+                 }.get(encoding, content_type)
++                content_type = {
++                    "br": "application/brotli",
++                    "Z": "application/x-compress",
++                }.get(filename.split('.')[-1], content_type)
+                 self.headers["Content-Type"] = (
+                     content_type or "application/octet-stream"
+                 )
