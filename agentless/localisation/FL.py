@@ -2,7 +2,10 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Any, Dict
+from json import JSONDecodeError
+from typing import Any
+
+from langsmith import traceable
 
 from Agentless.agentless.util.compress_file import get_skeleton
 from Agentless.agentless.util.model import make_model
@@ -10,6 +13,7 @@ from Agentless.agentless.util.postprocess_data import extract_code_blocks, extra
 from Agentless.agentless.util.preprocess_data import transfer_arb_locs_to_locs, line_wrap_content, \
     show_project_structure, get_full_file_paths_and_classes_and_functions, get_repo_files
 from apps.helper import read_file
+from apps.services.code_skeleton_extractor import filtered_nodes_by_label
 
 
 class FL(ABC):
@@ -187,7 +191,6 @@ full_path3/file3.py
 full_path3.file3.MyClass3: my_method3
 full_path2.file2.MyClass2: my_method3_2
 
-
 full_path4/file4.py
 full_path4.file4.MyClass4: my_method4
 ```
@@ -203,11 +206,84 @@ Return only the locations.
 
 """
 
+    create_skeleton_code = """
+    You are an expert in writing test code that covers specific criteria within the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework).
+    We have extracted unordered object of classes and methods from the TAF repository that can potentially be used to write the test code of the requirement provided.
+
+    You are tasked to write a pseudocode of the test code that fulfills a specific test step of the requirement provided. The pseudocode should include the classes and methods that are relevant to the test step of the requirement and the process of testing.
+
+    ### Requirement ###
+    {requirement}
+    
+    ### test step ###
+    {test_step}
+
+    ### Reference Classes and Methods ###
+    {classes}
+
+    ### example output ###
+    ```
+    1 - {{ "step_explication": "stimulation: un event 1" , "methods_used":["full_path3.file3.MyClass3: my_method3(param1), "full_path2.file2.MyClass2: my_method2(param1, param2)"] }}
+    2 - {{ "step_explication": "retrieval: value triggered by event 1" , "methods_used":["full_path3.file3.MyClass3: my_method3(param1), "full_path2.file2.MyClass2: my_method2(param1, param2)"] }}
+    3 - {{ "step_explication": "report: value triggered by event 1" , "methods_used":["full_path3.file3.MyClass3: my_method3(param1), "full_path2.file2.MyClass2: my_method2(param1, param2)"] }}
+    4 - {{ "step_explication": "stimulation: un event 2" , "methods_used":["full_path3.file3.MyClass3: my_method3(param1)] }}
+    5 - {{ "step_explication": "retrieval: value triggered by event 2" , "methods_used":["full_path3.file3.MyClass3: my_method3(param1)] }}
+    6 - {{ "step_explication": "report: value triggered by event 2" , "methods_used":["full_path3.file3.MyClass3: my_method3(param1)] }}
+    ```
+
+    ## Strict Rules:
+    - **the event can be only 'stimulation', 'retrieval', 'report'
+    - **Do not invent or fabricate any method names**; only use those found in the provided file.
+    - **Return the results in the exact format specified** above.
+    - **the list should be well ordered
+    - **in the pseudocode after each result expected in the test there is reporting of the reseal
+    - **do not include any extra information in the output
+    - **in the output of details should be valid json objects with the keys "step_explication" and "methods_used" and the values should be strings with the correct format like specified in the example
+    - Adherence to these rules is mandatory. Any deviation, such as generating method names not present in the files, events don't exist, will result in immediate termination of the task.
+    """
+
+    verify_tools = """
+    You are an expert in writing test code that covers specific criteria within the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework).
+    You have been provided with a list of tools that are required to write the test code for the specified requirement. Your task is to verify the correctness of the tools provided.
+    You will be provided with the full TAF repository structure, the requirement, and the list of tools required to write the test code. 
+    Your goal is to confirm whether the tools provided are necessary for fulfilling the requirement and correct it if necessary.
+    
+    ### Requirement ###
+    {requirement}
+    
+    ### TAF Repository Structure ###
+    {structure}
+    
+    ### Tools Required ###
+    {tools}
+    
+    ## Example Output:
+    ```
+    full_path1.file1.MyClass1: my_method
+    full_path2.file2.MyClass2: my_method2
+    full_path2.file2.MyClass2: my_method2_2
+    full_path2.file2.MyClass2: my_method2_3
+    full_path3.file3.MyClass3: my_method3
+    full_path2.file2.MyClass2: my_method3_2
+    full_path4.file4.MyClass4: my_method4
+    ```
+    
+    ## Strict Guidelines:
+    - **Do not invent or fabricate any tool names**; only include those present in the provided repository structure.
+    - **Focus solely on the requirement provided** and identify tools that directly contribute to fulfilling this requirement.
+    - **Return the results in the exact format specified** above.
+    - **do not include any extra information in the output
+    - **in the output the tools should not include the parameters of the methods only the name like specified in the example
+    - **give the correct path of the file from the object given by the repository structure given
+    - Adherence to these guidelines is critical. Any deviation, such as creating non-existent tool names, will lead to immediate disqualification from the task.
+
+    """
+
     def __init__(
             self, instance_id, structure, requirement, test_step, model_name,
     ):
         super().__init__(instance_id, structure, requirement=requirement, test_step=test_step)
-        self.max_tokens = 300
+        self.max_tokens = 3000
         self.model_name = model_name
 
     def extract_examples(self, current):
@@ -243,6 +319,7 @@ Return only the locations.
             final_examples += "\n```"
         return final_examples
 
+    @traceable
     def localize(self, current, top_n=1) -> tuple[list[Any], dict[str, Any], Any]:
 
         found_files = []
@@ -287,6 +364,103 @@ Return only the locations.
             traj,
         )
 
+    @traceable
+    def give_skeleton(self, files_struct):
+        template = self.create_skeleton_code
+        message = template.format(
+            requirement=self.requirement, classes=files_struct, test_step=self.test_step
+        )
+        logging.info(f"prompting with message:\n{message}")
+        logging.info("=" * 80)
+
+        model = make_model(
+            model=self.model_name,
+            max_tokens=self.max_tokens,
+            temperature=0,
+            batch_size=1,
+        )
+        result = False
+        output = None
+        while not result:
+            traj = model.codegen(message, num_samples=1)[0]
+            row_output = traj["response"]
+            output, result = self.extract_skleton(row_output)
+        return output
+
+    def verify_tools_by_line(self, test_step, tools, label, graph):
+        taf = filtered_nodes_by_label(graph, label)
+        message = self.verify_tools.format(
+            requirement=test_step,
+            structure=json.dumps(taf),
+            tools=json.dumps(tools),
+        ).strip()
+        print(f"prompting with message:\n{message}")
+        print("=" * 80)
+
+        model = make_model(
+            model=self.model_name,
+            max_tokens=self.max_tokens,
+            temperature=0,
+            batch_size=1,
+        )
+        traj = model.codegen(message, num_samples=1)[0]
+        traj["prompt"] = message
+        raw_output = traj["response"].replace("`", "")
+        list = raw_output.split("\n")
+        result = []
+        for el in list:
+            if el == "":
+                continue
+            seq = el.split(":")
+            if len(seq) < 2:
+                continue
+            if seq[0].strip() == "":
+                continue
+            if seq[1].strip() == "":
+                continue
+            path = seq[0].strip()
+            path = path.replace('/', '.').replace('.py_', '.')
+            seq_ver = path.split("_")
+            if len(seq_ver) > 1:
+                end = seq_ver[-1]
+                if end[0].isupper():
+                    interface = seq_ver.pop()
+                    path = ".".join(seq_ver)
+                    path = path + "." + interface
+            if path.endswith(".py"):
+                path = path.replace(".py", "")
+            else:
+                path = path.replace(".py", ".")
+            result.append(
+                f"{path}: {''.join(seq[1:]).strip()}"
+            )
+        return result
+
+    def extract_skleton(self, raw_output):
+        output_list = raw_output.strip().replace("json", "").replace("`", "").split("\n")
+        result = {}
+        for el in output_list:
+            if el == "":
+                continue
+            seq = el.split("-")
+            if len(seq) < 2:
+                continue
+            number = int(seq[0].strip())
+            try:
+                json_parsed = json.loads("".join(seq[1:]).strip())
+            except JSONDecodeError as e:
+                print("error in json")
+                return None, False
+            result[number] = json_parsed
+        res = []
+        for i in range(len(result) + 1):
+            if i not in result:
+                continue
+            res.append(result[i])
+
+        return res, True
+
+    @traceable
     def localize_function_from_compressed_files(self, file_names):
 
         file_contents = get_repo_files(self.structure, file_names)
@@ -333,6 +507,7 @@ Return only the locations.
 
         return model_found_locs_separated, {"raw_output_loc": raw_output}, traj
 
+    @traceable
     def localize_line_from_coarse_function_locs(
             self,
             file_names,
