@@ -107,7 +107,9 @@ Here Some Examples:
 ```
 """
     obtain_relevant_code_combine_top_n_prompt = """
-You are an expert in test code implementation within the automotive zone controller domain, utilizing a private test framework repository known as TAF (Test Automotive Framework). Your task is to analyze the provided test step and file contents to determine the exact method names needed to implement the test step. The requirement is included solely to provide additional context.
+You are an expert in test code implementation within the automotive zone controller domain, using a custom test framework repository called TAF (Test Automotive Framework). 
+Your task is to analyze the provided test step and test framework file contents to accurately identify the method names needed to implement the test step. Please note that the requirements are provided for context only.
+Keep in mind the differing perspectives: the requirements are written from the perspective of the Device Under Test (DUT), while the test framework methods are written from the perspective of the test system interacting with the DUT.
 
 ### Requirement (for context) ###
 {requirement}
