@@ -193,6 +193,7 @@ full_path3/file3.py
 full_path3.file3.MyClass3: my_method3
 full_path2.file2.MyClass2: my_method3_2
 
+
 full_path4/file4.py
 full_path4.file4.MyClass4: my_method4
 ```
@@ -209,7 +210,8 @@ Return only the locations.
 """
 
     create_skeleton_code = """
-    You are an expert in writing test code that covers specific criteria within the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework).
+    You are an expert in test code implementation within the automotive zone controller domain, using a custom test framework repository called TAF (Test Automotive Framework). 
+    Keep in mind the differing perspectives: the requirements are written from the perspective of the Device Under Test (DUT), while the test framework methods are written from the perspective of the test system interacting with the DUT.
     We have extracted unordered object of classes and methods from the TAF repository that can potentially be used to write the test code of the requirement provided.
 
     You are tasked to write a pseudocode of the test code that fulfills a specific test step of the requirement provided. The pseudocode should include the classes and methods that are relevant to the test step of the requirement and the process of testing.
@@ -245,7 +247,9 @@ Return only the locations.
     """
 
     verify_tools = """
-    You are an expert in writing test code that covers specific criteria within the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework).
+    You are an expert in test code implementation within the automotive zone controller domain, using a custom test framework repository called TAF (Test Automotive Framework). 
+    Keep in mind the differing perspectives: the requirements are written from the perspective of the Device Under Test (DUT), while the test framework methods are written from the perspective of the test system interacting with the DUT.    
+    
     You have been provided with a list of tools that are required to write the test code for the specified requirement. Your task is to verify the correctness of the tools provided.
     You will be provided with the full TAF repository structure, the requirement, and the list of tools required to write the test code. 
     Your goal is to confirm whether the tools provided are necessary for fulfilling the requirement and correct it if necessary.
@@ -280,12 +284,58 @@ Return only the locations.
     - Adherence to these guidelines is critical. Any deviation, such as creating non-existent tool names, will lead to immediate disqualification from the task.
 
     """
-
+    verification_of_use_right_tools = """
+    You are a top-tier expert in writing test code for the automotive zone controller domain, specifically utilizing a private framework repository known as TAF (Test Automotive Framework). Your deep understanding of both TAF and Python allows you to assess code with exceptional precision.
+    
+    I have reviewed the TAF source code and identified a set of tools that may be relevant for implementing a specific test step for a requirement. A developer has already written a test code for this, and I need you to evaluate whether the developer has:
+    1. Used the correct TAF tools if any TAF tools are used in the code.
+    2. Correctly used native Python methods where TAF tools are not necessary.
+    
+    ### Important:
+    - If the developer uses TAF tools, ensure they are from the provided list of relevant TAF tools. Using tools outside this list should return `false`.
+    - If the developer uses native Python methods and does not require TAF tools for the task, the code should still meet the requirement.
+    - Only return `false` if incorrect tools or incorrect logic are used.
+    
+    ### Requirement ###
+    {requirement}
+    
+    ### Test Step ###
+    {test_step}
+    
+    ### Suggested TAF Tools ###
+    {tools}
+    
+    ### Developer's Code specific for the test step ###
+    ```python
+    {code}
+    ```
+    
+    ### The full code ###
+    {code_full}
+    
+    ### Examples Output ###
+    ```
+    {{"result": true,"explanation": "The developer correctly used native Python methods without needing TAF tools."}}
+    ```
+    
+    
+    ```
+    {{"result": false,"explanation": "The developer used the wrong TAF tools, or incorrect logic was applied."}}
+    ```
+    
+    ### Strict Guidelines:
+    - **Your result must be a boolean answering the question: "Has the developer met the requirement correctly?".
+    - **If TAF tools are used, verify that they come from the provided list. If a tool is used but is not on the list, return false.
+    - **If no TAF tools are used and native Python logic is sufficient, return true.
+    - **You must not provide any additional information or explanations beyond the boolean result and the 'explanation' string.
+    - **The result should be returned in the exact format shown above (a JSON object with 'result' as a boolean and 'explanation' as a string).
+    - **Strictly adhere to these guidelines to ensure the highest level of code quality and correctness. 
+    """
     def __init__(
             self, instance_id, structure, requirement, test_step, model_name,
     ):
         super().__init__(instance_id, structure, requirement=requirement, test_step=test_step)
-        self.max_tokens = 3000
+        self.max_tokens = 300
         self.model_name = model_name
 
     def extract_examples(self, current):
@@ -321,7 +371,6 @@ Return only the locations.
             final_examples += "\n```"
         return final_examples
 
-    @traceable
     def localize(self, current, top_n=1) -> tuple[list[Any], dict[str, Any], Any]:
 
         found_files = []
@@ -366,7 +415,9 @@ Return only the locations.
             traj,
         )
 
-    @traceable
+    @traceable(
+        name="generate pseudo code "
+    )
     def give_skeleton(self, files_struct):
         template = self.create_skeleton_code
         message = template.format(
@@ -437,6 +488,24 @@ Return only the locations.
                 f"{path}: {''.join(seq[1:]).strip()}"
             )
         return result
+
+    def verify_tools_in_code(self,tools, code, full_code):
+        prompt = self.verification_of_use_right_tools.format(
+            requirement=self.requirement,
+            tools=json.dumps(tools),
+            code=code,
+            test_step=self.test_step,
+            code_full=full_code
+        )
+        model = make_model(
+            model=self.model_name,
+            max_tokens=self.max_tokens,
+            temperature=0,
+            batch_size=1,
+        )
+        traj = model.codegen(prompt, num_samples=1)[0]
+        return traj["response"]
+
 
     def extract_skleton(self, raw_output):
         output_list = raw_output.strip().replace("json", "").replace("`", "").split("\n")
@@ -509,7 +578,6 @@ Return only the locations.
 
         return model_found_locs_separated, {"raw_output_loc": raw_output}, traj
 
-    @traceable
     def localize_line_from_coarse_function_locs(
             self,
             file_names,
