@@ -13,6 +13,7 @@ from Agentless.agentless.util.preprocess_data import filter_none_python, filter_
 from apps.helper import read_file
 from apps.services.neo4jDB.graphDB_dataAccess import create_graph_database_connection
 from apps.services.open_ia_llm import OpenIA_LLM, get_graph_with_schema
+from apps.services.quality_checkers.quality_check import CheckerFailure
 from apps.services.quality_checkers.requirements_qte_check import schema_req, RequirementsQTECheck
 from apps.services.code_skeleton_extractor import filtered_methods_by_file_name_function
 
@@ -21,6 +22,7 @@ FILES_TO_USE = [
     "catalog.py",
     "__init__.py",
 ]
+
 
 def filter_files(structure: dict, files: list):
     files_level = structure.keys()
@@ -173,7 +175,9 @@ def find_locs_that_matches_files(sequence, file_name, locs):
     return res
 
 
-@traceable
+@traceable(
+    name="verification with skeleton to test step"
+)
 def verification_with_skeleton(locs, files, fl, graph):
     final_locs = []
     methods = []
@@ -206,8 +210,108 @@ def verification_with_skeleton(locs, files, fl, graph):
     return final_locs
 
 
-@traceable
-def localize(args, test_steps):
+def get_related_instructions(instruction, relations, nodes, relation_types, result, processed=None):
+    if instruction is None:
+        return
+
+    if processed is None:
+        processed = set()
+    if instruction.id in processed:
+        return
+
+    processed.add(instruction.id)
+    relations_found = [rel for rel in relations if
+                       rel.target.id == instruction.id and rel.type.upper() in relation_types]
+
+    if not relations_found:
+        return
+    ids = [rel.source.id for rel in relations_found]
+    nodes_code = [node for node in nodes if node.id in ids]
+    result.extend(nodes_code)
+    for line in nodes_code:
+        get_related_instructions(line, relations, nodes, relation_types, result, processed)
+
+
+def manual_sort(lst):
+    for i in range(len(lst)):
+        min_index = i
+        for j in range(i+1, len(lst)):
+            if lst[j].count < lst[min_index].count:
+                min_index = j
+        # Swap the found minimum element with the first element
+        lst[i], lst[min_index] = lst[min_index], lst[i]
+@traceable(
+    name="generate coverage tools"
+)
+def verify_used_tools(test_step, tools, nodes, relations, fl, full_code,doc_ref):
+    keys = schema_test_code.keys()
+    relation_types = []
+    node_types = []
+    for key in keys:
+        relation_types += schema_test_code[key]
+        node_types.append(key.upper())
+
+    relation_test_step_target = []
+    cr_nodes = []
+    relations_cr_source = []
+    for rel in relations:
+        if rel.target.id == test_step.id:
+            relation_test_step_target.append(rel.source.id)
+    for node in nodes:
+        if node.type.lower() == "coverage_result" and node.id in relation_test_step_target:
+            cr_nodes.append(node.id)
+    for rel in relations:
+        if rel.source.id in cr_nodes:
+            relations_cr_source.append(rel.target.id)
+    nodes_instructions = []
+    for node in nodes:
+        if node.id in relations_cr_source and node.type.upper() in node_types:
+            nodes_instructions.append(node)
+    instructions = nodes_instructions.copy()
+    if len(instructions)==0 :
+        return [],[]
+    code_base = instructions[0]
+    for instruction in nodes_instructions:
+        get_related_instructions(instruction, relations, nodes,relation_types, instructions)
+    instructions.sort(key=lambda x: int(x.properties["number"]) if "number" in x.properties.keys() else 0)
+
+    code = ""
+    for instruction in instructions:
+        code+=str(instruction.properties["reference"])
+        code+= "\n"
+    res = fl.verify_tools_in_code(tools,code,full_code).replace("`","").replace("json","").replace("\n","").replace("'","")
+    if not res :
+        return [], []
+    node_cr = Node(
+        id=f"code_result_{test_step.id}_tools",
+        type="Coverage_Result",
+        properties={
+            "explanation": res,
+            "doc_ref": doc_ref
+        }
+    )
+    relation_cr_test_step= Relationship(
+        id=f'tools_{test_step.id}',
+        type="COVER_TEST_STEP",
+        source=node_cr,
+        target=test_step,
+        properties={
+            "doc_ref": doc_ref
+        }
+    )
+    relation_cr_code = Relationship(
+        id=f'code_result_{code_base.id}',
+        type="COVER_TEST_STEP",
+        source=node_cr,
+        target=code_base,
+        properties={
+            "doc_ref": doc_ref
+        }
+    )
+    return [node_cr],[relation_cr_test_step,relation_cr_code]
+
+
+def localize(args, test_steps, nodes_coverage_res = None,relations_coverage_res=None ,test_code=None):
     requirement = read_file(args.req_path)
     graph = create_graph_database_connection(args)
     d = get_project_structure_from_scratch(
@@ -300,6 +404,10 @@ def localize(args, test_steps):
                 final_output["found_files"].append(file)
 
         locs_to_return = verification_with_skeleton(locs_to_return, found_files, fl, graph)
+        if nodes_coverage_res is not None and relations_coverage_res is not None and test_code is not None:
+            nodes_tool_verif, relations_tools_verif = verify_used_tools(test_step, locs_to_return, nodes_coverage_res, relations_coverage_res, fl, test_code, doc_ref)
+            nodes += nodes_tool_verif
+            relationships += relations_tools_verif
 
         for loc in locs_to_return:
             if loc not in final_output["locs"]:
@@ -347,21 +455,7 @@ def main():
         parser = argparse.ArgumentParser()
         parser.add_argument('-dBuserName', type=str, default=os.environ['NEO4J_USERNAME'], help='database userName')
         parser.add_argument('-gituserName', type=str, default='Mehdi', help='git userName')
-        parser.add_argument('-cmd', type=str, default='FULL', help='cmd')
         parser.add_argument('-database', type=str, default='neo4j', help='database name')
-        parser.add_argument('-req_path', type=str,
-                            default="datasets/datasets/requirements/sensing_powerpath_current.txt",
-                            help='requirement file path')
-        parser.add_argument('-instance_id', type=str, default="sensing_powerpath_current", help='instance id')
-        parser.add_argument('-output_folder', type=str, default="tests", help='output folder')
-        parser.add_argument('-output_file', type=str, default="loc_outputs.jsonl", help='output file')
-        parser.add_argument('-doc_ref', type=str,
-                            default="datasets/datasets/requirements/sensing_powerpath_current.txt",
-                            help='doc ref')
-        parser.add_argument('-top_n', type=int, default=25, help='top n')
-        parser.add_argument('-temperature', type=float, default=0.0, help='temperature')
-        parser.add_argument('-sticky_scroll', type=bool, default=False, help='sticky scroll')
-        parser.add_argument('-context_window', type=int, default=20, help='context window')
         return parser.parse_args()
 
     args = parse_args()
