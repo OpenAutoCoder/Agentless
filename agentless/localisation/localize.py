@@ -16,6 +16,7 @@ from apps.services.open_ia_llm import OpenIA_LLM, get_graph_with_schema
 from apps.services.quality_checkers.quality_check import CheckerFailure
 from apps.services.quality_checkers.requirements_qte_check import schema_req, RequirementsQTECheck
 from apps.services.code_skeleton_extractor import filtered_methods_by_file_name_function
+from apps.services.quality_checkers.test_code_qte_check import schema_test_code
 
 FILES_TO_USE = [
     "interface.py",
@@ -80,11 +81,14 @@ def get_test_steps(req_path):
                     }
                 )
                 final_req_graph["relationships"].append(relation_pre)
+        try:
 
-        if RequirementsQTECheck.check(final_req_graph):
-            logging.error(f"Quality check validated for requirement at iteration {i}")
-            result_req = True
-            break
+            if RequirementsQTECheck.check(final_req_graph):
+                logging.error(f"Quality check validated for requirement at iteration {i}")
+                result_req = True
+                break
+        except CheckerFailure:
+            pass
     if not result_req:
         logging.error("Quality check failed for requirement")
         return
@@ -455,7 +459,21 @@ def main():
         parser = argparse.ArgumentParser()
         parser.add_argument('-dBuserName', type=str, default=os.environ['NEO4J_USERNAME'], help='database userName')
         parser.add_argument('-gituserName', type=str, default='Mehdi', help='git userName')
+        parser.add_argument('-cmd', type=str, default='FULL', help='cmd')
         parser.add_argument('-database', type=str, default='neo4j', help='database name')
+        parser.add_argument('-req_path', type=str,
+                            default="datasets/datasets/requirements/sensing_powerpath_current.txt",
+                            help='requirement file path')
+        parser.add_argument('-instance_id', type=str, default="sensing_powerpath_current", help='instance id')
+        parser.add_argument('-output_folder', type=str, default="tests", help='output folder')
+        parser.add_argument('-output_file', type=str, default="loc_outputs.jsonl", help='output file')
+        parser.add_argument('-doc_ref', type=str,
+                            default="datasets/datasets/requirements/sensing_powerpath_current.txt",
+                            help='doc ref')
+        parser.add_argument('-top_n', type=int, default=25, help='top n')
+        parser.add_argument('-temperature', type=float, default=0.0, help='temperature')
+        parser.add_argument('-sticky_scroll', type=bool, default=False, help='sticky scroll')
+        parser.add_argument('-context_window', type=int, default=20, help='context window')
         return parser.parse_args()
 
     args = parse_args()
@@ -476,13 +494,15 @@ def main():
         test_steps = get_test_steps(args.req_path)
         localize(args, test_steps)
 
-@traceable
-def localization_update_path(args, doc_ref, test_steps):
+@traceable(
+    name='localize for graph',
+)
+def localization_update_path(args, doc_ref, test_steps, nodes,relations ,test_code):
     path_req = doc_ref.split("--||--")[0]
     args.req_path = path_req
     args.instance_id = path_req.split("/")[-1].replace(".txt", "")
     args.doc_ref = doc_ref
-    return localize(args, test_steps)
+    return localize(args, test_steps, nodes, relations, test_code)
 
 
 if __name__ == "__main__":
