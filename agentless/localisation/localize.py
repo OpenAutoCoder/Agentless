@@ -2,6 +2,8 @@ import argparse
 import json
 import os
 import logging
+from uuid import uuid4
+
 from langchain_core.documents import Document
 
 from langchain_community.graphs.graph_document import Node, Relationship, GraphDocument
@@ -83,7 +85,7 @@ def get_test_steps(req_path):
                 final_req_graph["relationships"].append(relation_pre)
         try:
 
-            if RequirementsQTECheck.check(final_req_graph):
+            if RequirementsQTECheck.check(final_req_graph, requirement_text):
                 logging.error(f"Quality check validated for requirement at iteration {i}")
                 result_req = True
                 break
@@ -182,7 +184,7 @@ def find_locs_that_matches_files(sequence, file_name, locs):
 @traceable(
     name="verification with skeleton to test step"
 )
-def verification_with_skeleton(locs, files, fl, graph):
+def verification_with_skeleton(locs, files, fl, graph, test_step):
     final_locs = []
     methods = []
     for loc in locs:
@@ -207,10 +209,12 @@ def verification_with_skeleton(locs, files, fl, graph):
             continue
         label = seq[0].strip()
         step_explication = seq[1].strip()
+
         locs_line = fl.verify_tools_by_line(step_explication, line['methods_used'], label, graph)
-        for loc in locs_line:
-            if loc not in final_locs:
-                final_locs.append(loc)
+        final_locs.append({
+            "line": line,
+            "locs_line": locs_line,
+        })
     return final_locs
 
 
@@ -244,6 +248,85 @@ def manual_sort(lst):
                 min_index = j
         # Swap the found minimum element with the first element
         lst[i], lst[min_index] = lst[min_index], lst[i]
+
+def find_line_code_nodes(nodes,line):
+    node_types = schema_test_code.keys()
+    for node in nodes:
+        if node.type.upper() in node_types:
+            if line in node.properties['reference']:
+                return node
+    return None
+
+@traceable(
+    name="generate pseudo code nodes and relations"
+)
+def verify_used_tools_by_pseudo_code(test_step, tools, nodes, fl, full_code,doc_ref):
+    nodes_generated =[]
+    relations_generated = []
+    for line_code in tools:
+        line = line_code["line"]
+        seq = line['step_explication'].split(":")
+        label = seq[0].strip()
+        step_explication = seq[1].strip()
+        node = Node(
+            id=f"{label}_pseudo_code_{str(uuid4())}",
+            type="Pseudo_Code",
+            properties={
+                "doc_ref": doc_ref,
+                "label": label,
+                "step_explication": step_explication,
+                "explanation": line['step_explication']
+            }
+        )
+
+        relation_test_step_code = Relationship(
+            id= f"{label}_test_step_{str(uuid4())}",
+            type="USE_PSEUDO_CODE",
+            source=test_step,
+            target=node,
+            properties={
+                "doc_ref": doc_ref,
+            }
+        )
+        nodes_generated.append(node)
+        relations_generated.append(relation_test_step_code)
+
+        code_lines = fl.map_pseudo_code_to_code(full_code,line['step_explication'])
+
+        locs = line_code["locs_line"]
+        for line_found in code_lines:
+            node_code_found = find_line_code_nodes(nodes,line_found.strip())
+            if node_code_found is not None:
+                relation_code = Relationship(
+                    id=f"{label}_code_{str(uuid4())}",
+                    type="PSEUDO_CODE_MAP",
+                    source=node,
+                    target=node_code_found,
+                    properties={
+                        "doc_ref": doc_ref,
+                    }
+                )
+                relations_generated.append(relation_code)
+        for loc in locs:
+            segment = loc.split(":")
+            node_tool = Node(
+                id=f"{uuid4()}--||--{test_step.id}--||--{loc}",
+                type="Tool_Suggestion",
+                properties={
+                    "doc_ref": doc_ref,
+                    "function": loc.split(":")[1].strip() if len(segment) > 1 else "",
+                    "path": loc.split(":")[0].strip() if len(segment) > 1 else loc,
+                }
+            )
+            relationship = Relationship(
+                source=node,
+                target=node_tool,
+                type="HAS_TOOL_SUGGESTION"
+            )
+            nodes_generated.append(node_tool)
+            relations_generated.append(relationship)
+    return nodes_generated, relations_generated
+
 @traceable(
     name="generate coverage tools"
 )
@@ -305,7 +388,7 @@ def verify_used_tools(test_step, tools, nodes, relations, fl, full_code,doc_ref)
     )
     relation_cr_code = Relationship(
         id=f'code_result_{code_base.id}',
-        type="COVER_TEST_STEP",
+        type="COVERED_BY_INSTRUCTION",
         source=node_cr,
         target=code_base,
         properties={
@@ -315,7 +398,7 @@ def verify_used_tools(test_step, tools, nodes, relations, fl, full_code,doc_ref)
     return [node_cr],[relation_cr_test_step,relation_cr_code]
 
 
-def localize(args, test_steps, nodes_coverage_res = None,relations_coverage_res=None ,test_code=None):
+def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
     requirement = read_file(args.req_path)
     graph = create_graph_database_connection(args)
     d = get_project_structure_from_scratch(
@@ -407,46 +490,33 @@ def localize(args, test_steps, nodes_coverage_res = None,relations_coverage_res=
             if file not in final_output["found_files"]:
                 final_output["found_files"].append(file)
 
-        locs_to_return = verification_with_skeleton(locs_to_return, found_files, fl, graph)
-        if nodes_coverage_res is not None and relations_coverage_res is not None and test_code is not None:
-            nodes_tool_verif, relations_tools_verif = verify_used_tools(test_step, locs_to_return, nodes_coverage_res, relations_coverage_res, fl, test_code, doc_ref)
+        locs_to_return = verification_with_skeleton(locs_to_return, found_files, fl, graph, test_step)
+        if nodes_coverage_res is not None  and test_code is not None:
+            nodes_tool_verif, relations_tools_verif = verify_used_tools_by_pseudo_code(test_step, locs_to_return, nodes_coverage_res, fl, test_code, doc_ref)
             nodes += nodes_tool_verif
             relationships += relations_tools_verif
+        else:
+            for loc in locs_to_return:
+                if loc not in final_output["locs"]:
+                    final_output["locs"].append(loc)
+                segment = loc.split(":")
+                node = Node(
+                    id=f"{instance_id}--||--{test_step.id}--||--{loc}",
+                    type="Tool_Suggestion",
+                    properties={
+                        "doc_ref": doc_ref,
+                        "function": loc.split(":")[1].strip() if len(segment) > 1 else "",
+                        "path": loc.split(":")[0].strip() if len(segment) > 1 else loc,
+                    }
+                )
+                relationship = Relationship(
+                    source=Node(id=test_step.id, type="Test_step"),
+                    target=node,
+                    type="HAS_TOOL_SUGGESTION"
+                )
+                nodes.append(node)
+                relationships.append(relationship)
 
-        for loc in locs_to_return:
-            if loc not in final_output["locs"]:
-                final_output["locs"].append(loc)
-            segment = loc.split(":")
-            node = Node(
-                id=f"{instance_id}--||--{test_step.id}--||--{loc}",
-                type="Tool_Suggestion",
-                properties={
-                    "doc_ref": doc_ref,
-                    "function": loc.split(":")[1].strip() if len(segment) > 1 else "",
-                    "path": loc.split(":")[0].strip() if len(segment) > 1 else loc,
-                }
-            )
-            relationship = Relationship(
-                source=Node(id=test_step.id, type="Test_step"),
-                target=node,
-                type="HAS_TOOL_SUGGESTION"
-            )
-            nodes.append(node)
-            relationships.append(relationship)
-
-    if not os.path.exists(args.output_file):
-        data = [
-            final_output
-        ]
-    else:
-        with open(args.output_file, "r") as f:
-            data = json.load(f)
-            data = [p for p in data if p['instance_id'] != d["instance_id"]]
-            data.append(final_output)
-    with open(args.output_file, "w") as f:
-        f.write(
-            json.dumps(data)
-        )
     return GraphDocument(
         nodes=nodes,
         relationships=relationships,
@@ -497,12 +567,12 @@ def main():
 @traceable(
     name='localize for graph',
 )
-def localization_update_path(args, doc_ref, test_steps, nodes,relations ,test_code):
+def localization_update_path(args, doc_ref, test_steps, nodes ,test_code):
     path_req = doc_ref.split("--||--")[0]
     args.req_path = path_req
     args.instance_id = path_req.split("/")[-1].replace(".txt", "")
     args.doc_ref = doc_ref
-    return localize(args, test_steps, nodes, relations, test_code)
+    return localize(args, test_steps, nodes, test_code)
 
 
 if __name__ == "__main__":

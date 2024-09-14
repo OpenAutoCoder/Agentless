@@ -245,6 +245,49 @@ Return only the locations.
     - Adherence to these rules is mandatory. Any deviation, such as generating method names not present in the files, events don't exist, will result in immediate termination of the task.
     """
 
+    map_pseudo_code = """
+    You are an expert in writing test code that covers specific criteria within the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework).
+    You are tasked to verify if a pseudo code of a test step of requirement can be mapped to one or multiple lines of the test code
+    You will be provided with requirement and test step for more context, the pseudo is related to the test step of the requirement provided.
+    
+    ### Requirement ###
+    {requirement}
+    
+    ### test step ###
+    {test_step}
+    
+    ### pseudo code ###
+    {pseudo_code}
+    
+    ### the test code ###
+    {test_code}
+    
+    ### examples output ###
+    example 1:
+    ```
+    line 5: methode(param)
+    line 8: self.__tc_id = self.__class__.__name__
+    ``` 
+    
+    example 2:
+    ```
+    ```
+    example 3:
+    ```
+    line 6: self.__power_path_ctrl.bypass_limphome_control(True)
+    line 7: self._reporting.add_report_message_info(f"Set resistive load")
+    line 8: voltage = self.__power_path_ctrl.measure_actual_voltage(POWER_PATH_CHANNEL)
+    ```
+    
+    ## Strict Guidelines:
+    - **return valid line do not hallucinate or generate any line that do not exist 
+    - **if there is no line that represent the pseudo code return empty response
+    - **do not include any extra information in the output
+    - **you can map the pseudo code to one or multiple lines of the test code
+    - Adherence to these guidelines is critical. Any deviation, such as creating non-existent code lines, will lead to immediate disqualification from the task.
+    
+    """
+
     verify_tools = """
     You are an expert in writing test code that covers specific criteria within the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework).
     You have been provided with a list of tools that are required to write the test code for the specified requirement. Your task is to verify the correctness of the tools provided.
@@ -439,7 +482,7 @@ Return only the locations.
             output, result = self.extract_skleton(row_output)
         return output
     @traceable(
-        name="verify tools by psudo code line"
+        name="verify tools by pseudo code line"
     )
     def verify_tools_by_line(self, test_step, tools, label, graph):
         taf = filtered_nodes_by_label(graph, label)
@@ -489,6 +532,34 @@ Return only the locations.
                 f"{path}: {''.join(seq[1:]).strip()}"
             )
         return result
+    @traceable
+    def map_pseudo_code_to_code(self, test_code, pseudo_code):
+        prompt = self.map_pseudo_code.format(
+            requirement=self.requirement,
+            test_step=self.test_step,
+            test_code=test_code,
+            pseudo_code=pseudo_code,
+        )
+        model = make_model(
+            model=self.model_name,
+            max_tokens=self.max_tokens,
+            temperature=0,
+            batch_size=1,
+        )
+        traj = model.codegen(prompt, num_samples=1)[0]["response"].replace("`", "")
+        lines = []
+        for res in traj.split("\n"):
+            if not res or len(res) == 0:
+                continue
+            if str(res).strip().startswith("line "):
+                seq = res.split(":")
+                seq.pop(0)
+                if len(seq) ==0:
+                    continue
+                lines.append(":".join(seq).strip() if len(seq)> 1 else seq[0].strip())
+            else:
+                lines.append(res.strip())
+        return lines
 
     def verify_tools_in_code(self,tools, code, full_code):
         prompt = self.verification_of_use_right_tools.format(
