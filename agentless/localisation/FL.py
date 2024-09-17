@@ -411,7 +411,7 @@ Return only the locations.
         return final_examples
 
     @traceable(
-        name="localize files names for test steps"
+        name="7.1.localize files names for test steps"
     )
     def localize(self, current, top_n=1) -> tuple[list[Any], dict[str, Any], Any]:
 
@@ -458,7 +458,7 @@ Return only the locations.
         )
 
     @traceable(
-        name="generate pseudo code "
+        name="7.3.1.generate pseudo code "
     )
     def give_skeleton(self, files_struct):
         template = self.create_skeleton_code
@@ -482,7 +482,7 @@ Return only the locations.
             output, result = self.extract_skleton(row_output)
         return output
     @traceable(
-        name="verify tools by pseudo code line"
+        name="7.3.2.verify tools by pseudo code line"
     )
     def verify_tools_by_line(self, test_step, tools, label, graph):
         taf = filtered_nodes_by_label(graph, label)
@@ -532,7 +532,9 @@ Return only the locations.
                 f"{path}: {''.join(seq[1:]).strip()}"
             )
         return result
-    @traceable
+    @traceable(
+        name="7.4.1.map pseudo code to code"
+    )
     def map_pseudo_code_to_code(self, test_code, pseudo_code):
         prompt = self.map_pseudo_code.format(
             requirement=self.requirement,
@@ -604,7 +606,7 @@ Return only the locations.
         return res, True
 
     @traceable(
-        name="localize functions names from files corresponding to test step"
+        name="7.2.localize functions names from files corresponding to test step"
     )
     def localize_function_from_compressed_files(self, file_names):
 
