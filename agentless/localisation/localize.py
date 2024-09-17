@@ -182,7 +182,7 @@ def find_locs_that_matches_files(sequence, file_name, locs):
 
 
 @traceable(
-    name="verification with skeleton to test step"
+    name="7.3.verification with skeleton to test step"
 )
 def verification_with_skeleton(locs, files, fl, graph, test_step):
     final_locs = []
@@ -258,7 +258,7 @@ def find_line_code_nodes(nodes,line):
     return None
 
 @traceable(
-    name="generate pseudo code nodes and relations"
+    name="7.4.generate pseudo code nodes and relations"
 )
 def verify_used_tools_by_pseudo_code(test_step, tools, nodes, fl, full_code,doc_ref):
     nodes_generated =[]
@@ -397,7 +397,9 @@ def verify_used_tools(test_step, tools, nodes, relations, fl, full_code,doc_ref)
     )
     return [node_cr],[relation_cr_test_step,relation_cr_code]
 
-
+@traceable(
+    name="7.localization"
+)
 def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
     requirement = read_file(args.req_path)
     graph = create_graph_database_connection(args)
@@ -466,20 +468,8 @@ def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
         for i, pred_file in enumerate(pred_files):
             if len(found_related_locs) > i:
                 coarse_found_locs[pred_file] = found_related_locs[i]
-        (
-            found_edit_locs,
-            additional_artifact_loc_edit_location,
-            edit_loc_traj,
-        ) = fl.localize_line_from_coarse_function_locs(
-            pred_files,
-            coarse_found_locs,
-            context_window=args.context_window,
-            sticky_scroll=args.sticky_scroll,
-            temperature=args.temperature,
-        )
-
         locs_to_return = set()
-        locs_found = found_related_locs + found_edit_locs
+        locs_found = found_related_locs
         for loc in locs_found:
             if (loc[0]) and (loc[0] != ""):
                 texts = loc[0].split("\n")
@@ -564,9 +554,6 @@ def main():
         test_steps = get_test_steps(args.req_path)
         localize(args, test_steps)
 
-@traceable(
-    name='localize for graph',
-)
 def localization_update_path(args, doc_ref, test_steps, nodes ,test_code):
     path_req = doc_ref.split("--||--")[0]
     args.req_path = path_req
