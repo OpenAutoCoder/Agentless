@@ -291,11 +291,16 @@ Return only the locations.
     verify_tools = """
     You are an expert in writing test code that covers specific criteria within the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework).
     You have been provided with a list of tools that are required to write the test code for the specified requirement. Your task is to verify the correctness of the tools provided.
-    You will be provided with the full TAF repository structure, the requirement, and the list of tools required to write the test code. 
+    You will be provided with the full TAF repository structure, the requirement, and the list of tools required to write a line of code of a requirement from a pseudo code. 
     Your goal is to confirm whether the tools provided are necessary for fulfilling the requirement and correct it if necessary.
     
     ### Requirement ###
     {requirement}
+    
+    ### pseudo code ###
+    {line_code}
+    
+    
     
     ### TAF Repository Structure ###
     {structure}
@@ -321,7 +326,9 @@ Return only the locations.
     - **do not include any extra information in the output
     - **in the output the tools should not include the parameters of the methods only the name like specified in the example
     - **give the correct path of the file from the object given by the repository structure given
-    - Adherence to these guidelines is critical. Any deviation, such as creating non-existent tool names, will lead to immediate disqualification from the task.
+    - ** at least extract one tool 
+    - **the line format should be as the example path seperated by '.' and separation between the path and method should be by ": "
+    - Adherence to these guidelines is critical. Any deviation, such as creating non-existent tool names or returning empty result or any line of the result don't match the format specified, will lead to immediate disqualification from the task.
 
     """
     verification_of_use_right_tools = """
@@ -484,12 +491,13 @@ Return only the locations.
     @traceable(
         name="7.3.2.verify tools by pseudo code line"
     )
-    def verify_tools_by_line(self, test_step, tools, label, graph):
+    def verify_tools_by_line(self, test_step, line, label, graph):
         taf = filtered_nodes_by_label(graph, label)
         message = self.verify_tools.format(
             requirement=test_step,
             structure=json.dumps(taf),
-            tools=json.dumps(tools),
+            tools=json.dumps(line['methods_used']),
+            line_code=line['step_explication']
         ).strip()
         print(f"prompting with message:\n{message}")
         print("=" * 80)
@@ -508,7 +516,7 @@ Return only the locations.
         for el in list:
             if el == "":
                 continue
-            seq = el.split(":")
+            seq = el.split(":") if len(el.split(":"))>=2  else el.split(" ")
             if len(seq) < 2:
                 continue
             if seq[0].strip() == "":

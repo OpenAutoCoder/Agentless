@@ -180,6 +180,13 @@ def find_locs_that_matches_files(sequence, file_name, locs):
         res.append(loc_seq[1].strip())
     return res
 
+@traceable(
+    name="7.3.3.check for the 1:1 relation between tools and pseudo code"
+)
+def verify_number_tools(res):
+    if len(res) != 1:
+        raise CheckerFailure(f"the number of tools is not equal to 1, result :{res}")
+    return True
 
 @traceable(
     name="7.3.verification with skeleton to test step"
@@ -209,8 +216,14 @@ def verification_with_skeleton(locs, files, fl, graph, test_step):
             continue
         label = seq[0].strip()
         step_explication = seq[1].strip()
-
-        locs_line = fl.verify_tools_by_line(step_explication, line['methods_used'], label, graph)
+        locs_line=[]
+        for i in range(6):
+            locs_line = fl.verify_tools_by_line(step_explication, line, label, graph)
+            try:
+                verify_number_tools(locs_line)
+                break
+            except CheckerFailure:
+                pass
         final_locs.append({
             "line": line,
             "locs_line": locs_line,
