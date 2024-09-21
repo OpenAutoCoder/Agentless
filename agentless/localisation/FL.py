@@ -247,14 +247,11 @@ Return only the locations.
 
     map_pseudo_code = """
     You are an expert in writing test code that covers specific criteria within the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework).
-    You are tasked to verify if a pseudo code of a test step of requirement can be mapped to one or multiple lines of the test code
-    You will be provided with requirement and test step for more context, the pseudo is related to the test step of the requirement provided.
-    
+    You are tasked to verify if a pseudo code of requirement can be mapped to one or multiple lines of the test code
+    You will be provided with requirement for more context
+    Keep in mind the differing perspectives: the requirements are written from the perspective of the Device Under Test (DUT), while the test framework methods are written from the perspective of the test system interacting with the DUT.
     ### Requirement ###
     {requirement}
-    
-    ### test step ###
-    {test_step}
     
     ### pseudo code ###
     {pseudo_code}
@@ -283,6 +280,7 @@ Return only the locations.
     - **return valid line do not hallucinate or generate any line that do not exist 
     - **if there is no line that represent the pseudo code return empty response
     - **do not include any extra information in the output
+    - **Main action focus: Only map the lines that represent the primary action in the pseudo code. Ignore setup or context actions that occur before or after.
     - **you can map the pseudo code to one or multiple lines of the test code
     - Adherence to these guidelines is critical. Any deviation, such as creating non-existent code lines, will lead to immediate disqualification from the task.
     
@@ -327,6 +325,7 @@ Return only the locations.
     - **in the output the tools should not include the parameters of the methods only the name like specified in the example
     - **give the correct path of the file from the object given by the repository structure given
     - ** at least extract one tool 
+    - **Main action focus: Only map the lines that represent the primary action in the pseudo code. Ignore setup or context actions that occur before or after.
     - **the line format should be as the example path seperated by '.' and separation between the path and method should be by ": "
     - Adherence to these guidelines is critical. Any deviation, such as creating non-existent tool names or returning empty result or any line of the result don't match the format specified, will lead to immediate disqualification from the task.
 
@@ -545,8 +544,7 @@ Return only the locations.
     )
     def map_pseudo_code_to_code(self, test_code, pseudo_code):
         prompt = self.map_pseudo_code.format(
-            requirement=self.requirement,
-            test_step=self.test_step,
+            requirement=self.test_step,
             test_code=test_code,
             pseudo_code=pseudo_code,
         )
