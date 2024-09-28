@@ -14,6 +14,7 @@ from Agentless.agentless.util.preprocess_data import transfer_arb_locs_to_locs, 
     show_project_structure, get_full_file_paths_and_classes_and_functions, get_repo_files
 from apps.helper import read_file
 from apps.services.code_skeleton_extractor import filtered_nodes_by_label
+from apps.services.open_ia_llm import OpenIA_LLM
 
 
 class FL(ABC):
@@ -24,7 +25,7 @@ class FL(ABC):
         self.test_step = test_step
 
     @abstractmethod
-    def localize(self, top_n=1, mock=False) -> tuple[list, list, list, any]:
+    def localize_files(self, top_n=1, mock=False) -> tuple[list, list, list, any]:
         pass
 
 
@@ -377,11 +378,10 @@ Return only the locations.
     
     """
     def __init__(
-            self, instance_id, structure, requirement, test_step, model_name,
+            self, instance_id, structure, requirement, test_step,
     ):
         super().__init__(instance_id, structure, requirement=requirement, test_step=test_step)
         self.max_tokens = 3000
-        self.model_name = model_name
 
     def extract_examples(self, current):
         final_examples = ""
@@ -419,7 +419,7 @@ Return only the locations.
     @traceable(
         name="7.1.localize files names for test steps"
     )
-    def localize(self, current, top_n=1) -> tuple[list[Any], dict[str, Any], Any]:
+    def localize_files(self, current, top_n=1) -> tuple[list[Any], dict[str, Any], Any]:
 
         found_files = []
         examples = self.extract_examples(current)
@@ -433,7 +433,7 @@ Return only the locations.
         print("=" * 80)
 
         model = make_model(
-            model=self.model_name,
+            model=OpenIA_LLM.get_version_model("localize_files"),
             max_tokens=self.max_tokens,
             temperature=0,
             batch_size=1,
@@ -475,7 +475,7 @@ Return only the locations.
         logging.info("=" * 80)
 
         model = make_model(
-            model=self.model_name,
+            model=OpenIA_LLM.get_version_model("give_skeleton"),
             max_tokens=self.max_tokens,
             temperature=0,
             batch_size=1,
@@ -502,7 +502,7 @@ Return only the locations.
         print("=" * 80)
 
         model = make_model(
-            model=self.model_name,
+            model=OpenIA_LLM.get_version_model("verify_tools_by_line"),
             max_tokens=self.max_tokens,
             temperature=0,
             batch_size=1,
@@ -549,7 +549,7 @@ Return only the locations.
             pseudo_code=pseudo_code,
         )
         model = make_model(
-            model=self.model_name,
+            model=OpenIA_LLM.get_version_model("map_pseudo_code_to_code"),
             max_tokens=self.max_tokens,
             temperature=0,
             batch_size=1,
@@ -568,23 +568,6 @@ Return only the locations.
             else:
                 lines.append(res.strip())
         return lines
-
-    def verify_tools_in_code(self,tools, code, full_code):
-        prompt = self.verification_of_use_right_tools.format(
-            requirement=self.requirement,
-            tools=json.dumps(tools),
-            test_step=self.test_step,
-            code=code,
-            code_full=full_code
-        )
-        model = make_model(
-            model=self.model_name,
-            max_tokens=self.max_tokens,
-            temperature=0,
-            batch_size=1,
-        )
-        traj = model.codegen(prompt, num_samples=1)[0]
-        return traj["response"]
 
 
     def extract_skleton(self, raw_output):
@@ -635,7 +618,7 @@ Return only the locations.
         logging.info("=" * 80)
 
         model = make_model(
-            model=self.model_name,
+            model=OpenIA_LLM.get_version_model("localize_function_from_compressed_files"),
             max_tokens=self.max_tokens,
             temperature=0,
             batch_size=1,
@@ -660,87 +643,3 @@ Return only the locations.
 
         return model_found_locs_separated, {"raw_output_loc": raw_output}, traj
 
-    def localize_line_from_coarse_function_locs(
-            self,
-            file_names,
-            coarse_locs,
-            context_window: int,
-            sticky_scroll: bool,
-            temperature: float = 0.0,
-            num_samples: int = 1,
-    ):
-
-        file_contents = get_repo_files(self.structure, file_names)
-        topn_content, file_loc_intervals = construct_topn_file_context(
-            coarse_locs,
-            file_contents,
-            self.structure,
-            context_window=context_window,
-            loc_interval=True,
-            sticky_scroll=sticky_scroll,
-        )
-        template = self.obtain_relevant_code_combine_top_n_prompt
-        message = template.format(
-            requirement=self.requirement, test_step=self.test_step, file_contents=topn_content
-        )
-        logging.info(f"prompting with message:\n{message}")
-        logging.info("=" * 80)
-
-        model = make_model(
-            model=self.model_name,
-            max_tokens=self.max_tokens,
-            temperature=temperature,
-            batch_size=num_samples,
-        )
-        raw_trajs = model.codegen(message, num_samples=num_samples)
-
-        # Merge trajectories
-        raw_outputs = [raw_traj["response"] for raw_traj in raw_trajs]
-        traj = {
-            "prompt": message,
-            "response": raw_outputs,
-            "usage": {  # merge token usage
-                "completion_tokens": sum(
-                    raw_traj["usage"]["completion_tokens"] for raw_traj in raw_trajs
-                ),
-                "prompt_tokens": sum(
-                    raw_traj["usage"]["prompt_tokens"] for raw_traj in raw_trajs
-                ),
-            },
-        }
-        model_found_locs_separated_in_samples = []
-        for raw_output in raw_outputs:
-            model_found_locs = extract_code_blocks(raw_output)
-            model_found_locs_separated = extract_locs_for_files(
-                model_found_locs, file_names
-            )
-            model_found_locs_separated_in_samples.append(model_found_locs_separated)
-
-            logging.info(f"==== raw output ====")
-            logging.info(raw_output)
-            logging.info("=" * 80)
-            print(raw_output)
-            print("=" * 80)
-            logging.info(f"==== extracted locs ====")
-            for loc in model_found_locs_separated:
-                logging.info(loc)
-            logging.info("=" * 80)
-        logging.info("==== Input coarse_locs")
-        coarse_info = ""
-        for fn, found_locs in coarse_locs.items():
-            coarse_info += f"### {fn}\n"
-            if isinstance(found_locs, str):
-                coarse_info += found_locs + "\n"
-            else:
-                coarse_info += "\n".join(found_locs) + "\n"
-        logging.info("\n" + coarse_info)
-        if len(model_found_locs_separated_in_samples) == 1:
-            model_found_locs_separated_in_samples = (
-                model_found_locs_separated_in_samples[0]
-            )
-
-        return (
-            model_found_locs_separated_in_samples,
-            {"raw_output_loc": raw_outputs},
-            traj,
-        )

@@ -3,9 +3,7 @@ import json
 import logging
 import os
 
-from ghapi.event import description
 from langsmith import traceable
-from sympy.physics.units import joule
 
 from Agentless.agentless.util.model import make_model
 from apps.helper import read_file
@@ -122,7 +120,7 @@ def treat_path(path):
 )
 def generate_version_with_tool(requirement_text,tools, line, taf):
     model = make_model(
-        model=OpenIA_LLM.version,
+        model=OpenIA_LLM.get_version_model("generate_version_with_tool"),
         max_tokens=9000,
         temperature=0,
         batch_size=1,
@@ -152,7 +150,7 @@ def merge_two_versions_of_code(line,taf,old_version,new_version,test_code_text, 
         )
     )
     model = make_model(
-        model=OpenIA_LLM.version,
+        model=OpenIA_LLM.get_version_model("merge_two_versions_of_code"),
         max_tokens=9000,
         temperature=0,
         batch_size=1,
@@ -161,6 +159,16 @@ def merge_two_versions_of_code(line,taf,old_version,new_version,test_code_text, 
     raw_output = traj["response"]
     return raw_output
 
+
+@traceable(name="iteration of the repair of the code")
+def iteration_repair(tools_not_used,graph,line,requirement_text, code,code_corrected):
+    tools_name = [tool['function'].split("(")[0] for tool in tools_not_used]
+    paths = [treat_path(tool["path"]) for tool in tools_not_used]
+    description_tools = filtered_methods_by_file_name_function(graph, paths, tools_name)
+    taf_code = filtered_nodes_by_label(graph, line['label'].strip())
+    new_version = generate_version_with_tool(requirement_text, description_tools, line, taf_code)
+    full_taf = filtered_nodes_by_label(graph)
+    return merge_two_versions_of_code(line, full_taf, code, new_version, code_corrected, requirement_text)
 
 
 @traceable(
@@ -189,15 +197,10 @@ def repair_code_tools(doc_ref, requirement_text ,test_code_text, graph):
                 tools_not_used.append(tools_line)
 
         if len(tools_not_used) > 0:
-            tools_name = [tool['function'].split("(")[0] for tool in tools_not_used]
-            paths = [treat_path(tool["path"]) for tool in tools_not_used]
-            description_tools = filtered_methods_by_file_name_function(graph,paths,tools_name)
-            taf_code = filtered_nodes_by_label(graph,line['label'].strip())
-            new_version = generate_version_with_tool(requirement_text,description_tools, line, taf_code)
-            full_taf = filtered_nodes_by_label(graph)
-            code_corrected = merge_two_versions_of_code(line,full_taf,code,new_version,code_corrected, requirement_text)
+            code_corrected = iteration_repair(tools_not_used, graph, line, requirement_text, code, code_corrected)
         print("="*80)
     print(code_corrected)
+    return code_corrected
 
 
 

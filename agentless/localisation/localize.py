@@ -340,75 +340,6 @@ def verify_used_tools_by_pseudo_code(test_step, tools, nodes, fl, full_code,doc_
             relations_generated.append(relationship)
     return nodes_generated, relations_generated
 
-@traceable(
-    name="generate coverage tools"
-)
-def verify_used_tools(test_step, tools, nodes, relations, fl, full_code,doc_ref):
-    keys = schema_test_code.keys()
-    relation_types = []
-    node_types = []
-    for key in keys:
-        relation_types += schema_test_code[key]
-        node_types.append(key.upper())
-
-    relation_test_step_target = []
-    cr_nodes = []
-    relations_cr_source = []
-    for rel in relations:
-        if rel.target.id == test_step.id:
-            relation_test_step_target.append(rel.source.id)
-    for node in nodes:
-        if node.type.lower() == "coverage_result" and node.id in relation_test_step_target:
-            cr_nodes.append(node.id)
-    for rel in relations:
-        if rel.source.id in cr_nodes:
-            relations_cr_source.append(rel.target.id)
-    nodes_instructions = []
-    for node in nodes:
-        if node.id in relations_cr_source and node.type.upper() in node_types:
-            nodes_instructions.append(node)
-    instructions = nodes_instructions.copy()
-    if len(instructions)==0 :
-        return [],[]
-    code_base = instructions[0]
-    for instruction in nodes_instructions:
-        get_related_instructions(instruction, relations, nodes,relation_types, instructions)
-    instructions.sort(key=lambda x: int(x.properties["number"]) if "number" in x.properties.keys() else 0)
-
-    code = ""
-    for instruction in instructions:
-        code+=str(instruction.properties["reference"])
-        code+= "\n"
-    res = fl.verify_tools_in_code(tools,code,full_code).replace("`","").replace("json","").replace("\n","").replace("'","")
-    if not res :
-        return [], []
-    node_cr = Node(
-        id=f"code_result_{test_step.id}_tools",
-        type="Coverage_Result",
-        properties={
-            "explanation": res,
-            "doc_ref": doc_ref
-        }
-    )
-    relation_cr_test_step= Relationship(
-        id=f'tools_{test_step.id}',
-        type="COVER_TEST_STEP",
-        source=node_cr,
-        target=test_step,
-        properties={
-            "doc_ref": doc_ref
-        }
-    )
-    relation_cr_code = Relationship(
-        id=f'code_result_{code_base.id}',
-        type="COVERED_BY_INSTRUCTION",
-        source=node_cr,
-        target=code_base,
-        properties={
-            "doc_ref": doc_ref
-        }
-    )
-    return [node_cr],[relation_cr_test_step,relation_cr_code]
 
 @traceable(
     name="7.localization"
@@ -446,9 +377,8 @@ def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
             structure,
             requirement,
             test_step.properties['explanation'],
-            OpenIA_LLM.version,
         )
-        found_files, additional_artifact_loc_file, file_traj = fl.localize(d["instance_id"])
+        found_files, additional_artifact_loc_file, file_traj = fl.localize_files(d["instance_id"])
 
         # related class, functions, global var localization
         if len(found_files) != 0:
@@ -458,7 +388,6 @@ def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
                 structure,
                 requirement,
                 test_step.properties['explanation'],
-                OpenIA_LLM.version,
             )
 
             (
@@ -475,7 +404,6 @@ def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
             structure,
             requirement,
             test_step.properties['explanation'],
-            OpenIA_LLM.version,
         )
         coarse_found_locs = {}
         for i, pred_file in enumerate(pred_files):
@@ -527,46 +455,6 @@ def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
     ), final_output
 
 
-def main():
-    def parse_args():
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-dBuserName', type=str, default=os.environ['NEO4J_USERNAME'], help='database userName')
-        parser.add_argument('-gituserName', type=str, default='Mehdi', help='git userName')
-        parser.add_argument('-cmd', type=str, default='FULL', help='cmd')
-        parser.add_argument('-database', type=str, default='neo4j', help='database name')
-        parser.add_argument('-req_path', type=str,
-                            default="datasets/datasets/requirements/sensing_powerpath_current.txt",
-                            help='requirement file path')
-        parser.add_argument('-instance_id', type=str, default="sensing_powerpath_current", help='instance id')
-        parser.add_argument('-output_folder', type=str, default="tests", help='output folder')
-        parser.add_argument('-output_file', type=str, default="loc_outputs.jsonl", help='output file')
-        parser.add_argument('-doc_ref', type=str,
-                            default="datasets/datasets/requirements/sensing_powerpath_current.txt",
-                            help='doc ref')
-        parser.add_argument('-top_n', type=int, default=25, help='top n')
-        parser.add_argument('-temperature', type=float, default=0.0, help='temperature')
-        parser.add_argument('-sticky_scroll', type=bool, default=False, help='sticky scroll')
-        parser.add_argument('-context_window', type=int, default=20, help='context window')
-        return parser.parse_args()
-
-    args = parse_args()
-
-    # list files in the folder datasets/val-localization/requirements
-    requirements = os.listdir(
-        "datasets/requirements"
-    )
-
-    args.output_file = os.path.join(str(args.output_folder), str(args.output_file))
-
-    os.makedirs(args.output_folder, exist_ok=True)
-
-    for requirement in requirements:
-        args.req_path = os.path.join(
-            "datasets/requirements", requirement)
-        args.instance_id = requirement.replace(".txt", "")
-        test_steps = get_test_steps(args.req_path)
-        localize(args, test_steps)
-
 def localization_update_path(args, doc_ref, test_steps, nodes ,test_code):
     path_req = doc_ref.split("--||--")[0]
     args.req_path = path_req
@@ -574,6 +462,3 @@ def localization_update_path(args, doc_ref, test_steps, nodes ,test_code):
     args.doc_ref = doc_ref
     return localize(args, test_steps, nodes, test_code)
 
-
-if __name__ == "__main__":
-    main()

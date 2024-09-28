@@ -4,6 +4,7 @@ import logging
 import os
 
 from langchain_core.prompts import ChatPromptTemplate
+from langsmith import traceable
 
 from apps.helper import read_file
 from apps.services.neo4jDB.graphDB_dataAccess import create_graph_database_connection
@@ -30,7 +31,9 @@ You are an expert in the testing of embedded software for automotive cars.
 You are currently working on a project to test the embedded software of a car. 
 You have been provided with  TAF framework that is used for the testing
 You are tasked to analyse requirement and fix the problems in the implementation of the test code
-You see suggestions of tools that can be used to fix the problem the suggestion will be provided as list with strings of "path.to.file: methode"
+You see suggestions of tools that can be used to fix the problem the suggestion will be provided 
+Keep in mind the differing perspectives: the requirements are written from the perspective of the Device Under Test (DUT), while the test framework methods are written from the perspective of the test system interacting with the DUT.
+
 """
 
 repair_prompt_combine_topn = """
@@ -52,24 +55,16 @@ We are currently solving the following requirement
 ```
 --- END FILE ---
 
-Please generate `edit_file` commands to fix the issue.
+## Strict Guidelines:
+- **Do not invent or fabricate any tool names**; only include those present in the provided.
+- **Focus solely on the test step provided do not correct more from the requirement**
+- **do not include any extra information in the output
+- **Main action focus: Only implement the code that represent the primary action in the test step. Ignore setup or context actions that occur before or after.
+- **use methods and functions only from the tools given do not integrate any other
+- **return the full test code corrected do not miss any line**
+- **if the old implementation is correct do not change it and return exactly the same full test code given 
+- Adherence to these guidelines is critical. Any deviation, such as creating non-existent tool names or returning empty result or returning full test code missing some line , will lead to immediate disqualification from the task.
 
-The `edit_file` command takes four arguments:
-
-edit_file(start: int, end: int, content: str) -> None:
-    Edit a file. It replaces lines `start` through `end` (inclusive) with the given text `content` in the open file.
-    Args:
-    start: int: The start line number. Must satisfy start >= 1.
-    end: int: The end line number. Must satisfy start <= end <= number of lines in the file.
-    content: str: The content to replace the lines with.
-
-Please note that THE `edit_file` FUNCTION REQUIRES PROPER INDENTATION. If you would like to add the line '        print(x)', you must fully write that out, with all those spaces before the code!
-Wrap the `edit_file` command in blocks ```python...```.
-
-### strict rules
-- **Do not hallucinate in the code or generate code that is not present in the testcase or requirement.
-- **don not include any explication to the response only the result
-- Adherence to these guidelines is critical. Failure to follow them may result in a failed evaluation.
 """
 
 query_get_cr = """
@@ -137,83 +132,92 @@ def get_next_node(el, gra):
                     return nn
     return None
 
+@traceable(
+    name="iteration in repair coverage error tickets",
+)
+def iteration_repair(cr ,doc_ref,graph, model, corrected_code):
+    graph_req = build_graph(cr['id'], doc_ref, "COVER_TEST_STEP", graph)
+    graph_code = build_graph(cr['id'], doc_ref, "COVERED_BY_INSTRUCTION", graph)
 
+    node_code = None
+    node_cr = None
+    test_step = None
+    for n in graph_req['nodes']:
+        if n['labels'][0].upper() == "Coverage_Result".upper():
+            node_cr = n
+        if n['labels'][0].upper() == "TEST_STEP":
+            test_step = n
+
+    for n in graph_code['nodes']:
+        if n['labels'][0].upper() in schema_test_code.keys():
+            if node_code is None:
+                node_code = n
+            else:
+                if n['number'] > node_code['number']:
+                    node_code = n
+    tools = get_tools(test_step, graph, doc_ref)
+    paths = []
+    functions_name = []
+    for tool in tools:
+        path = tool['path']
+        seq = path.split(".")
+        last = seq[-1]
+        while last[0].isupper() or last == "py":
+            seq.pop()
+            last = seq[-1]
+
+        path = "/".join(seq)
+        paths.append(path + ".py")
+        functions_name.append(tool['function'])
+
+    code = ""
+    node = node_code
+    while node is not None:
+        code = f"{node['reference']}\n" + code
+        node = get_next_node(node, graph_code)
+    code = f"```\n{code[:-1]}\n```"
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                context,
+            ),
+            (
+                "human",
+                repair_prompt_combine_topn,
+            ),
+        ]
+    )
+
+    chain = prompt | model
+    tools_graph = filtered_methods_by_file_name_function(graph, paths, functions_name)
+    res = chain.invoke({
+        "test_step": test_step['explanation'],
+        "issue": json.loads(node_cr['explanation'])['explanation'],
+        "tools": tools_graph,
+        "content": corrected_code,
+        "content_error": code,
+
+    })
+    return res.content
+
+
+@traceable(name="repair coverage error tickets")
 def generate_coverage_error_ticket(graph, doc_ref, test_code):
     crs = graph.query(
         query_get_cr.format("COVER_TEST_STEP", doc_ref)
     )
     crs = [cr['cr'] for cr in crs]
-    model = OpenIA_LLM.get_model()
-    for cr in crs:
-        graph_req = build_graph(cr['id'], doc_ref, "COVER_TEST_STEP", graph)
-        graph_code = build_graph(cr['id'], doc_ref, "COVERED_BY_INSTRUCTION", graph)
-
-        node_code = None
-        node_cr = None
-        test_step = None
-        for n in graph_req['nodes']:
-            if n['labels'][0].upper() == "Coverage_Result".upper():
-                node_cr = n
-            if n['labels'][0].upper() == "TEST_STEP":
-                test_step = n
-
-        for n in graph_code['nodes']:
-            if n['labels'][0].upper() in schema_test_code.keys():
-                if node_code is None:
-                    node_code = n
-                else:
-                    if n['number'] > node_code['number']:
-                        node_code = n
-        tools = get_tools(test_step, graph, doc_ref)
-        paths = []
-        functions_name = []
-        for tool in tools:
-            path = tool['path']
-            seq = path.split(".")
-            last = seq[-1]
-            while last[0].isupper() or last == "py":
-                seq.pop()
-                last = seq[-1]
-
-            path = "/".join(seq)
-            paths.append(path + ".py")
-            functions_name.append(tool['function'])
-
-        code = ""
-        node = node_code
-        while node is not None:
-            code = f"{node['reference']}\n" + code
-            node = get_next_node(node, graph_code)
-        code = f"```\n{code[:-1]}\n```"
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    context,
-                ),
-                (
-                    "human",
-                    repair_prompt_combine_topn,
-                ),
-            ]
+    model = OpenIA_LLM.get_model(
+        OpenIA_LLM.get_version_model(
+            "generate_coverage_error_ticket"
         )
-
-        chain = prompt | model
-        tools_graph = filtered_methods_by_file_name_function(graph, paths, functions_name)
-        res = chain.invoke({
-            "test_step": test_step['explanation'],
-            "issue": json.loads(node_cr['explanation'])['explanation'],
-            "tools": tools_graph,
-            "content": test_code,
-            "content_error": code,
-
-        })
-        print("""
-        test_step: {test_step}
-        issue: {issue}
-        """.format(test_step=test_step['explanation'], issue=json.loads(node_cr['explanation'])['explanation']))
-        print(res.content)
-        print("=" * 80)
+    )
+    corrected_code = test_code
+    for cr in crs:
+        corrected_code = iteration_repair(cr, doc_ref, graph, model, corrected_code)
+    print(corrected_code)
+    return corrected_code
 
 
 if __name__ == "__main__":
