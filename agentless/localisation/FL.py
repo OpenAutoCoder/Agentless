@@ -527,7 +527,7 @@ Return only the locations.
             seq_ver = path.split("_")
             if len(seq_ver) > 1:
                 end = seq_ver[-1]
-                if end[0].isupper():
+                if len(end) > 0 and end[0].isupper():
                     interface = seq_ver.pop()
                     path = ".".join(seq_ver)
                     path = path + "." + interface

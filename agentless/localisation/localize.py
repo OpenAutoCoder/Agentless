@@ -156,30 +156,6 @@ def verify_sequence(sequence, locs_seq):
             return False
     return True
 
-
-def find_locs_that_matches_files(sequence, file_name, locs):
-    res = []
-    for loc in locs:
-        loc_seq = loc.split(":")
-        if len(loc_seq) < 2:
-            continue
-        if loc_seq[0].strip() == "":
-            continue
-        if loc_seq[1].strip() == "":
-            continue
-        if not verify_sequence(sequence, loc_seq[0].split(".")):
-            continue
-        if len(sequence) == len(loc_seq[0].split(".")):
-            res.append(loc_seq[1].strip())
-            continue
-        if len(sequence) > len(loc_seq[0].split(".")) - 1:
-            continue
-        index = len(sequence)
-        if not loc_seq[0].split(".")[index].strip().lower().replace(".py", "") in file_name.lower().replace(".py", ""):
-            continue
-        res.append(loc_seq[1].strip())
-    return res
-
 @traceable(
     name="7.3.3.check for the 1:1 relation between tools and pseudo code"
 )
@@ -191,7 +167,7 @@ def verify_number_tools(res):
 @traceable(
     name="7.3.verification with skeleton to test step"
 )
-def verification_with_skeleton(locs, files, fl, graph, test_step):
+def verification_with_skeleton(locs, files, fl, graph):
     final_locs = []
     methods = []
     for loc in locs:
@@ -253,14 +229,7 @@ def get_related_instructions(instruction, relations, nodes, relation_types, resu
         get_related_instructions(line, relations, nodes, relation_types, result, processed)
 
 
-def manual_sort(lst):
-    for i in range(len(lst)):
-        min_index = i
-        for j in range(i+1, len(lst)):
-            if lst[j].count < lst[min_index].count:
-                min_index = j
-        # Swap the found minimum element with the first element
-        lst[i], lst[min_index] = lst[min_index], lst[i]
+
 
 def find_line_code_nodes(nodes,line):
     node_types = schema_test_code.keys()
@@ -421,7 +390,7 @@ def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
             if file not in final_output["found_files"]:
                 final_output["found_files"].append(file)
 
-        locs_to_return = verification_with_skeleton(locs_to_return, found_files, fl, graph, test_step)
+        locs_to_return = verification_with_skeleton(locs_to_return, found_files, fl, graph)
         if nodes_coverage_res is not None  and test_code is not None:
             nodes_tool_verif, relations_tools_verif = verify_used_tools_by_pseudo_code(test_step, locs_to_return, nodes_coverage_res, fl, test_code, doc_ref)
             nodes += nodes_tool_verif
@@ -454,11 +423,4 @@ def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
         source=Document(page_content=requirement)
     ), final_output
 
-
-def localization_update_path(args, doc_ref, test_steps, nodes ,test_code):
-    path_req = doc_ref.split("--||--")[0]
-    args.req_path = path_req
-    args.instance_id = path_req.split("/")[-1].replace(".txt", "")
-    args.doc_ref = doc_ref
-    return localize(args, test_steps, nodes, test_code)
 
