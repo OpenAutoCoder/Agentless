@@ -193,7 +193,7 @@ Using the edit locations (i.e., `found_edit_locs`) from before, we now perform r
 Run the following command to generate the patches:
 
 ```shell
-python agentless/repair/repair.py --loc_file results/location/loc_outputs.jsonl \
+python agentless/repair/repair_coverage.py --loc_file results/location/loc_outputs.jsonl \
                                   --output_folder results/repair \
                                   --loc_interval --top_n=3 --context_window=10 \
                                   --max_samples 10  --cot --diff_format \
