@@ -233,5 +233,5 @@ if __name__ == "__main__":
 
     tickets_res = get_all_tickets(graph_connect,
                                   f"{args.req_path}--||--{args.code_path}")
-
+    graph_connect._driver.close()
     print(tickets_res)

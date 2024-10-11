@@ -1,14 +1,9 @@
-import argparse
 import json
-import logging
-import os
 
 from langsmith import traceable
 
 from Agentless.agentless.util.model import make_model
-from apps.helper import read_file
 from apps.services.code_skeleton_extractor import filtered_methods_by_file_name_function, filtered_nodes_by_label
-from apps.services.neo4jDB.graphDB_dataAccess import create_graph_database_connection
 from apps.services.open_ia_llm import OpenIA_LLM
 
 query_get_pseudo_code_nodes = """
@@ -202,36 +197,4 @@ def repair_code_tools(doc_ref, requirement_text ,test_code_text, graph):
     print(code_corrected)
     return code_corrected
 
-
-
-
-
-dataset = {'req': 'datasets/datasets/requirements/sensing_powerpath_current.txt',
-           'code': 'datasets/datasets/testcases/broken/sensing_powerpath_current.py'}
-
-
-if __name__ == "__main__":
-    def parse_args():
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-dBuserName', type=str, default=os.environ['NEO4J_USERNAME'], help='database userName')
-        parser.add_argument('-gituserName', type=str, default='MM', help='git userName')
-        parser.add_argument('-database', type=str, default='neo4j', help='database name')
-        parser.add_argument('-cmd', type=str, default='AA', help='cmd')
-        parser.add_argument('-req_file_path', type=str, default=dataset['req'],
-                            help='requirement file path')
-        parser.add_argument('-test_code_file_path', type=str, default=dataset['code'],
-                            help='test code file path')
-        return parser.parse_args()
-
-
-    args = parse_args()
-
-    logging.basicConfig(level=logging.INFO)
-    MODULE_LOGGER = logging.getLogger(__name__)
-
-    graph_connect = create_graph_database_connection(args)
-    test_code = read_file(args.test_code_file_path)
-    requirement = read_file(args.req_file_path)
-    doc_ref_id = f"{args.req_file_path}--||--{args.test_code_file_path}"
-    repair_code_tools(doc_ref_id, requirement,test_code, graph_connect)
 

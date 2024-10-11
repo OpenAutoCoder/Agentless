@@ -316,107 +316,109 @@ def verify_used_tools_by_pseudo_code(test_step, tools, nodes, fl, full_code,doc_
 def localize(args, test_steps, nodes_coverage_res = None,test_code=None):
     requirement = read_file(args.req_path)
     graph = create_graph_database_connection(args)
-    d = get_project_structure_from_scratch(
-        "MehdiMeddeb/taf_tools", None, args.instance_id, "playground"
-    )
-
-    final_output = {
-        "instance_id": d["instance_id"],
-        "found_files": [],
-        "locs": []
-    }
-    nodes = []
-    relationships = []
-    doc_ref = args.doc_ref
-
-    instance_id = d["instance_id"]
-
-    logging.info(f"================ localize {instance_id} ================")
-
-    structure = filter_files(d["structure"], FILES_TO_USE)
-    filter_none_python(structure)
-    # some basic filtering steps
-    # filter out test files (unless its pytest)
-    if not d["instance_id"].startswith("pytest"):
-        filter_out_test_files(structure)
-    for test_step in test_steps:
-        found_related_locs = []
-        fl = LLMFL(
-            d["instance_id"],
-            structure,
-            requirement,
-            test_step.properties['explanation'],
+    try:
+        d = get_project_structure_from_scratch(
+            "MehdiMeddeb/taf_tools", None, args.instance_id, "playground"
         )
-        found_files, additional_artifact_loc_file, file_traj = fl.localize_files(d["instance_id"])
 
-        # related class, functions, global var localization
-        if len(found_files) != 0:
-            pred_files = found_files[: args.top_n]
+        final_output = {
+            "instance_id": d["instance_id"],
+            "found_files": [],
+            "locs": []
+        }
+        nodes = []
+        relationships = []
+        doc_ref = args.doc_ref
+
+        instance_id = d["instance_id"]
+
+        logging.info(f"================ localize {instance_id} ================")
+
+        structure = filter_files(d["structure"], FILES_TO_USE)
+        filter_none_python(structure)
+        # some basic filtering steps
+        # filter out test files (unless its pytest)
+        if not d["instance_id"].startswith("pytest"):
+            filter_out_test_files(structure)
+        for test_step in test_steps:
+            found_related_locs = []
             fl = LLMFL(
                 d["instance_id"],
                 structure,
                 requirement,
                 test_step.properties['explanation'],
             )
+            found_files, additional_artifact_loc_file, file_traj = fl.localize_files(d["instance_id"])
 
-            (
-                found_related_locs,
-                additional_artifact_loc_related,
-                related_loc_traj,
-            ) = fl.localize_function_from_compressed_files(
-                pred_files,
+            # related class, functions, global var localization
+            if len(found_files) != 0:
+                pred_files = found_files[: args.top_n]
+                fl = LLMFL(
+                    d["instance_id"],
+                    structure,
+                    requirement,
+                    test_step.properties['explanation'],
+                )
+
+                (
+                    found_related_locs,
+                    additional_artifact_loc_related,
+                    related_loc_traj,
+                ) = fl.localize_function_from_compressed_files(
+                    pred_files,
+                )
+
+            pred_files = found_files[: args.top_n]
+            fl = LLMFL(
+                instance_id,
+                structure,
+                requirement,
+                test_step.properties['explanation'],
             )
+            coarse_found_locs = {}
+            for i, pred_file in enumerate(pred_files):
+                if len(found_related_locs) > i:
+                    coarse_found_locs[pred_file] = found_related_locs[i]
+            locs_to_return = set()
+            locs_found = found_related_locs
+            for loc in locs_found:
+                if (loc[0]) and (loc[0] != ""):
+                    texts = loc[0].split("\n")
+                    for text in texts:
+                        locs_to_return.add(text)
 
-        pred_files = found_files[: args.top_n]
-        fl = LLMFL(
-            instance_id,
-            structure,
-            requirement,
-            test_step.properties['explanation'],
-        )
-        coarse_found_locs = {}
-        for i, pred_file in enumerate(pred_files):
-            if len(found_related_locs) > i:
-                coarse_found_locs[pred_file] = found_related_locs[i]
-        locs_to_return = set()
-        locs_found = found_related_locs
-        for loc in locs_found:
-            if (loc[0]) and (loc[0] != ""):
-                texts = loc[0].split("\n")
-                for text in texts:
-                    locs_to_return.add(text)
+            for file in found_files:
+                if file not in final_output["found_files"]:
+                    final_output["found_files"].append(file)
 
-        for file in found_files:
-            if file not in final_output["found_files"]:
-                final_output["found_files"].append(file)
-
-        locs_to_return = verification_with_skeleton(locs_to_return, found_files, fl, graph)
-        if nodes_coverage_res is not None  and test_code is not None:
-            nodes_tool_verif, relations_tools_verif = verify_used_tools_by_pseudo_code(test_step, locs_to_return, nodes_coverage_res, fl, test_code, doc_ref)
-            nodes += nodes_tool_verif
-            relationships += relations_tools_verif
-        else:
-            for loc in locs_to_return:
-                if loc not in final_output["locs"]:
-                    final_output["locs"].append(loc)
-                segment = loc.split(":")
-                node = Node(
-                    id=f"{instance_id}--||--{test_step.id}--||--{loc}",
-                    type="Tool_Suggestion",
-                    properties={
-                        "doc_ref": doc_ref,
-                        "function": loc.split(":")[1].strip() if len(segment) > 1 else "",
-                        "path": loc.split(":")[0].strip() if len(segment) > 1 else loc,
-                    }
-                )
-                relationship = Relationship(
-                    source=Node(id=test_step.id, type="Test_step"),
-                    target=node,
-                    type="HAS_TOOL_SUGGESTION"
-                )
-                nodes.append(node)
-                relationships.append(relationship)
-
+            locs_to_return = verification_with_skeleton(locs_to_return, found_files, fl, graph)
+            if nodes_coverage_res is not None  and test_code is not None:
+                nodes_tool_verif, relations_tools_verif = verify_used_tools_by_pseudo_code(test_step, locs_to_return, nodes_coverage_res, fl, test_code, doc_ref)
+                nodes += nodes_tool_verif
+                relationships += relations_tools_verif
+            else:
+                for loc in locs_to_return:
+                    if loc not in final_output["locs"]:
+                        final_output["locs"].append(loc)
+                    segment = loc.split(":")
+                    node = Node(
+                        id=f"{instance_id}--||--{test_step.id}--||--{loc}",
+                        type="Tool_Suggestion",
+                        properties={
+                            "doc_ref": doc_ref,
+                            "function": loc.split(":")[1].strip() if len(segment) > 1 else "",
+                            "path": loc.split(":")[0].strip() if len(segment) > 1 else loc,
+                        }
+                    )
+                    relationship = Relationship(
+                        source=Node(id=test_step.id, type="Test_step"),
+                        target=node,
+                        type="HAS_TOOL_SUGGESTION"
+                    )
+                    nodes.append(node)
+                    relationships.append(relationship)
+    finally:
+        graph._driver.close()
     return GraphDocument(
         nodes=nodes,
         relationships=relationships,

@@ -245,3 +245,4 @@ if __name__ == "__main__":
     test_code = read_file(args.code_path)
     generate_coverage_error_ticket(graph_connect,
                                    f"{args.req_path}--||--{args.code_path}", test_code)
+    graph_connect._driver.close()

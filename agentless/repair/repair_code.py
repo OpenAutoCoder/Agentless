@@ -132,4 +132,5 @@ if __name__ == "__main__":
     testcase = read_file(args.test_code_file_path)
 
     res = repair_error_code(graph_connect, testcase, doc_ref_id)
+    graph_connect._driver.close()
     print(res)
