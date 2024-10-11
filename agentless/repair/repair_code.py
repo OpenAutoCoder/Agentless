@@ -6,38 +6,32 @@ from langchain_core.prompts import ChatPromptTemplate
 from langsmith import traceable
 
 from apps.helper import read_file
-from apps.services.neo4jDB.graphDB_dataAccess import create_graph_database_connection
 from apps.services.open_ia_llm import OpenIA_LLM
 
-query_get_code = """
-MATCH (ce:Code_error)
-WHERE ce.doc_ref = '{}'
-RETURN ce   
-"""
+
 
 default_prompt_to_fix_code = """
-# Code Correction Instructions for GPT-4
+# Code Improvement Instructions for GPT-4
 
 ## 1. Overview
 You will be provided with the following:
-- **Error Explanation**: A description of the problem or error in the code.
-- **Potential Error Line**: The specific line or lines where the error might exist.
-- **Full Code**: The complete Python code that contains the issue.
+- **Full Code**: The complete Python code that may contain issues.
+- **Analysis Context**: A description of the intended functionality and context for the code.
 
-Your task is to correct the code for the specific problem identified and return the full corrected code. Do not provide any additional information beyond the corrected code.
+Your task is to analyze the provided code and make improvements or corrections as necessary. Return the full corrected code without any additional information beyond the corrected code itself.
 
 ## 2. Instructions
-- Analyze the error explanation and the potential source of the error in the provided line.
-- Apply the necessary correction to the code to fix the problem.
+- Analyze the full code for potential issues, inefficiencies, or areas for improvement.
+- Apply the necessary corrections to enhance the code while ensuring its intended functionality is preserved.
 - Return the entire corrected code.
 
 ## 3. Output Requirements
-- Return the full code with the applied correction.
+- Return the full code with the applied improvements.
 - Provide no additional explanations, comments, or information beyond the corrected code itself.
 
 ## 4. Strict Compliance
 - Do **not** include any explanations or comments in the output.
-- Adhere strictly to the error explanation provided, correcting only the specific problem identified.
+- Focus solely on improving the code without being guided by specific error indications.
 - Return the full corrected code in the exact format as provided.
 
 """
@@ -51,59 +45,38 @@ prompt_fix_code = ChatPromptTemplate.from_messages([
         "human",
         (
             """
-            we have identified an issue in the code below:
-              --- Error Explanation ---
-              {error_explanation}
-              
-              --- Potential Error Line ---
-              ```
-              {potential_error_line}
-              ```
-              --- BEGIN FULL CODE FILE ---
-              ```
-              {full_code}
-              ```
-              --- END FILE ---
-              
-              ## Strict Guidelines:
-              - **Do not invent or fabricate any tool names**; only include those present in the provided.
-              - **Focus solely on the problem provided do not correct more from the code**
-              - **do not include any extra information in the output
-              - **return the full code corrected do not miss any line**
-              - **if the old implementation is correct do not change it and return exactly the same full code given 
-              - Adherence to these guidelines is critical. Any deviation, such as creating non-existent tool names or returning empty result or returning full test code missing some line , will lead to immediate disqualification from the task.
+            Please review and improve the code below:
+            --- BEGIN FULL CODE FILE ---
+            ```
+            {full_code}
+            ```
+            --- END FILE ---
+
+            ## Strict Guidelines:
+            - **Do not invent or fabricate any tool names**; only include those present in the provided code.
+            - **Focus solely on improving the provided code without specific error context.**
+            - **Do not include any extra information in the output.**
+            - **Return the full code corrected; do not miss any line.**
+            - **If the old implementation is correct, return exactly the same full code given.**
+            - Adherence to these guidelines is critical. Any deviation will lead to disqualification from the task.
             """
         )
     )
 ])
 
-
-def get_code_error(graph, doc_ref):
-    res = graph.query(
-        query_get_code.format(doc_ref)
-    )
-    return [record['ce'] for record in res]
-
-
 @traceable(
     name="repair error code",
 )
-def repair_error_code(graph, testcode, doc_ref):
-    error_nodes = get_code_error(graph, doc_ref)
-    corrected_code = testcode
-    for error_node in error_nodes:
-        model = OpenIA_LLM.get_model(
-            OpenIA_LLM.get_version_model("repair_error_code")
-        )
-        chain = prompt_fix_code | model
+def repair_error_code( testcode):
+    model = OpenIA_LLM.get_model(
+        OpenIA_LLM.get_version_model("repair_error_code")
+    )
+    chain = prompt_fix_code | model
 
-        row_res = chain.invoke({
-
-            "error_explanation": error_node['explanation'],
-            "potential_error_line": error_node['reference'],
-            "full_code": corrected_code
-        })
-        corrected_code = row_res.content
+    row_res = chain.invoke({
+        "full_code": testcode
+    })
+    corrected_code = row_res.content
 
     print(corrected_code)
     return corrected_code
@@ -127,10 +100,7 @@ if __name__ == "__main__":
         config = json.load(f)
         dataset = config['dataset']
     args = parse_args()
-    graph_connect = create_graph_database_connection(args)
-    doc_ref_id = f"{args.req_file_path}--||--{args.test_code_file_path}"
     testcase = read_file(args.test_code_file_path)
 
-    res = repair_error_code(graph_connect, testcase, doc_ref_id)
-    graph_connect._driver.close()
+    res = repair_error_code( testcase)
     print(res)
