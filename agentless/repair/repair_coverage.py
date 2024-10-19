@@ -33,6 +33,7 @@ You have been provided with  TAF framework that is used for the testing
 You are tasked to analyse requirement and fix the problems in the implementation of the test code
 You see suggestions of tools that can be used to fix the problem the suggestion will be provided 
 Keep in mind the differing perspectives: the requirements are written from the perspective of the Device Under Test (DUT), while the test framework methods are written from the perspective of the test system interacting with the DUT.
+- **do not include any extra information in the output
 
 """
 
@@ -81,7 +82,7 @@ CALL apoc.path.spanningTree(child, {{
 WITH cr, child, nodes(path) AS pathNodes, relationships(path) AS rels
 WITH child, 
      [node IN pathNodes | {{id: node.id, labels: labels(node), explanation: node.explanation, number:node.number, reference: node.reference}}] AS nodes,
-     [rel IN rels | {{source: id(startNode(rel)), target: id(endNode(rel)), type: type(rel), explanation: rel.explanation}}] AS relationships
+     [rel IN rels | {{source: startNode(rel).id, target: endNode(rel).id, type: type(rel), explanation: rel.explanation}}] AS relationships
 RETURN nodes, relationships
 """
 

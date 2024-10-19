@@ -14,8 +14,8 @@ CALL apoc.path.spanningTree(child, {{
 }}) YIELD path
 WITH cr, child, nodes(path) AS pathNodes, relationships(path) AS rels
 WITH child, 
-     [node IN pathNodes | {{id: id(node), labels: labels(node), explanation: node.explanation, number:node.number, reference: node.reference}}] AS nodes,
-     [rel IN rels | {{source: id(startNode(rel)), target: id(endNode(rel)), type: type(rel), explanation: rel.explanation}}] AS relationships
+     [node IN pathNodes | {{id: node.id, labels: labels(node), explanation: node.explanation, number:node.number, reference: node.reference}}] AS nodes,
+     [rel IN rels | {{source: startNode(rel).id, target: endNode(rel).id, type: type(rel), explanation: rel.explanation}}] AS relationships
 RETURN nodes, relationships
 """
 

@@ -31,6 +31,7 @@ Your task is to analyze the provided code and make improvements or corrections a
 
 ## 4. Strict Compliance
 - Do **not** include any explanations or comments in the output.
+- **do not include any extra information in the output
 - Focus solely on improving the code without being guided by specific error indications.
 - Return the full corrected code in the exact format as provided.
 
@@ -57,6 +58,7 @@ prompt_fix_code = ChatPromptTemplate.from_messages([
             - **Focus solely on improving the provided code without specific error context.**
             - **Do not include any extra information in the output.**
             - **Return the full code corrected; do not miss any line.**
+            - **do not include any extra information in the output
             - **If the old implementation is correct, return exactly the same full code given.**
             - Adherence to these guidelines is critical. Any deviation will lead to disqualification from the task.
             """
