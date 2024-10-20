@@ -112,7 +112,7 @@ def verification_with_skeleton(locs, fl, graph):
         final_locs_agg = set()
         for method in line["methods_used"]:
             final_locs_agg.add(method)
-        if not "code_glue" in line["step_explication"].lower():
+        if not "glue_logic" in line["step_explication"].lower():
             for loc in locs:
                 final_locs_agg.add(loc)
 

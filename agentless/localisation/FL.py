@@ -211,10 +211,10 @@ Return only the locations.
 """
 
     create_skeleton_code = """
-    You are an expert in writing test code for the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework). Your role is to generate pseudocode based on the extracted classes, methods, and logic ('code_glue') that will fulfill specific test steps for a given requirement.
+    You are an expert in writing test code for the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework). Your role is to generate pseudocode based on the extracted classes, methods, and logic ('glue_logic') that will fulfill specific test steps for a given requirement.
 
     ### Objective:
-    Your task is to write pseudocode that outlines the test code necessary to implement a specific test step for the provided requirement. The pseudocode must include relevant classes, methods, and logic ('code_glue') necessary to execute the test process.
+    Your task is to write pseudocode that outlines the test code necessary to implement a specific test step for the provided requirement. The pseudocode must include relevant classes, methods, and logic ('glue_logic') necessary to execute the test process.
 
     ### Event Types:
     Each step of the pseudocode should belong to one of the following event types, each representing a different phase of the test process:
@@ -225,7 +225,7 @@ Return only the locations.
 
     3. **report**: Logging or documenting the retrieved values, outputs, or system states to ensure traceability and validation of the test results.
 
-    4. **code_glue**: Pure Python logic used to manipulate internal data, prepare inputs, or format outputs. These are non-API-related steps that handle test data, calculations, or other internal code logic. **No methods or classes are involved in this step**.
+    4. **glue_logic**: Pure Python logic used to manipulate internal data, prepare inputs, or format outputs. These are non-API-related steps that handle test data, calculations, or other internal code logic. **No methods or classes are involved in this step**.
 
     ### TAF Framework Code Considerations:
     To ensure the pseudocode aligns with the TAF framework, consider the following guidelines:
@@ -237,7 +237,7 @@ Return only the locations.
     {taf_code_description}
 
     ### Example Test Flow:
-    You are expected to organize the pseudocode using the following format, ensuring each step is explained clearly with a description and any applicable methods. If it's a `code_glue` step, ensure it contains pure logic with no associated methods.
+    You are expected to organize the pseudocode using the following format, ensuring each step is explained clearly with a description and any applicable methods. If it's a `glue_logic` step, ensure it contains pure logic with no associated methods.
 
     ### Requirement ###
     {requirement}
@@ -249,11 +249,11 @@ Return only the locations.
     ```
     [
     {{ "step_explication": "stimulation: trigger event 1 to initiate test", "methods_used": ["full_path3.file3.MyClass3: my_method3", "full_path2.file2.MyClass2: my_method2"] }} ,
-     {{ "step_explication": "code_glue: prepare input data for retrieval", "methods_used": [] }} ,
+     {{ "step_explication": "glue_logic: prepare input data for retrieval", "methods_used": [] }} ,
      {{ "step_explication": "retrieval: gather results from event 1", "methods_used": ["full_path3.file3.MyClass3: my_method3", "full_path2.file2.MyClass2: my_method2"] }} ,
      {{ "step_explication": "report: log gathered results", "methods_used": ["full_path3.file3.MyClass3: my_method3", "full_path2.file2.MyClass2: my_method2"] }} ,
      {{ "step_explication": "stimulation: trigger event 2 to validate next condition", "methods_used": ["full_path3.file3.MyClass3: my_method3"] }} ,
-     {{ "step_explication": "code_glue: format result for further processing", "methods_used": [] }} ,
+     {{ "step_explication": "glue_logic: format result for further processing", "methods_used": [] }} ,
      {{ "step_explication": "retrieval: obtain system response for event 2", "methods_used": ["full_path3.file3.MyClass3: my_method3"] }} , 
      {{ "step_explication": "report: log final output for event 2", "methods_used": ["full_path3.file3.MyClass3: my_method3"] }}
      ]
@@ -262,10 +262,10 @@ Return only the locations.
 
 
     ### Mandatory Rules:
-    1. **Event Types**: The pseudocode must adhere to the event types defined above (`stimulation`, `retrieval`, `report`, and `code_glue`).
-    2. **code_glue Rules**: No methods or classes should be associated with `code_glue` steps. These steps should only contain internal logic manipulations.
+    1. **Event Types**: The pseudocode must adhere to the event types defined above (`stimulation`, `retrieval`, `report`, and `glue_logic`).
+    2. **glue_logic Rules**: No methods or classes should be associated with `glue_logic` steps. These steps should only contain internal logic manipulations.
     3. **Strict Method Usage**: Only use methods and classes listed in the reference. Do not create or fabricate method names or class names not provided.
-    4. **Structured Format**: Return results in the exact format specified. Each step must be a valid JSON object with the keys `"step_explication"` and `"methods_used"`, where `"methods_used"` is either a list of methods or an empty list for `code_glue` steps.
+    4. **Structured Format**: Return results in the exact format specified. Each step must be a valid JSON object with the keys `"step_explication"` and `"methods_used"`, where `"methods_used"` is either a list of methods or an empty list for `glue_logic` steps.
     5. **Order of Execution**: Ensure the pseudocode is well-ordered and sequential, as required by the test logic.
     6. **No Extra Information**: The output must contain only the requested pseudocode, no additional commentary or details.
     7. **Methode line format**: The line format of the method should be as the example : the file path separated by '.' and then separation between the path and the method should be by " : "  and the method should not include the parameters only the name of the method"
