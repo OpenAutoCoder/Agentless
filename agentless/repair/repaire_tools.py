@@ -1,15 +1,9 @@
-import json
-
 from langchain_core.prompts import ChatPromptTemplate
 from langsmith import traceable
 
-from Agentless.agentless.util.model import make_model
-from apps.services.code_skeleton_extractor import filtered_methods_by_file_name_function, filtered_nodes_by_label
+from apps.services.code_skeleton_extractor import filtered_methods_by_file_name_function
 from apps.services.open_ia_llm import OpenIA_LLM
 
-query_get_pseudo_code_nodes = """
-Match (n:Pseudo_Code) where n.doc_ref = '{doc_ref}' return n
-"""
 
 query_get_test_steps = """
 Match (n:Test_step) where n.doc_ref = '{doc_ref}' return n
@@ -205,51 +199,6 @@ default_prompt_merge_code = ChatPromptTemplate.from_messages(
 
 
 
-prompt_to_correct_implementation="""
-You are an expert in test code implementation within the automotive zone controller domain, using a custom test framework repository called TAF (Test Automotive Framework).  
-I have implemented a portion of code for a requirement using the TAF, but I am not sure if it is correct. I need you to analyze it and correct it if necessary.  
-I will provide you with the part of the requirement that the code should implement, the relevant test code that I need reviewed, and the full test code for reference. Additionally, I will provide you with a TAF description for context.  
-Keep in mind the differing perspectives: the requirements are written from the perspective of the Device Under Test (DUT), while the test framework methods are written from the perspective of the test system interacting with the DUT.  
-
-### What to Verify ###
-- **Attribute Types**: Ensure that the attribute types are consistent with the requirement and the TAF documentation.
-- **Attribute Existence**: Verify that all necessary attributes and methods for each call and action are present and correctly referenced from the TAF or test framework.
-- **Method Correctness**: Validate that the methods used are appropriate and correctly implemented according to both the requirement and TAF specification.  
-- **Check for Incorrect Method Calls**: Ensure that methods are called from the appropriate classes or modules, avoiding any incorrect or missing references. For example, verify if method calls are being made from sub-modules or catalog objects where required.
-- Check for correct use of parameters and return values.
-- Ensure there are no redundant or missing method calls.
-- **Check for Logical Flow**: Ensure that the order of operations makes sense and that conditions, such as timeout logic, are correct.
-
-### Part of Requirement ###
-{requirement}
-
-### My Code Needing Review ###
-{part_of_code}
-
-### Full Test Code ###
-{test_code}
-
-### TAF Description ###
-{taf}
-
-## Strict Guidelines:
-- **No Fabrication**: Do not invent or fabricate any tool names. Only use those present in the TAF or test code.
-- **Requirement Focus**: Correct only the parts related to the requirement provided. Avoid making changes to unrelated sections.
-- **Minimal Output**: Do not include unnecessary information in the output. Focus on correcting and verifying the code.
-- **Action Focus**: Implement only the code related to the primary test actions. Ignore setup or teardown steps unless they directly affect the test outcome.
-- **Use of Existing Functions**: Only use methods and functions that exist in the current implementation or the TAF. Do not introduce new libraries or tools.
-- **Full Code Return**: Return the full test code with corrections. Do not omit or change unrelated lines.
-- **do not include any extra information or explication in the output
-- **Correct Only If Needed**: If the implementation is correct, do not modify it. Return the exact full test code provided.
-
-Adherence to these guidelines is critical. Any deviation, such as inventing new tool names, missing lines in the output, or not adhering to the guidelines, will lead to immediate disqualification from the task.
-
-"""
-
-
-def retrieve_pseudo_code(doc_ref, graph):
-    res = graph.query(query_get_pseudo_code_nodes.format(doc_ref=doc_ref))
-    return [a['n'] for a in res]
 
 def retrieve_code_related(doc_ref, id_test_step, graph):
     res = graph.query(query_get_related_code.format(doc_ref=doc_ref,id_node_code=id_test_step))
@@ -301,49 +250,6 @@ def merge_two_versions_of_code(test_step,taf,old_version,new_version,test_code_t
         "taf":taf
     })
     return res.content
-
-
-@traceable(name="iteration of the repair of the code")
-def iteration_repair(tools_not_used,graph,line,requirement_text, code,code_corrected):
-    tools_name = [tool['function'].split("(")[0] for tool in tools_not_used]
-    paths = [treat_path(tool["path"]) for tool in tools_not_used]
-    description_tools = filtered_methods_by_file_name_function(graph, paths, tools_name)
-    taf_code = filtered_nodes_by_label(graph, line['label'].strip())
-    new_version = generate_version_with_tool(requirement_text, description_tools, line, taf_code)
-    full_taf = filtered_nodes_by_label(graph)
-    return merge_two_versions_of_code(line, full_taf, code, new_version, code_corrected, requirement_text)
-
-
-@traceable(
-    name="repair the code based on the use of the tools used"
-)
-def repair_code_tools(doc_ref, requirement_text ,test_code_text, graph):
-    code_corrected = test_code_text
-    lines_code = retrieve_pseudo_code(doc_ref, graph)
-    for line in lines_code:
-        code_related = retrieve_code_related(doc_ref, line, graph)
-        tools_related = retrieve_tools_related(doc_ref, line, graph)
-        code = ''
-        number = 0
-        if len(code_related) > 0:
-            code_related.sort(key=lambda x: int(x["number"] if "number" in x.keys() else 0))
-            number  = int(code_related[0]['number'])
-        for code_line in code_related:
-            if int(code_line["number"]) - number > 1:
-                code += "\n#other code...   \n\n"
-            code += code_line['reference']
-            code += '\n'
-
-        tools_not_used = []
-        for tools_line in tools_related:
-            if tools_line['function'] not in code:
-                tools_not_used.append(tools_line)
-
-        if len(tools_not_used) > 0:
-            code_corrected = iteration_repair(tools_not_used, graph, line, requirement_text, code, code_corrected)
-        print("="*80)
-    print(code_corrected)
-    return code_corrected
 
 
 
