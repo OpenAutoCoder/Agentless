@@ -9,10 +9,9 @@ from uuid import uuid4
 from langchain_community.graphs.graph_document import Node, Relationship
 from langsmith import traceable
 
-from apps.req_tc_2_vKG import logger
 from apps.services.code_preperation import annotate_code
 from apps.services.quality_checkers.quality_check import CheckerFailure
-from apps.services.code_skeleton_extractor import filtered_methods_by_file_name_function, find_by_method, \
+from apps.services.code_skeleton_extractor import  find_by_method, \
     filtered_nodes_by_label
 from apps.services.quality_checkers.test_code_qte_check import schema_test_code
 
@@ -22,6 +21,9 @@ FILES_TO_USE = [
     "__init__.py",
 ]
 
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 def filter_files(structure: dict, files: list):
     files_level = structure.keys()
