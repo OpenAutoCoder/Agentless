@@ -158,7 +158,7 @@ def find_line_code_nodes(nodes,line):
     return None
 
 @traceable(
-    name = "7.4.1.verify overlap between pseudo code and code"
+    name = "7.4.3.verify overlap between pseudo code and code"
 )
 def verify_overlap(code_lines, nodes_taken, nodes):
 

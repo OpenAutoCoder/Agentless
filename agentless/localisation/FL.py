@@ -697,7 +697,7 @@ I have created a pseudocode for implementing specific requirements, but it was w
             )
         return result
     @traceable(
-        name="7.4.1.map pseudo code to code"
+        name="7.4.2.map pseudo code to code"
     )
     def map_pseudo_code_to_code(self, test_code, pseudo_code_lines, nodes_taken):
         prompt = self.map_pseudo_code.format(
