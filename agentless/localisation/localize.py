@@ -9,8 +9,10 @@ from uuid import uuid4
 from langchain_community.graphs.graph_document import Node, Relationship
 from langsmith import traceable
 
+from apps.services.code_preperation import annotate_code
 from apps.services.quality_checkers.quality_check import CheckerFailure
-from apps.services.code_skeleton_extractor import filtered_methods_by_file_name_function, find_by_method
+from apps.services.code_skeleton_extractor import filtered_methods_by_file_name_function, find_by_method, \
+    filtered_nodes_by_label
 from apps.services.quality_checkers.test_code_qte_check import schema_test_code
 
 FILES_TO_USE = [
@@ -100,44 +102,26 @@ def verify_number_tools(res):
 @traceable(
     name="7.3.verification with skeleton to test step"
 )
-def verification_with_skeleton(locs, files, fl, graph):
+def verification_with_skeleton(locs, fl, graph):
     final_locs = []
-    methods = []
-    for loc in locs:
-        loc_seq = loc.split(":")
-        if len(loc_seq) < 2:
-            continue
-        if loc_seq[0].strip() == "":
-            continue
-        if loc_seq[1].strip() == "":
-            continue
-        methods.append(loc_seq[1].strip())
 
-    files_locs = filtered_methods_by_file_name_function(graph, files, methods)
-    skeleton = fl.give_skeleton(files_locs)
-    skeleton = fl.verify_skeleton(skeleton,graph)
+    files_taf = filtered_nodes_by_label(graph)
+    skeleton = fl.give_skeleton(files_taf)
+    i = 0
     for line in skeleton:
-        seq = line['step_explication'].split(":")
-        if len(seq) < 2:
-            continue
-        if seq[0].strip() == "":
-            continue
-        if seq[1].strip() == "":
-            continue
-        label = seq[0].strip()
-        step_explication = seq[1].strip()
-        locs_line=[]
-        for i in range(6):
-            locs_line = fl.verify_tools_by_line(step_explication, line, label, graph)
-            try:
-                verify_number_tools(locs_line)
-                break
-            except CheckerFailure:
-                pass
+        final_locs_agg = set()
+        for method in line["methods_used"]:
+            final_locs_agg.add(method)
+        if not "code_glue" in line["step_explication"].lower():
+            for loc in locs:
+                final_locs_agg.add(loc)
+
         final_locs.append({
             "line": line,
-            "locs_line": locs_line,
+            "number": i,
+            "locs_line": list(final_locs_agg),
         })
+        i += 1
     return final_locs
 
 
@@ -252,6 +236,7 @@ def verify_used_tools_by_pseudo_code(test_step, tools, nodes, fl, full_code,doc_
     nodes_generated =[]
     relations_generated = []
     nodes_taken = []
+    tools = sorted(tools, key=lambda x: x['number'])
     for line_code in tools:
         line = line_code["line"]
         seq = line['step_explication'].split(":")
@@ -263,6 +248,7 @@ def verify_used_tools_by_pseudo_code(test_step, tools, nodes, fl, full_code,doc_
             properties={
                 "doc_ref": doc_ref,
                 "label": label,
+                'number': line_code['number'],
                 "step_explication": step_explication,
                 "explanation": line['step_explication']
             }
@@ -279,37 +265,7 @@ def verify_used_tools_by_pseudo_code(test_step, tools, nodes, fl, full_code,doc_
         )
         nodes_generated.append(node)
         relations_generated.append(relation_test_step_code)
-        with open("app-config.json", "r") as f:
-            data = json.load(f)
-            count = data["reps"]
-
-        code_lines = []
-        verification = False
-        for i in range(count):
-            try:
-                code_lines = fl.map_pseudo_code_to_code(full_code,line['step_explication'], nodes_taken)
-                verification = verify_overlap(code_lines, nodes_taken, nodes) and verification_api_calls(code_lines, graph)
-                if verification:
-                    break
-            except CheckerFailure:
-                logging.error(f"verification failed for pseudo code {line['step_explication']} at iteration {i}")
-        if not verification:
-            raise CheckerFailure(f"verification failed for pseudo code {line['step_explication']}")
         locs = line_code["locs_line"]
-        for line_found in code_lines:
-            node_code_found = find_line_code_nodes(nodes,line_found.strip())
-            if node_code_found is not None:
-                nodes_taken.append(node_code_found)
-                relation_code = Relationship(
-                    id=f"{label}_code_{str(uuid4())}",
-                    type="PSEUDO_CODE_MAP",
-                    source=node,
-                    target=node_code_found,
-                    properties={
-                        "doc_ref": doc_ref,
-                    }
-                )
-                relations_generated.append(relation_code)
         for loc in locs:
             segment = loc.split(":")
             node_tool = Node(
@@ -328,6 +284,37 @@ def verify_used_tools_by_pseudo_code(test_step, tools, nodes, fl, full_code,doc_
             )
             nodes_generated.append(node_tool)
             relations_generated.append(relationship)
+    with open("app-config.json", "r") as f:
+        data = json.load(f)
+        count = data["reps"]
+    prepared_code = annotate_code(full_code)
+    code_lines = []
+    verification = False
+    for i in range(count):
+        try:
+            code_lines = fl.map_pseudo_code_to_code(prepared_code,[line_code["line"] for line_code in tools ], nodes_taken)
+            verification = verify_overlap(code_lines, nodes_taken, nodes)
+            if verification:
+                break
+        except CheckerFailure:
+            logging.error(f"verification failed for pseudo code {test_step} at iteration {i}")
+    if not verification:
+        raise CheckerFailure(f"verification failed for pseudo code {test_step}")
+    for line_found in code_lines:
+        node_code_found = find_line_code_nodes(nodes,line_found.strip())
+        if node_code_found is not None:
+            nodes_taken.append(node_code_found)
+            relation_code = Relationship(
+                id=f"code_{str(uuid4())}",
+                type="TEST_STEP_CODE_MAP",
+                source=test_step,
+                target=node_code_found,
+                properties={
+                    "doc_ref": doc_ref,
+                }
+            )
+            relations_generated.append(relation_code)
+
     return nodes_generated, relations_generated
 
 

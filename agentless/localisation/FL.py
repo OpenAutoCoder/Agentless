@@ -227,10 +227,14 @@ Return only the locations.
 
     4. **code_glue**: Pure Python logic used to manipulate internal data, prepare inputs, or format outputs. These are non-API-related steps that handle test data, calculations, or other internal code logic. **No methods or classes are involved in this step**.
 
-    ### Guidelines:
-    - **Requirement**: The requirement describes what the test is verifying or validating within the system.
-    - **Test Step**: The specific step or sequence you need to test from the requirement.
-    - **Reference Classes and Methods**: The extracted classes and methods available for use in the pseudocode.
+    ### TAF Framework Code Considerations:
+    To ensure the pseudocode aligns with the TAF framework, consider the following guidelines:
+    - Follow the design patterns and best practices established in the TAF framework.
+    - Utilize the specific classes and methods that are relevant to the TAF's architectural structure.
+    - Ensure any data manipulations or validations align with TAF's operational procedures.
+
+    ### TAF Framework Code Input:
+    {taf_code_description}
 
     ### Example Test Flow:
     You are expected to organize the pseudocode using the following format, ensuring each step is explained clearly with a description and any applicable methods. If it's a `code_glue` step, ensure it contains pure logic with no associated methods.
@@ -241,20 +245,20 @@ Return only the locations.
     ### Test Step ###
     {test_step}
 
-    ### Reference Classes, Methods, and Code Glue ###
-    {classes}
-
     ### Pseudocode Example Output ###
     ```
-    1 - {{ "step_explication": "stimulation: trigger event 1 to initiate test", "methods_used": ["full_path3.file3.MyClass3: my_method3(param1)", "full_path2.file2.MyClass2: my_method2(param1, param2)"] }} 
-    2 - {{ "step_explication": "code_glue: prepare input data for retrieval", "methods_used": [] }} 
-    3 - {{ "step_explication": "retrieval: gather results from event 1", "methods_used": ["full_path3.file3.MyClass3: my_method3(param1)", "full_path2.file2.MyClass2: my_method2(param1, param2)"] }} 
-    4 - {{ "step_explication": "report: log gathered results", "methods_used": ["full_path3.file3.MyClass3: my_method3(param1)", "full_path2.file2.MyClass2: my_method2(param1, param2)"] }} 
-    5 - {{ "step_explication": "stimulation: trigger event 2 to validate next condition", "methods_used": ["full_path3.file3.MyClass3: my_method3(param1)"] }} 
-    6 - {{ "step_explication": "code_glue: format result for further processing", "methods_used": [] }} 
-    7 - {{ "step_explication": "retrieval: obtain system response for event 2", "methods_used": ["full_path3.file3.MyClass3: my_method3(param1)"] }} 
-    8 - {{ "step_explication": "report: log final output for event 2", "methods_used": ["full_path3.file3.MyClass3: my_method3(param1)"] }}
+    [
+    {{ "step_explication": "stimulation: trigger event 1 to initiate test", "methods_used": ["full_path3.file3.MyClass3: my_method3", "full_path2.file2.MyClass2: my_method2"] }} ,
+     {{ "step_explication": "code_glue: prepare input data for retrieval", "methods_used": [] }} ,
+     {{ "step_explication": "retrieval: gather results from event 1", "methods_used": ["full_path3.file3.MyClass3: my_method3", "full_path2.file2.MyClass2: my_method2"] }} ,
+     {{ "step_explication": "report: log gathered results", "methods_used": ["full_path3.file3.MyClass3: my_method3", "full_path2.file2.MyClass2: my_method2"] }} ,
+     {{ "step_explication": "stimulation: trigger event 2 to validate next condition", "methods_used": ["full_path3.file3.MyClass3: my_method3"] }} ,
+     {{ "step_explication": "code_glue: format result for further processing", "methods_used": [] }} ,
+     {{ "step_explication": "retrieval: obtain system response for event 2", "methods_used": ["full_path3.file3.MyClass3: my_method3"] }} , 
+     {{ "step_explication": "report: log final output for event 2", "methods_used": ["full_path3.file3.MyClass3: my_method3"] }}
+     ]
     ```
+
 
 
     ### Mandatory Rules:
@@ -264,80 +268,77 @@ Return only the locations.
     4. **Structured Format**: Return results in the exact format specified. Each step must be a valid JSON object with the keys `"step_explication"` and `"methods_used"`, where `"methods_used"` is either a list of methods or an empty list for `code_glue` steps.
     5. **Order of Execution**: Ensure the pseudocode is well-ordered and sequential, as required by the test logic.
     6. **No Extra Information**: The output must contain only the requested pseudocode, no additional commentary or details.
+    7. **Methode line format**: The line format of the method should be as the example : the file path separated by '.' and then separation between the path and the method should be by " : "  and the method should not include the parameters only the name of the method"
+    like this : "full_path3.file3.MyClass3: my_method3" 
     
-    Adherence to these rules is mandatory. Any deviation, such as fabricating methods or classes, or not following the output format, will result in task rejection.
+    Adherence to these rules is mandatory. Any deviation, such as fabricating methods or classes, or not following the output format or the format of the line of method, will result in task rejection.
+    """
+
+    map_pseudo_code = """
+    You are an expert in writing test code for the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework). 
+    Your task is to verify if a set of pseudocode lines for a requirement can be mapped to one or multiple lines of continuous test code, ensuring each segment corresponds to the appropriate actions.
+
+    ### What You Will Receive:
+    1. The **requirement**, providing context for the functionality expected from the Device Under Test (DUT).
+    2. A **set of pseudocode lines**, which represent steps from the DUT perspective that you will need to map.
+    3. A **continuous chunk of test code**, which is written from the perspective of the test system interacting with the DUT.
+    4. A **list of nodes** already taken to prevent overlap in your mappings.
+
+    ### Your Task:
+    1. **Map the pseudocode lines** to one or multiple lines of the continuous test code, ensuring that each action corresponds to valid test code lines.
+    2. **Ensure non-overlapping mappings**: The lines you map must not overlap with previously mapped or reserved lines. The list of already taken lines will be provided.
+    3. If a pseudocode line cannot be mapped to any test code line, return an empty response for that line.
+
+    ### Key Considerations:
+    - Each pseudocode line can map to **one or multiple lines** in the continuous test code.
+    - **Do not include any setup or teardown actions** unless they directly contribute to the main pseudocode action.
+    - If no appropriate line exists in the test code for a particular pseudocode action, return an empty response for that line.
+
+    ### Inputs Provided:
+    - **Requirement**: 
+    {requirement}
+
+    - **Pseudocode Lines**: 
+    {pseudo_code_lines}  
+
+    - **Test Code**: 
+    {test_code}
+
+    - **Lines Taken**: 
+    {nodes_taken}
+
+    ### Example Output:
+    Example 1:
+
+    ```
+    line 7: methode(param)
+    line 8: self.__tc_id = self.__class__.__name__
+    ``` 
+
+    example 2:
+    ```
+    ```
+    example 3:
+    ```
+    line 6: self.__power_path_ctrl.bypass_limphome_control(True)
+    line 7: self._reporting.add_report_message_info(f"Set resistive load")
+    line 8: voltage = self.__power_path_ctrl.measure_actual_voltage(POWER_PATH_CHANNEL)
+    ```
+    
+
+
+
+    ### Strict Guidelines:
+    - **Return valid lines** from the continuous test code only. Do not generate or hallucinate lines that do not exist.
+    - **Do not overlap**: Your result must not include any line already provided in the "lines Taken" list.
+    - **Mappings should be one chunk**: the result should be a one continuous chunk of code with no gaps or missing lines.
+    - **No extra information** should be included in the output.
+    - Focus only on the **primary action** of each pseudocode line. Ignore setup or context lines that do not directly contribute to the primary action.
+    - If no valid mapping exists, return an **empty response**.
+    - Adherence to these guidelines is critical. Any deviation, such as generating non-existent lines or selecting any line already present in the **lines Taken** or the output is discontinuous or missing lines, will lead to immediate disqualification from the task.
     """
 
 
-
-    map_pseudo_code = """
-You are an expert in writing test code for the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework). 
-Your task is to verify if the pseudocode of a requirement can be mapped to one or multiple lines of test code, with each pseudocode segment mapped to one and only one TAF API call.
-  
-### What You Will Receive:
-1. The **requirement**, which provides context for the functionality expected from the Device Under Test (DUT).
-2. The **pseudocode**, which represents the steps from the DUT perspective.
-3. The **test code**, which is written from the perspective of the test system interacting with the DUT.
-4. A **list of nodes** already taken to prevent overlap in your mappings.
-
-### Your Task:
-1. **Map the pseudocode** to one or multiple lines of the test code, ensuring that each pseudocode action corresponds to a single API call from TAF.
-2. **Ensure non-overlapping mappings**: The lines you map must not overlap with previously mapped or reserved line. 
-The list of already taken lines will be provided.
-3. If a pseudocode action cannot be mapped to any test code line, return an empty response for that action.
-  
-### Key Considerations:
-- Each pseudocode segment can map to **one or multiple lines** in the test code.
-- Only one **TAF API call** should be mapped per pseudocode action (that means in the output there is only one method or function from the TAF framework not including the reporting)
-- **Do not include any setup or teardown actions** unless they directly contribute to the main pseudocode action.
-- If no appropriate line exists in the test code for a particular pseudocode action, return an empty response for that action.
-
-### Inputs Provided:
-- **Requirement**: 
-{requirement}
-
-
-- **Pseudocode**: 
-{pseudo_code}
-
-
-- **Test Code**: 
-{test_code}
-
-
-- **lines Taken**: 
-{nodes_taken}
-
-
-
-### Example Output:
-Example 1:
-```
-line 5: methode(param)
-line 8: self.__tc_id = self.__class__.__name__
-``` 
-
-example 2:
-```
-```
-example 3:
-```
-line 6: self.__power_path_ctrl.bypass_limphome_control(True)
-line 7: self._reporting.add_report_message_info(f"Set resistive load")
-line 8: voltage = self.__power_path_ctrl.measure_actual_voltage(POWER_PATH_CHANNEL)
-```
-    
-
-### Strict Guidelines:
-- **Return valid lines** from the test code only. Do not generate or hallucinate lines that do not exist.
-- **Do not overlap** your result should not include any line already provided in the "lines Taken" list.
-- **No extra information** should be included in the output.
-- Focus only on the **primary action** of the pseudocode. Ignore setup or context lines that do not directly contribute to the primary action.
-- Each pseudocode action should map to **one and only one TAF API call** in the test code.
-- If no valid mapping exists, return an **empty response**.
-- Adherence to these guidelines is critical. Any deviation, such as generating non-existent lines or choosing any line already exist in the **lines Taken**, will lead to immediate disqualification from the task.
-
-"""
 
 
     verify_tools = """
@@ -621,10 +622,10 @@ I have created a pseudocode for implementing specific requirements, but it was w
     @traceable(
         name="7.3.1.generate pseudo code "
     )
-    def give_skeleton(self, files_struct):
+    def give_skeleton(self, taf):
         template = self.create_skeleton_code
         message = template.format(
-            requirement=self.requirement, classes=files_struct, test_step=self.test_step
+            requirement=self.requirement,taf_code_description=json.dumps(taf,indent=4), test_step=self.test_step
         )
         logging.info(f"prompting with message:\n{message}")
         logging.info("=" * 80)
@@ -640,6 +641,7 @@ I have created a pseudocode for implementing specific requirements, but it was w
         while not result:
             traj = model.codegen(message, num_samples=1)[0]
             row_output = traj["response"]
+            print(row_output)
             output, result = self.extract_skleton(row_output)
         return output
     @traceable(
@@ -697,11 +699,11 @@ I have created a pseudocode for implementing specific requirements, but it was w
     @traceable(
         name="7.4.1.map pseudo code to code"
     )
-    def map_pseudo_code_to_code(self, test_code, pseudo_code, nodes_taken):
+    def map_pseudo_code_to_code(self, test_code, pseudo_code_lines, nodes_taken):
         prompt = self.map_pseudo_code.format(
             requirement=self.test_step,
             test_code=test_code,
-            pseudo_code=pseudo_code,
+            pseudo_code_lines="\n".join([pseudo_code['step_explication'] for pseudo_code in pseudo_code_lines]),
             nodes_taken=json.dumps([node.properties['reference'] for node in nodes_taken], indent=4)
         )
         model = make_model(
@@ -727,28 +729,14 @@ I have created a pseudocode for implementing specific requirements, but it was w
 
 
     def extract_skleton(self, raw_output):
-        output_list = raw_output.strip().replace("json", "").replace("`", "").split("\n")
-        result = {}
-        for el in output_list:
-            if el == "":
-                continue
-            seq = el.split("-")
-            if len(seq) < 2:
-                continue
-            number = int(seq[0].strip())
-            try:
-                json_parsed = json.loads("".join(seq[1:]).strip())
-            except JSONDecodeError as e:
-                print("error in json")
-                return None, False
-            result[number] = json_parsed
-        res = []
-        for i in range(len(result) + 1):
-            if i not in result:
-                continue
-            res.append(result[i])
+        output_list = raw_output.strip().replace("json", "").replace("`", "").replace(".py_Interface_def", ".py").replace(".py_", ".py")
 
-        return res, True
+        try :
+            result = json.loads(output_list)
+        except JSONDecodeError as e:
+            return {}, False
+
+        return result, True
 
     @traceable(
         name="7.2.localize functions names from files corresponding to test step"
