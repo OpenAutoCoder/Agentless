@@ -212,27 +212,28 @@ Return only the locations.
 
     create_skeleton_code = """
     You are an expert in writing test code for the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework). Your role is to generate pseudocode based on the extracted classes, methods, and logic ('glue_logic') that will fulfill specific test steps for a given requirement.
-
+    
     ### Objective:
     Your task is to write pseudocode that outlines the test code necessary to implement a specific test step for the provided requirement. The pseudocode must include relevant classes, methods, and logic ('glue_logic') necessary to execute the test process.
-
+    
     ### Event Types:
     Each step of the pseudocode should belong to one of the following event types, each representing a different phase of the test process:
-
+    
     1. **stimulation**: Actions or triggers that simulate inputs or events within the system. This typically starts the test by interacting with the system under test.
-
+    
     2. **retrieval**: Gathering the results or system states after the stimulation event. This is the data or response collected as a result of the initial trigger.
-
+    
     3. **report**: Logging or documenting the retrieved values, outputs, or system states to ensure traceability and validation of the test results.
-
+    
     4. **glue_logic**: Pure Python logic used to manipulate internal data, prepare inputs, or format outputs. These are non-API-related steps that handle test data, calculations, or other internal code logic. **No methods or classes are involved in this step**.
-
+    
     ### TAF Framework Code Considerations:
     To ensure the pseudocode aligns with the TAF framework, consider the following guidelines:
     - Follow the design patterns and best practices established in the TAF framework.
     - Utilize the specific classes and methods that are relevant to the TAF's architectural structure.
     - Ensure any data manipulations or validations align with TAF's operational procedures.
-
+    
+    
     ### TAF Framework Code Input:
     {taf_code_description}
 
@@ -259,20 +260,23 @@ Return only the locations.
      ]
     ```
 
-
-
     ### Mandatory Rules:
     1. **Event Types**: The pseudocode must adhere to the event types defined above (`stimulation`, `retrieval`, `report`, and `glue_logic`).
-    2. **glue_logic Rules**: No methods or classes should be associated with `glue_logic` steps. These steps should only contain internal logic manipulations.
-    3. **Strict Method Usage**: Only use methods and classes listed in the reference. Do not create or fabricate method names or class names not provided.
-    4. **Structured Format**: Return results in the exact format specified. Each step must be a valid JSON object with the keys `"step_explication"` and `"methods_used"`, where `"methods_used"` is either a list of methods or an empty list for `glue_logic` steps.
-    5. **Order of Execution**: Ensure the pseudocode is well-ordered and sequential, as required by the test logic.
-    6. **No Extra Information**: The output must contain only the requested pseudocode, no additional commentary or details.
-    7. **Methode line format**: The line format of the method should be as the example : the file path separated by '.' and then separation between the path and the method should be by " : "  and the method should not include the parameters only the name of the method"
-    like this : "full_path3.file3.MyClass3: my_method3" 
+    2. **Mandatory Events**: The output **must include at least one event of reporting** and **one event of stimulation or retrieval**. This is crucial to ensure the completeness of the test process.
+    3. **Non-Empty Results**: **Do not return empty results**. Each output must contain valid pseudocode with the required event types specified above; empty or incomplete outputs will not be accepted.
+    4. **Glue Logic Rules**: No methods or classes should be associated with `glue_logic` steps. These steps should only contain internal logic manipulations.
+    5. **Strict Method Usage**: Only use methods and classes listed in the reference. Do not create or fabricate method names or class names not provided.
+    6. **Structured Format**: Return results in the exact format specified. Each step must be a valid JSON object with the keys `"step_explication"` and `"methods_used"`, where `"methods_used"` is either a list of methods or an empty list for `glue_logic` steps.
+    7. **Order of Execution**: Ensure the pseudocode is well-ordered and sequential, as required by the test logic.
+    8. **No Extra Information**: The output must contain only the requested pseudocode, with no additional commentary or details.
+    9. **Method Line Format**: The line format of the method should be as the example: the file path separated by '.' and then separation between the path and the method should be by " : " and the method should not include the parameters, only the name of the method.
+       
+       For example: `"full_path3.file3.MyClass3: my_method3"`
     
-    Adherence to these rules is mandatory. Any deviation, such as fabricating methods or classes, or not following the output format or the format of the line of method, will result in task rejection.
+    Adherence to these rules is mandatory. Any deviation, such as fabricating methods or classes, or not following the output format or the format of the line of the method, will result in task rejection.
     """
+
+
 
     map_pseudo_code = """
     You are an expert in writing test code for the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework). 

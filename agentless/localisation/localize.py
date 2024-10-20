@@ -9,6 +9,7 @@ from uuid import uuid4
 from langchain_community.graphs.graph_document import Node, Relationship
 from langsmith import traceable
 
+from apps.req_tc_2_vKG import logger
 from apps.services.code_preperation import annotate_code
 from apps.services.quality_checkers.quality_check import CheckerFailure
 from apps.services.code_skeleton_extractor import filtered_methods_by_file_name_function, find_by_method, \
@@ -100,13 +101,47 @@ def verify_number_tools(res):
     return True
 
 @traceable(
+    name="7.3.1.verification of the skeleton"
+)
+def verification_skeleton(skeleton):
+    if len(skeleton) == 0:
+        raise CheckerFailure("skeleton is empty")
+    ret_stimulus_count = 0
+    reporting = 0
+    for line in skeleton:
+        if "stimulation" in line["step_explication"].lower() or "retrieval" in line["step_explication"].lower():
+            ret_stimulus_count += 1
+        if "report" in line["step_explication"].lower():
+            reporting += 1
+    if ret_stimulus_count == 0:
+        raise CheckerFailure("no stimulation or retrieval found in the skeleton")
+    if reporting == 0:
+        raise CheckerFailure("no reporting found in the skeleton")
+    return True
+
+@traceable(
     name="7.3.verification with skeleton to test step"
 )
 def verification_with_skeleton(locs, fl, graph):
     final_locs = []
 
     files_taf = filtered_nodes_by_label(graph)
-    skeleton = fl.give_skeleton(files_taf)
+    with open("app-config.json", "r") as f:
+        data = json.load(f)
+        count = data["reps"]
+    passed = False
+    skeleton = []
+    for i in range(count):
+        try:
+            skeleton = fl.give_skeleton(files_taf)
+            passed = verification_skeleton(skeleton)
+            logger.info(f"verification passed for skeleton at iteration {i}")
+            break
+        except CheckerFailure:
+            logging.error(f"verification failed for skeleton at iteration {i}")
+            passed = False
+    if not passed:
+        raise CheckerFailure("verification failed for skeleton")
     i = 0
     for line in skeleton:
         final_locs_agg = set()
