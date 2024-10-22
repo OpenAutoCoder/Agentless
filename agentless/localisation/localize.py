@@ -22,7 +22,7 @@ FILES_TO_USE = [
 ]
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def filter_files(structure: dict, files: list):
