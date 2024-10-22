@@ -80,7 +80,7 @@ Using the two sets of edit locations from before, we now perform repair.
 Run the following command to generate the patches:
 
 ```shell
-python agentless/repair/repair.py --loc_file results/location_merged/loc_merged_0-1_outputs.jsonl \
+python agentless/repair/repair_coverage.py --loc_file results/location_merged/loc_merged_0-1_outputs.jsonl \
                                   --output_folder results/repair_run_1 \
                                   --loc_interval --top_n=3 --context_window=10 \
                                   --max_samples 21  --cot --diff_format \
@@ -88,7 +88,7 @@ python agentless/repair/repair.py --loc_file results/location_merged/loc_merged_
 ```
 
 ```shell
-python agentless/repair/repair.py --loc_file results/location_merged/loc_merged_2-3_outputs.jsonl \
+python agentless/repair/repair_coverage.py --loc_file results/location_merged/loc_merged_2-3_outputs.jsonl \
                                   --output_folder results/repair_run_2 \
                                   --loc_interval --top_n=3 --context_window=10 \
                                   --max_samples 21  --cot --diff_format \
