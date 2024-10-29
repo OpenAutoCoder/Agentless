@@ -119,6 +119,7 @@ def transfer_arb_locs_to_locs(
     fine_grain_only=False,
     remove_line=False,
     file_content="",
+    verbose=False,
 ) -> tuple[list, list]:
     if structure is None:
         class_info, function_names, file_lines = parse_python_file("", file_content)
@@ -137,6 +138,7 @@ def transfer_arb_locs_to_locs(
         locs = [locs]
     # TODO: parse it in advance
     global_vars = parse_global_var_from_code(file_content)
+    unrecognized_locs = []
 
     for model_pred_locs in locs:
         current_class_name = ""
@@ -151,7 +153,7 @@ def transfer_arb_locs_to_locs(
                 ]
 
                 if len(relevant_class) == 0:
-                    print(f"{loc} class could not be found")
+                    unrecognized_locs.append(loc)
                 else:
                     line_loc.append(
                         (relevant_class[0]["start_line"], relevant_class[0]["end_line"])
@@ -173,7 +175,7 @@ def transfer_arb_locs_to_locs(
                         if clazz["file"] == pred_file and clazz["name"] == class_name
                     ]
                     if len(relevant_class) == 0:
-                        print(f"{class_name} class could not be found")
+                        unrecognized_locs.append(loc)
                     else:
                         relevant_method = [
                             method
@@ -181,7 +183,7 @@ def transfer_arb_locs_to_locs(
                             if method["name"] == method_name
                         ]
                         if len(relevant_method) == 0:
-                            print(f"{full_loc} method could not be found")
+                            unrecognized_locs.append(loc)
                         else:
                             line_loc.append(
                                 (
@@ -197,7 +199,6 @@ def transfer_arb_locs_to_locs(
                         if function["file"] == pred_file and function["name"] == loc
                     ]
                     if len(relevant_function) == 0:
-                        print(f"{loc} function could not be found")
                         if current_class_name != "":
                             # check if its a method
                             relevant_class = [
@@ -212,13 +213,7 @@ def transfer_arb_locs_to_locs(
                                 if method["name"] == loc
                             ]
                             if len(relevant_method) == 0:
-                                print(f"{loc} method could not be found")
-                                # print([method for method in relevant_class[0]['methods']])
-                                #
-                                # for file_content in files:
-                                #     if file_content[0] == pred_file:
-                                #         print("\n".join(file_content[1]))
-                                #         exit()
+                                unrecognized_locs.append(loc)
                             else:
                                 line_loc.append(
                                     (
@@ -272,7 +267,7 @@ def transfer_arb_locs_to_locs(
                         )
             else:
                 if loc.strip():
-                    print(f"loc {loc} not recognised")
+                    unrecognized_locs.append(loc)
                 # assert False
 
     # Fine-grained-only loc: Remove intervals that are supersets of another.
@@ -304,12 +299,18 @@ def transfer_arb_locs_to_locs(
     #
     # return line_loc, max_line, min_line
 
+    if verbose:
+        print("Unrecognized locs:")
+        for loc in unrecognized_locs:
+            print(loc)
+
     # compute overlapping locations instead
     if loc_interval:
         contextual_line_loc = []
         for loc in line_loc:
-            max_line = min(loc[1] + context_window, len(content))
-            min_line = max(loc[0] - context_window, 0)
+            # Clip the context window to the beginning and end of the file
+            max_line = max(min(loc[1] + context_window, len(content)), 0)
+            min_line = min(max(loc[0] - context_window, 0), len(content))
             contextual_line_loc.append((min_line, max_line))
 
         return line_loc, merge_intervals(contextual_line_loc)
@@ -319,6 +320,28 @@ def transfer_arb_locs_to_locs(
         min_line = max(min([loc[0] for loc in line_loc]) - context_window, 0)
 
         return line_loc, [(min_line, max_line)]
+
+
+def check_contains_valid_loc(file_to_locs, structure):
+    """checks if the llm generated locations have at least one location valid"""
+
+    file_contents = get_repo_files(structure, list(file_to_locs.keys()))
+
+    for pred_file, locs in file_to_locs.items():
+        line_locs, _ = transfer_arb_locs_to_locs(
+            locs,
+            structure,
+            pred_file,
+            0,  # these parameters do not matter for checking purposes
+            True,  # these parameters do not matter for checking purposes
+            False,  # these parameters do not matter for checking purposes
+            file_content=file_contents[pred_file] if pred_file in file_contents else "",
+        )
+
+        if len(line_locs) > 0:
+            return True
+
+    return False
 
 
 def compile_gt_locations(gt_location: dict) -> tuple[list, set, set, set]:
@@ -656,26 +679,25 @@ def get_repo_files(structure, filepaths: list[str]):
     return file_contents
 
 
-def correct_file_paths(model_found_files, files, include_partial_paths=True):
+def correct_file_paths(model_found_files, files):
     found_files = []
     if model_found_files:
         for model_file in model_found_files:
-            found_match = False
-            # Check if any model found file is a subset of the current file path
             for file_content in files:
                 file = file_content[0]
                 if model_file == file:
                     found_files.append(file)
-                    found_match = True
-            if include_partial_paths and not found_match:
-                for file_content in files:
-                    file = file_content[0]
-                    if file.endswith(model_file):
-                        found_files.append(file)
-                        break  # No need to check further, we found a match
         return found_files
     else:
         return []
+
+
+def clean_method_left_space(method_code: str) -> str:
+    indent_space = len(method_code.splitlines()[0]) - len(
+        method_code.splitlines()[0].lstrip()
+    )
+    # remove indent_space in each line
+    return "\n".join([line[indent_space:] for line in method_code.splitlines()])
 
 
 def test_correct_file_paths():
@@ -798,4 +820,4 @@ eight
 if __name__ == "__main__":
     test_merge()
     test_correct_file_paths()
-    # test_interval_display()
+    test_interval_display()

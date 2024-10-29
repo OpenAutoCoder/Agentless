@@ -13,7 +13,7 @@ class DecoderBase(ABC):
         temperature: float = 0.8,
         max_new_tokens: int = 1024,
     ) -> None:
-        print("Initializing a decoder model: {} ...".format(name))
+        logger.info("Initializing a decoder model: {} ...".format(name))
         self.name = name
         self.logger = logger
         self.batch_size = batch_size

@@ -48,36 +48,32 @@ file2.py
 ```
 """
 
-    obtain_relevant_code_prompt = """
-Please look through the following GitHub problem description and file and provide a set of locations that one would need to edit to fix the problem.
+    obtain_irrelevant_files_prompt = """
+Please look through the following GitHub problem description and Repository structure and provide a list of folders that are irrelevant to fixing the problem.
+Note that irrelevant folders are those that do not need to be modified and are safe to ignored when trying to solve this problem.
 
 ### GitHub Problem Description ###
 {problem_statement}
 
 ###
 
-### File: {file_name} ###
-{file_content}
+### Repository Structure ###
+{structure}
 
 ###
 
-Please provide either the class, the function name or line numbers that need to be edited.
-### Example 1:
+Please only provide the full path.
+Remember that any subfolders will be considered as irrelevant if you provide the parent folder.
+Please ensure that the provided irrelevant folders do not include any important files needed to fix the problem
+The returned folders should be separated by new lines and wrapped with ```
+For example:
 ```
-class: MyClass
+folder1/
+folder2/folder3/
+folder4/folder5/
 ```
-### Example 2:
-```
-function: my_function
-```
-### Example 3:
-```
-line: 10
-line: 24
-```
-
-Return just the location(s)
 """
+
     file_content_template = """
 ### File: {file_name} ###
 {file_content}
@@ -120,6 +116,7 @@ line: 156
 
 Return just the location(s)
 """
+
     obtain_relevant_code_combine_top_n_no_line_number_prompt = """
 Please review the following GitHub problem description and relevant files, and provide a set of locations that need to be edited to fix the issue.
 The locations can be specified as class, method, or function names that require modification.
@@ -145,33 +142,6 @@ class: MyClass3
 
 full_path3/file3.py
 function: my_function2
-```
-
-Return just the location(s)
-"""
-    obtain_relevant_functions_from_compressed_files_prompt = """
-Please look through the following GitHub problem description and the skeleton of relevant files.
-Provide a thorough set of locations that need inspection or editing to fix the problem, including directly related areas as well as any potentially related functions and classes.
-
-### GitHub Problem Description ###
-{problem_statement}
-
-###
-{file_contents}
-
-###
-
-Please provide locations as either the class or the function name.
-### Examples:
-```
-full_path1/file1.py
-class: MyClass1
-
-full_path2/file2.py
-function: MyClass2.my_method
-
-full_path3/file3.py
-function: my_function
 ```
 
 Return just the location(s)
@@ -213,6 +183,43 @@ class: MyClass5
 Return just the locations.
 """
 
+    obtain_relevant_functions_and_vars_from_raw_files_prompt = """
+Please look through the following GitHub Problem Description and Relevant Files.
+Identify all locations that need inspection or editing to fix the problem, including directly related areas as well as any potentially related global variables, functions, and classes.
+For each location you provide, either give the name of the class, the name of a method in a class, the name of a function, or the name of a global variable.
+
+### GitHub Problem Description ###
+{problem_statement}
+
+### Relevant Files ###
+{file_contents}
+
+###
+
+Please provide the complete set of locations as either a class name, a function name, or a variable name.
+Note that if you include a class, you do not need to list its specific methods.
+You can include either the entire class or don't include the class name and instead include specific methods in the class.
+### Examples:
+```
+full_path1/file1.py
+function: my_function_1
+class: MyClass1
+function: MyClass2.my_method
+
+full_path2/file2.py
+variable: my_var
+function: MyClass3.my_method
+
+full_path3/file3.py
+function: my_function_2
+function: my_function_3
+function: MyClass4.my_method_1
+class: MyClass5
+```
+
+Return just the locations.
+"""
+
     def __init__(
         self,
         instance_id,
@@ -221,7 +228,6 @@ Return just the locations.
         model_name,
         backend,
         logger,
-        match_partial_paths,
         **kwargs,
     ):
         super().__init__(instance_id, structure, problem_statement)
@@ -229,16 +235,79 @@ Return just the locations.
         self.model_name = model_name
         self.backend = backend
         self.logger = logger
-        self.match_partial_paths = match_partial_paths
 
     def _parse_model_return_lines(self, content: str) -> list[str]:
         if content:
             return content.strip().split("\n")
 
-    def localize(
-        self, top_n=1, mock=False, match_partial_paths=False
-    ) -> tuple[list, list, list, any]:
-        # lazy import, not sure if this is actually better?
+    def localize_irrelevant(self, top_n=1, mock=False):
+        from agentless.util.api_requests import num_tokens_from_messages
+        from agentless.util.model import make_model
+
+        message = self.obtain_irrelevant_files_prompt.format(
+            problem_statement=self.problem_statement,
+            structure=show_project_structure(self.structure).strip(),
+        ).strip()
+        self.logger.info(f"prompting with message:\n{message}")
+        self.logger.info("=" * 80)
+
+        if mock:
+            self.logger.info("Skipping querying model since mock=True")
+            traj = {
+                "prompt": message,
+                "usage": {
+                    "prompt_tokens": num_tokens_from_messages(message, self.model),
+                },
+            }
+            return [], {"raw_output_loc": ""}, traj
+
+        model = make_model(
+            model=self.model_name,
+            backend=self.backend,
+            logger=self.logger,
+            max_tokens=2048,  # self.max_tokens,
+            temperature=0,
+            batch_size=1,
+        )
+        traj = model.codegen(message, num_samples=1)[0]
+        traj["prompt"] = message
+        raw_output = traj["response"]
+
+        files, classes, functions = get_full_file_paths_and_classes_and_functions(
+            self.structure
+        )
+
+        f_files = []
+        filtered_files = []
+
+        model_identified_files_folder = self._parse_model_return_lines(raw_output)
+        # remove any none folder none files
+        model_identified_files_folder = [
+            x
+            for x in model_identified_files_folder
+            if x.endswith("/") or x.endswith(".py")
+        ]
+
+        for file_content in files:
+            file_name = file_content[0]
+            if any([file_name.startswith(x) for x in model_identified_files_folder]):
+                filtered_files.append(file_name)
+            else:
+                f_files.append(file_name)
+
+        self.logger.info(raw_output)
+
+        return (
+            f_files,
+            {
+                "raw_output_files": raw_output,
+                "found_files": f_files,
+                "filtered_files": filtered_files,
+            },
+            traj,
+        )
+
+    def localize(self, top_n=1, mock=False) -> tuple[list, list, list, any]:
         from agentless.util.api_requests import num_tokens_from_messages
         from agentless.util.model import make_model
 
@@ -249,9 +318,7 @@ Return just the locations.
             structure=show_project_structure(self.structure).strip(),
         ).strip()
         self.logger.info(f"prompting with message:\n{message}")
-        print(f"prompting with message:\n{message}")
         self.logger.info("=" * 80)
-        print("=" * 80)
         if mock:
             self.logger.info("Skipping querying model since mock=True")
             traj = {
@@ -280,10 +347,9 @@ Return just the locations.
         )
 
         # sort based on order of appearance in model_found_files
-        found_files = correct_file_paths(model_found_files, files, match_partial_paths)
+        found_files = correct_file_paths(model_found_files, files)
 
         self.logger.info(raw_output)
-        print(raw_output)
 
         return (
             found_files,
@@ -291,84 +357,30 @@ Return just the locations.
             traj,
         )
 
-    def localize_function_for_files(
-        self, file_names, mock=False
-    ) -> tuple[list, dict, dict]:
-        from agentless.util.api_requests import num_tokens_from_messages
-        from agentless.util.model import make_model
-
-        files, classes, functions = get_full_file_paths_and_classes_and_functions(
-            self.structure
-        )
-
-        max_num_files = len(file_names)
-        while 1:
-            # added small fix to prevent too many tokens
-            contents = []
-            for file_name in file_names[:max_num_files]:
-                for file_content in files:
-                    if file_content[0] == file_name:
-                        content = "\n".join(file_content[1])
-                        file_content = line_wrap_content(content)
-                        contents.append(
-                            self.file_content_template.format(
-                                file_name=file_name, file_content=file_content
-                            )
-                        )
-                        break
-                else:
-                    raise ValueError(f"File {file_name} does not exist.")
-
-            file_contents = "".join(contents)
-            if num_tokens_from_messages(file_contents, model) < MAX_CONTEXT_LENGTH:
-                break
-            else:
-                max_num_files -= 1
-
-        message = self.obtain_relevant_code_combine_top_n_prompt.format(
-            problem_statement=self.problem_statement,
-            file_contents=file_contents,
-        ).strip()
-        print(f"prompting with message:\n{message}")
-        print("=" * 80)
-        if mock:
-            self.logger.info("Skipping querying model since mock=True")
-            traj = {
-                "prompt": message,
-                "usage": {
-                    "prompt_tokens": num_tokens_from_messages(message, self.model_name),
-                },
-            }
-            return [], {"raw_output_loc": ""}, traj
-
-        model = make_model(
-            model=self.model_name,
-            backend=self.backend,
-            loggger=self.logger,
-            max_tokens=self.max_tokens,
-            temperature=0,
-            batch_size=1,
-        )
-        traj = model.codegen(message, num_samples=1)[0]
-        traj["prompt"] = message
-        raw_output = traj["response"]
-
-        model_found_locs = extract_code_blocks(raw_output)
-        model_found_locs_separated = extract_locs_for_files(
-            model_found_locs, file_names
-        )
-
-        print(raw_output)
-
-        return model_found_locs_separated, {"raw_output_loc": raw_output}, traj
-
-    def localize_function_from_compressed_files(self, file_names, mock=False):
+    def localize_function_from_compressed_files(
+        self,
+        file_names,
+        mock=False,
+        temperature=0.0,
+        keep_old_order=False,
+        compress_assign: bool = False,
+        total_lines=30,
+        prefix_lines=10,
+        suffix_lines=10,
+    ):
         from agentless.util.api_requests import num_tokens_from_messages
         from agentless.util.model import make_model
 
         file_contents = get_repo_files(self.structure, file_names)
         compressed_file_contents = {
-            fn: get_skeleton(code) for fn, code in file_contents.items()
+            fn: get_skeleton(
+                code,
+                compress_assign=compress_assign,
+                total_lines=total_lines,
+                prefix_lines=prefix_lines,
+                suffix_lines=suffix_lines,
+            )
+            for fn, code in file_contents.items()
         }
         contents = [
             self.file_content_in_block_template.format(file_name=fn, file_content=code)
@@ -381,6 +393,8 @@ Return just the locations.
         message = template.format(
             problem_statement=self.problem_statement, file_contents=file_contents
         )
+        self.logger.info(f"prompting with message:")
+        self.logger.info("\n" + message)
 
         def message_too_long(message):
             return (
@@ -413,14 +427,14 @@ Return just the locations.
                     ),
                 },
             }
-            return [], {"raw_output_loc": ""}, traj
+            return {}, {"raw_output_loc": ""}, traj
 
         model = make_model(
             model=self.model_name,
             backend=self.backend,
             logger=self.logger,
             max_tokens=self.max_tokens,
-            temperature=0,
+            temperature=temperature,
             batch_size=1,
         )
         traj = model.codegen(message, num_samples=1)[0]
@@ -429,7 +443,7 @@ Return just the locations.
 
         model_found_locs = extract_code_blocks(raw_output)
         model_found_locs_separated = extract_locs_for_files(
-            model_found_locs, file_names
+            model_found_locs, file_names, keep_old_order
         )
 
         self.logger.info(f"==== raw output ====")
@@ -440,7 +454,89 @@ Return just the locations.
             self.logger.info(loc)
         self.logger.info("=" * 80)
 
-        print(raw_output)
+        return model_found_locs_separated, {"raw_output_loc": raw_output}, traj
+
+    def localize_function_from_raw_text(
+        self,
+        file_names,
+        mock=False,
+        temperature=0.0,
+        keep_old_order=False,
+    ):
+        from agentless.util.api_requests import num_tokens_from_messages
+        from agentless.util.model import make_model
+
+        file_contents = get_repo_files(self.structure, file_names)
+        raw_file_contents = {fn: code for fn, code in file_contents.items()}
+        contents = [
+            self.file_content_template.format(file_name=fn, file_content=code)
+            for fn, code in raw_file_contents.items()
+        ]
+        file_contents = "".join(contents)
+        template = self.obtain_relevant_functions_and_vars_from_raw_files_prompt
+        message = template.format(
+            problem_statement=self.problem_statement, file_contents=file_contents
+        )
+        self.logger.info(f"prompting with message:")
+        self.logger.info("\n" + message)
+
+        def message_too_long(message):
+            return (
+                num_tokens_from_messages(message, self.model_name) >= MAX_CONTEXT_LENGTH
+            )
+
+        while message_too_long(message) and len(contents) > 1:
+            self.logger.info(f"reducing to \n{len(contents)} files")
+            contents = contents[:-1]
+            file_contents = "".join(contents)
+            message = template.format(
+                problem_statement=self.problem_statement, file_contents=file_contents
+            )  # Recreate message
+
+        if message_too_long(message):
+            raise ValueError(
+                "The remaining file content is too long to fit within the context length"
+            )
+        self.logger.info(f"prompting with message:\n{message}")
+        self.logger.info("=" * 80)
+
+        if mock:
+            self.logger.info("Skipping querying model since mock=True")
+            traj = {
+                "prompt": message,
+                "usage": {
+                    "prompt_tokens": num_tokens_from_messages(
+                        message,
+                        self.model_name,
+                    ),
+                },
+            }
+            return {}, {"raw_output_loc": ""}, traj
+
+        model = make_model(
+            model=self.model_name,
+            backend=self.backend,
+            logger=self.logger,
+            max_tokens=self.max_tokens,
+            temperature=temperature,
+            batch_size=1,
+        )
+        traj = model.codegen(message, num_samples=1)[0]
+        traj["prompt"] = message
+        raw_output = traj["response"]
+
+        model_found_locs = extract_code_blocks(raw_output)
+        model_found_locs_separated = extract_locs_for_files(
+            model_found_locs, file_names, keep_old_order
+        )
+
+        self.logger.info(f"==== raw output ====")
+        self.logger.info(raw_output)
+        self.logger.info("=" * 80)
+        self.logger.info(f"==== extracted locs ====")
+        for loc in model_found_locs_separated:
+            self.logger.info(loc)
+        self.logger.info("=" * 80)
 
         return model_found_locs_separated, {"raw_output_loc": raw_output}, traj
 
@@ -455,6 +551,7 @@ Return just the locations.
         temperature: float = 0.0,
         num_samples: int = 1,
         mock=False,
+        keep_old_order=False,
     ):
         from agentless.util.api_requests import num_tokens_from_messages
         from agentless.util.model import make_model
@@ -519,15 +616,13 @@ Return just the locations.
         for raw_output in raw_outputs:
             model_found_locs = extract_code_blocks(raw_output)
             model_found_locs_separated = extract_locs_for_files(
-                model_found_locs, file_names
+                model_found_locs, file_names, keep_old_order
             )
             model_found_locs_separated_in_samples.append(model_found_locs_separated)
 
             self.logger.info(f"==== raw output ====")
             self.logger.info(raw_output)
             self.logger.info("=" * 80)
-            print(raw_output)
-            print("=" * 80)
             self.logger.info(f"==== extracted locs ====")
             for loc in model_found_locs_separated:
                 self.logger.info(loc)
@@ -541,6 +636,117 @@ Return just the locations.
             else:
                 coarse_info += "\n".join(found_locs) + "\n"
         self.logger.info("\n" + coarse_info)
+        if len(model_found_locs_separated_in_samples) == 1:
+            model_found_locs_separated_in_samples = (
+                model_found_locs_separated_in_samples[0]
+            )
+
+        return (
+            model_found_locs_separated_in_samples,
+            {"raw_output_loc": raw_outputs},
+            traj,
+        )
+
+    def localize_line_from_raw_text(
+        self,
+        file_names,
+        mock=False,
+        temperature=0.0,
+        num_samples=1,
+        keep_old_order=False,
+    ):
+        from agentless.util.api_requests import num_tokens_from_messages
+        from agentless.util.model import make_model
+
+        file_contents = get_repo_files(self.structure, file_names)
+        raw_file_contents = {
+            fn: line_wrap_content(code) for fn, code in file_contents.items()
+        }
+        contents = [
+            self.file_content_template.format(file_name=fn, file_content=code)
+            for fn, code in raw_file_contents.items()
+        ]
+        file_contents = "".join(contents)
+        template = self.obtain_relevant_code_combine_top_n_prompt
+        message = template.format(
+            problem_statement=self.problem_statement, file_contents=file_contents
+        )
+        self.logger.info(f"prompting with message:")
+        self.logger.info("\n" + message)
+
+        def message_too_long(message):
+            return (
+                num_tokens_from_messages(message, self.model_name) >= MAX_CONTEXT_LENGTH
+            )
+
+        while message_too_long(message) and len(contents) > 1:
+            self.logger.info(f"reducing to \n{len(contents)} files")
+            contents = contents[:-1]
+            file_contents = "".join(contents)
+            message = template.format(
+                problem_statement=self.problem_statement, file_contents=file_contents
+            )  # Recreate message
+
+        if message_too_long(message):
+            raise ValueError(
+                "The remaining file content is too long to fit within the context length"
+            )
+        self.logger.info(f"prompting with message:\n{message}")
+        self.logger.info("=" * 80)
+
+        if mock:
+            self.logger.info("Skipping querying model since mock=True")
+            traj = {
+                "prompt": message,
+                "usage": {
+                    "prompt_tokens": num_tokens_from_messages(
+                        message,
+                        self.model_name,
+                    ),
+                },
+            }
+            return {}, {"raw_output_loc": ""}, traj
+
+        model = make_model(
+            model=self.model_name,
+            backend=self.backend,
+            logger=self.logger,
+            max_tokens=self.max_tokens,
+            temperature=temperature,
+            batch_size=num_samples,
+        )
+        raw_trajs = model.codegen(message, num_samples=num_samples)
+
+        # Merge trajectories
+        raw_outputs = [raw_traj["response"] for raw_traj in raw_trajs]
+        traj = {
+            "prompt": message,
+            "response": raw_outputs,
+            "usage": {  # merge token usage
+                "completion_tokens": sum(
+                    raw_traj["usage"]["completion_tokens"] for raw_traj in raw_trajs
+                ),
+                "prompt_tokens": sum(
+                    raw_traj["usage"]["prompt_tokens"] for raw_traj in raw_trajs
+                ),
+            },
+        }
+        model_found_locs_separated_in_samples = []
+        for raw_output in raw_outputs:
+            model_found_locs = extract_code_blocks(raw_output)
+            model_found_locs_separated = extract_locs_for_files(
+                model_found_locs, file_names, keep_old_order
+            )
+            model_found_locs_separated_in_samples.append(model_found_locs_separated)
+
+            self.logger.info(f"==== raw output ====")
+            self.logger.info(raw_output)
+            self.logger.info("=" * 80)
+            self.logger.info(f"==== extracted locs ====")
+            for loc in model_found_locs_separated:
+                self.logger.info(loc)
+            self.logger.info("=" * 80)
+
         if len(model_found_locs_separated_in_samples) == 1:
             model_found_locs_separated_in_samples = (
                 model_found_locs_separated_in_samples[0]

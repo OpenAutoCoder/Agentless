@@ -1,4 +1,3 @@
-# TODO: maybe merge this into the structure preprocessing.
 import libcst as cst
 import libcst.matchers as m
 from libcst.display import dump
