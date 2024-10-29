@@ -73,6 +73,13 @@ def setup_logger(log_file):
     return logger
 
 
+def cleanup_logger(logger):
+    handlers = logger.handlers[:]
+    for handler in handlers:
+        logger.removeHandler(handler)
+        handler.close()
+
+
 def load_existing_instance_ids(output_file):
     instance_ids = set()
     if os.path.exists(output_file):

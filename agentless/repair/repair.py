@@ -3,6 +3,7 @@ import concurrent.futures
 import json
 import os
 from difflib import unified_diff
+from threading import Lock
 
 from datasets import load_dataset
 from tqdm import tqdm
@@ -17,7 +18,6 @@ from agentless.util.postprocess_data import (
     lint_code,
     parse_diff_edit_commands,
     parse_edit_commands,
-    remove_empty_lines,
     split_edit_multifile_commands,
 )
 from agentless.util.preprocess_data import (
@@ -26,20 +26,10 @@ from agentless.util.preprocess_data import (
     line_wrap_content,
     transfer_arb_locs_to_locs,
 )
-from agentless.util.utils import load_jsonl, setup_logger
+from agentless.util.utils import cleanup_logger, load_jsonl, setup_logger
 
 repair_relevant_file_instruction = """
 Below are some code segments, each from a relevant file. One or more of these files may contain bugs.
-"""
-repair_relevant_file_with_scope_instruction = """
-Below are some code segments, each from a relevant file. One or more of these files may contain bugs.
-In the file below, "..." refers to some less relevant content being omited for brebity.
-"""
-with_scope_explanation = """
-Note that "..." refers to some omited content that is not actually in the files. Your *SEARCH/REPLACE* edit must not contain such "...".
-"""
-repair_relevant_file_with_suspicious_loc_instruction = """
-Below are some code segments, each from a relevant file. One or more of these files may contain bugs. Some suspicious locations are provided for closer inspection.
 """
 repair_prompt_combine_topn = """
 We are currently solving the following issue within our repository. Here is the issue text:
@@ -239,11 +229,14 @@ def construct_topn_file_context(
     return topn_content, file_loc_intervals
 
 
-def process_loc(loc, args, swe_bench_data, prev_o):
+def process_loc(loc, args, swe_bench_data, prev_o, write_lock=None):
     instance_id = loc["instance_id"]
-    log_file = os.path.join(
-        args.output_folder, "localization_logs", f"{instance_id}.log"
-    )
+
+    if args.target_id is not None:
+        if args.target_id != instance_id:
+            return
+
+    log_file = os.path.join(args.output_folder, "repair_logs", f"{instance_id}.log")
     logger = setup_logger(log_file)
     found = False
     for o in prev_o:
@@ -257,15 +250,26 @@ def process_loc(loc, args, swe_bench_data, prev_o):
 
     logger.info(f"================ repairing {instance_id} ================")
     if len(loc["found_files"]) == 0:
-        return {
-            "instance_id": instance_id,
-            "raw_output": [""],
-            "try_count": [0],
-            "all_generations": [[]],
-            "traj": [],
-            "prev_content": [[]],
-            "file_names": [[]],
-        }
+        if write_lock is not None:
+            write_lock.acquire()
+        with open(args.output_file, "a") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "instance_id": instance_id,
+                        "raw_output": [""],
+                        "try_count": [0],
+                        "all_generations": [[]],
+                        "traj": [],
+                        "prev_content": [[]],
+                        "file_names": [[]],
+                    }
+                )
+                + "\n"
+            )
+        if write_lock is not None:
+            write_lock.release()
+        return
 
     pred_files = loc["found_files"][: args.top_n]
     bench_data = [x for x in swe_bench_data if x["instance_id"] == instance_id][0]
@@ -290,7 +294,6 @@ def process_loc(loc, args, swe_bench_data, prev_o):
     file_contents = dict()
     for i, pred_file in enumerate(pred_files):
         content = None
-
         for file_content in files:
             if file_content[0] == pred_file:
                 content = "\n".join(file_content[1])
@@ -300,9 +303,9 @@ def process_loc(loc, args, swe_bench_data, prev_o):
         assert content is not None, f"{pred_file} file not found"
     # Construct top-n file context
     file_to_edit_locs = dict()
-    for i, pred_file in enumerate(pred_files):
-        if "found_edit_locs" in loc and len(loc["found_edit_locs"]) > i:
-            file_to_edit_locs[pred_file] = loc["found_edit_locs"][i]
+
+    if "found_edit_locs" in loc:
+        file_to_edit_locs = loc["found_edit_locs"]
 
     topn_content, file_loc_intervals = construct_topn_file_context(
         file_to_edit_locs,
@@ -318,15 +321,26 @@ def process_loc(loc, args, swe_bench_data, prev_o):
     )
 
     if topn_content.strip() == "":
-        return {
-            "instance_id": instance_id,
-            "raw_output": [""],
-            "try_count": [0],
-            "all_generations": [[]],
-            "traj": [],
-            "prev_content": [[]],
-            "file_names": [[]],
-        }
+        if write_lock is not None:
+            write_lock.acquire()
+        with open(args.output_file, "a") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "instance_id": instance_id,
+                        "raw_output": [""],
+                        "try_count": [0],
+                        "all_generations": [[]],
+                        "traj": [],
+                        "prev_content": [[]],
+                        "file_names": [[]],
+                    }
+                )
+                + "\n"
+            )
+        if write_lock is not None:
+            write_lock.release()
+        return
 
     prompt_template = (
         repair_prompt_combine_topn_cot_diff
@@ -345,9 +359,6 @@ def process_loc(loc, args, swe_bench_data, prev_o):
 
     all_generations, counts, traj, prev_contents, file_names = [], [], [], [], []
     sample_responses = []
-    # Using early stopping will cost more since the input tokens will be charged multiple times.
-    # For now we disable it.
-    assert args.stop_at_n_unique_valid_samples == -1
     # get greedy sample
     model = make_model(
         model=args.model,
@@ -442,6 +453,8 @@ def process_loc(loc, args, swe_bench_data, prev_o):
         counts.append(count)
         raw_outputs.append(raw_output)
 
+    if write_lock is not None:
+        write_lock.acquire()
     with open(args.output_file, "a") as f:
         f.write(
             json.dumps(
@@ -457,13 +470,15 @@ def process_loc(loc, args, swe_bench_data, prev_o):
             )
             + "\n"
         )
+    if write_lock is not None:
+        write_lock.release()
 
 
 def repair(args):
     with open(f"{args.output_folder}/args.json", "w") as f:
         json.dump(vars(args), f, indent=4)
 
-    swe_bench_data = load_dataset("princeton-nlp/SWE-bench_Lite", split="test")
+    swe_bench_data = load_dataset(args.dataset, split="test")
     locs = load_jsonl(args.loc_file)
     prev_o = load_jsonl(args.output_file) if os.path.exists(args.output_file) else []
 
@@ -471,27 +486,26 @@ def repair(args):
         for loc in locs:
             f.write(json.dumps(loc) + "\n")
 
-    results = []
-
     if args.num_threads == 1:
-        for loc in tqdm(locs, total=len(locs)):
-            result = process_loc(loc, args, swe_bench_data, prev_o)
-            if result is not None:
-                results.append(result)
+        for loc in tqdm(locs, total=len(locs), colour="MAGENTA"):
+            process_loc(loc, args, swe_bench_data, prev_o)
     else:
+        write_lock = Lock()
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=args.num_threads
         ) as executor:
             futures = {
-                executor.submit(process_loc, loc, args, swe_bench_data, prev_o): loc
+                executor.submit(
+                    process_loc, loc, args, swe_bench_data, prev_o, write_lock
+                ): loc
                 for loc in locs
             }
             for future in tqdm(
-                concurrent.futures.as_completed(futures), total=len(locs)
+                concurrent.futures.as_completed(futures),
+                total=len(locs),
+                colour="MAGENTA",
             ):
-                result = future.result()
-                if result is not None:
-                    results.append(result)
+                future.result()
 
 
 def post_process_raw_output(
@@ -527,8 +541,9 @@ def post_process_raw_output(
                 new_content, file_contents[edited_file]
             )
 
-            print(lint_success, prev_errors, errors, differ_by_empty_lines)
-
+            logger.info(
+                f"{lint_success = }, {prev_errors = }, {errors = }, {differ_by_empty_lines = }"
+            )
             if syntax_success and not differ_by_empty_lines:
                 git_diffs = raw_git_diffs
             else:
@@ -561,9 +576,7 @@ def post_process_repair(args):
 
     for raw_output in raw_outputs:
         instance_id = raw_output["instance_id"]
-        log_file = os.path.join(
-            args.output_folder, "localization_logs", f"{instance_id}.log"
-        )
+        log_file = os.path.join(args.output_folder, "repair_logs", f"{instance_id}.log")
         logger = setup_logger(log_file)
 
         if raw_output["raw_output"] == "":
@@ -586,7 +599,6 @@ def post_process_repair(args):
         else:
             # Use the indexed generation
             generation_idx = args.select_id
-            print("got into process repair")
             try:
                 raw_output_text = raw_output["all_generations"][0][generation_idx]
                 original_file_content = raw_output["prev_content"][0][generation_idx]
@@ -611,9 +623,12 @@ def post_process_repair(args):
                 for i, tmp_pred_file in enumerate(pred_files):
                     if tmp_pred_file != pred_file:
                         continue
-                    if "found_edit_locs" in loc and len(loc["found_edit_locs"]) > i:
+                    if (
+                        "found_edit_locs" in loc
+                        and tmp_pred_file in loc["found_edit_locs"]
+                    ):
                         line_locs, context_intervals = transfer_arb_locs_to_locs(
-                            loc["found_edit_locs"][i],
+                            loc["found_edit_locs"][tmp_pred_file],
                             None,
                             loc["found_files"][i],
                             args.context_window,
@@ -654,6 +669,7 @@ def post_process_repair(args):
                 )
                 + "\n"
             )
+        cleanup_logger(logger)
 
 
 def main():
@@ -662,12 +678,6 @@ def main():
     parser.add_argument("--top_n", type=int, default=1)
     parser.add_argument("--loc_interval", action="store_true")
     parser.add_argument("--context_window", type=int, default=10)
-    parser.add_argument(
-        "--stop_at_n_unique_valid_samples",
-        type=int,
-        default=-1,
-        help="Early stop when we get N unique valid samples, set to -1 if don't want to do early stopping.",
-    )
     parser.add_argument("--gen_and_process", action="store_true")
     parser.add_argument("--max_samples", type=int, default=20, help="Sampling budget.")
     parser.add_argument(
@@ -686,9 +696,6 @@ def main():
         "--backend", type=str, default="openai", choices=["openai", "deepseek"]
     )
     parser.add_argument("--output_folder", type=str, required=True)
-    parser.add_argument(
-        "--only_correct", action="store_true"
-    )  # only work on correct loc files (saves time)
     parser.add_argument("--post_process", action="store_true")
     parser.add_argument("--add_space", action="store_true")
     parser.add_argument("--cot", action="store_true")
@@ -702,8 +709,15 @@ def main():
         default=1,
         help="Number of threads to use for creating API requests",
     )
+    parser.add_argument("--target_id", type=str)
     parser.add_argument(
         "--mock", action="store_true", help="Mock run to compute prompt tokens."
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="princeton-nlp/SWE-bench_Lite",
+        choices=["princeton-nlp/SWE-bench_Lite", "princeton-nlp/SWE-bench_Verified"],
     )
 
     args = parser.parse_args()
@@ -714,8 +728,8 @@ def main():
 
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
-    if not os.path.exists(os.path.join(args.output_folder, "localization_logs")):
-        os.makedirs(os.path.join(args.output_folder, "localization_logs"))
+    if not os.path.exists(os.path.join(args.output_folder, "repair_logs")):
+        os.makedirs(os.path.join(args.output_folder, "repair_logs"))
 
     args.output_file = os.path.join(args.output_folder, "output.jsonl")
 

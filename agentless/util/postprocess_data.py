@@ -1,12 +1,10 @@
 import ast
-import copy
 import os
 import re
 import subprocess
 import uuid
 from collections import OrderedDict
 
-from agentless.util.preprocess_data import get_repo_files
 from get_repo_structure.get_patch_info import parse_patch
 
 
@@ -205,6 +203,80 @@ def fake_git_apply(repo_playground, file_path, old_content, patch) -> str:
     return s
 
 
+def fake_git_apply_multiple(repo_playground, file_path_contents, patch) -> dict:
+    """create a fake git repo to obtain new file contents (multiple)"""
+
+    # Generate a temperary folder and add uuid to avoid collision
+    repo_playground = os.path.join(repo_playground, str(uuid.uuid4()))
+
+    # assert playground doesn't exist
+    assert not os.path.exists(repo_playground), f"{repo_playground} already exists"
+
+    # create playground
+    os.makedirs(repo_playground)
+
+    # create a fake git repo
+    subprocess.run(f"cd {repo_playground} && git init", shell=True)
+
+    # create files
+    for file_path, old_content in file_path_contents.items():
+        subprocess.run(
+            f"mkdir -p {repo_playground}/{os.path.dirname(file_path)}", shell=True
+        )
+
+        with open(f"{repo_playground}/{file_path}", "w") as f:
+            f.write(old_content)
+
+        # add file to git
+        subprocess.run(
+            f"cd {repo_playground} && git add {file_path} && git commit -m 'initial commit'",
+            shell=True,
+        )
+
+    # apply patch file
+    patch_file = f"{str(uuid.uuid4())}.patch"
+    with open(f"{repo_playground}/{patch_file}", "w") as f:
+        f.write(patch)
+    o = subprocess.run(
+        f"cd {repo_playground} && git apply --whitespace=nowarn {patch_file}",
+        shell=True,
+        capture_output=True,
+    )
+    if o.stderr.decode("utf-8"):
+        print("stderr> ", o.stderr.decode("utf-8"))
+        # TODO: This rarely happen but the patch should be valid, needs to look into it
+        for file_path, old_content in file_path_contents.items():
+            with open(f"{repo_playground}/{file_path}", "w") as f:
+                f.write(old_content + "\n")
+
+        o = subprocess.run(
+            f"cd {repo_playground} && git apply --whitespace=nowarn {patch_file}",
+            shell=True,
+            capture_output=True,
+        )
+
+        if o.stderr.decode("utf-8"):
+            print("stderr> ", o.stderr.decode("utf-8"))
+            assert False, "shouldn't happen"
+
+    new_file_path_contents = {}
+
+    # get git diff
+    for file_path, old_content in file_path_contents.items():
+        o = subprocess.run(
+            f"cd {repo_playground} && cat {file_path}", shell=True, capture_output=True
+        )
+
+        s = o.stdout.decode("utf-8")
+
+        new_file_path_contents[file_path] = s
+
+    # remove playground
+    subprocess.run(f"rm -rf {repo_playground}", shell=True)
+
+    return new_file_path_contents
+
+
 def get_functions(tree):
     """Get a set of function and method names from the AST tree."""
     functions = {}
@@ -390,9 +462,11 @@ def extract_code_blocks(text):
     return matches
 
 
-def extract_locs_for_files(locs, file_names):
-    # TODO: keep the order from this fine-grained FL results.
-    results = {fn: [] for fn in file_names}
+def extract_locs_for_files(locs, file_names, keep_old_order=False):
+    if keep_old_order:
+        results = {fn: [] for fn in file_names}
+    else:
+        results = {}  # dict is insertion ordered
     current_file_name = None
     for loc in locs:
         for line in loc.splitlines():
@@ -402,11 +476,18 @@ def extract_locs_for_files(locs, file_names):
                 line.startswith(w)
                 for w in ["line:", "function:", "class:", "variable:"]
             ):
-                if current_file_name in results:
+                if current_file_name in file_names:
+                    if current_file_name not in results:
+                        results[current_file_name] = []
                     results[current_file_name].append(line)
                 else:
                     pass
-    return [["\n".join(results[fn])] for fn in file_names]
+
+    for file_name in file_names:
+        if file_name not in results:  # guard for new order case
+            results[file_name] = []
+
+    return {fn: ["\n".join(results[fn])] for fn in results.keys()}
 
 
 def extract_starting_number(subcommand):
