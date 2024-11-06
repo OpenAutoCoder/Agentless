@@ -213,6 +213,8 @@ Return only the locations.
     create_skeleton_code = """
     You are an expert in writing test code for the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework). Your role is to generate pseudocode based on the extracted classes, methods, and logic ('glue_logic') that will fulfill specific test steps for a given requirement.
     
+    Each test case shall ensure that the Device Under Test (DUT) is in the proper state in its precondition before starting any action. Do not assume that the DUT boots from scratch at the start of each test case.
+    
     ### Objective:
     Your task is to write pseudocode that outlines the test code necessary to implement a specific test step for the provided requirement. The pseudocode must include relevant classes, methods, and logic ('glue_logic') necessary to execute the test process.
     
@@ -272,6 +274,12 @@ Return only the locations.
     9. **Method Line Format**: The line format of the method should be as the example: the file path separated by '.' and then separation between the path and the method should be by " : " and the method should not include the parameters, only the name of the method.
        
        For example: `"full_path3.file3.MyClass3: my_method3"`
+       
+       
+    ###Additional Rules for DUT State and Variable Management:
+    - **Variable Initialization: Verify that all variables are initialized in the preconditions and that no assumptions are made about their prior state.
+    - **Precondition Verification: Implement checks to confirm DUT is in the correct state before any action. Do not rely on prior test cases for setting state.
+    - **Runtime Verification: Integrate runtime validation to confirm the DUT’s state throughout the test, especially after conditions or events that alter its status.
     
     Adherence to these rules is mandatory. Any deviation, such as fabricating methods or classes, or not following the output format or the format of the line of the method, will result in task rejection.
     """
@@ -439,6 +447,9 @@ Return only the locations.
 You are an expert in writing test code for the automotive zone controller domain using a private framework repository called TAF (Test Automotive Framework).
 I have created a pseudocode for implementing specific requirements, but it was written without full knowledge of how TAF works. Your task is to review and optimize this pseudocode for proper integration with TAF.
 
+Each test case shall ensure that the Device Under Test (DUT) is in the proper state in its precondition before starting any action. Do not assume that the DUT boots from scratch at the start of each test case.
+
+
 ### What you will receive:
 1. The **requirement**, which provides the context for the functionality expected from the Device Under Test (DUT).
 2. The **existing pseudocode**, which outlines the steps and tools I initially planned for implementing the requirements.
@@ -491,6 +502,13 @@ I have created a pseudocode for implementing specific requirements, but it was w
 - Return  the output in the exact format specified above** without any extra information
 - The **order** of steps must be logical and complete, with a proper reporting step after each task.
 - **Output** must be valid JSON objects with the exact keys "step_explication" and "methods_used."
+
+
+###Additional Rules for DUT State and Variable Management:
+
+- **Variable Initialization: Verify that all variables are initialized in the preconditions and that no assumptions are made about their prior state.
+- **Precondition Verification: Implement checks to confirm DUT is in the correct state before any action. Do not rely on prior test cases for setting state.
+- **Runtime Verification: Integrate runtime validation to confirm the DUT’s state throughout the test, especially after conditions or events that alter its status.
 """
 
 

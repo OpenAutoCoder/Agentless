@@ -110,6 +110,7 @@ taf.core.time.sleep(10)
 - **Focus on the primary action of each step**: Ignore any setup or teardown unless explicitly mentioned in the pseudocode.
 - **Return the full test code**: Ensure that the output includes all lines of code for the test step.
 - **do not include any extra information or explication in the output
+- **Precondition Validation: Each test case must validate the Device Under Test (DUT) state before beginning any action. Assume that the DUT may already be operational; therefore, do not assume it boots from scratch at the start of each test case. Ensure test steps include proper state checks in the precondition.
 - **critically important to adhere to these guidelines**. Any deviation, such as adding extra information or using methods not provided, will result in disqualification from the task.
 
 """
