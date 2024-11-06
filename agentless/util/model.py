@@ -48,7 +48,7 @@ def make_model(
     temperature: float = 0.0,
 ):
     if OpenIA_LLM.use_azure:
-        return AzureChatOpenAI(model=model, temperature=temperature)
+        return AzureChatOpenAI(deployment_name=model, temperature=temperature)
     return ChatOpenAI(
         model=model,
         max_tokens=max_tokens,
