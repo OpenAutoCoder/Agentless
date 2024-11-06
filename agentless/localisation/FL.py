@@ -3,7 +3,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from json import JSONDecodeError
-from typing import Any
+from typing import Any, Tuple, List, Dict
 
 from langsmith import traceable
 
@@ -538,7 +538,7 @@ I have created a pseudocode for implementing specific requirements, but it was w
     @traceable(
         name="7.1.localize files names for test steps"
     )
-    def localize_files(self, current, top_n=1) -> tuple[list[Any], dict[str, Any], Any]:
+    def localize_files(self, current, top_n=1) -> tuple[list[Any], dict[str, Any]]:
 
         found_files = []
         examples = self.extract_examples(current)
@@ -555,11 +555,8 @@ I have created a pseudocode for implementing specific requirements, but it was w
             model=OpenIA_LLM.get_version_model("localize_files"),
             max_tokens=self.max_tokens,
             temperature=0,
-            batch_size=1,
         )
-        traj = model.codegen(message, num_samples=1)[0]
-        traj["prompt"] = message
-        raw_output = traj["response"]
+        raw_output = model.invoke(message).content
         model_found_files = _parse_model_return_lines(raw_output)
 
         files, classes, functions = get_full_file_paths_and_classes_and_functions(
@@ -578,8 +575,7 @@ I have created a pseudocode for implementing specific requirements, but it was w
 
         return (
             found_files,
-            {"raw_output_files": raw_output},
-            traj,
+            {"raw_output_files": raw_output}
         )
     @traceable(
         name="7.3.2.verify the pseudo code using the TAF"
@@ -599,13 +595,11 @@ I have created a pseudocode for implementing specific requirements, but it was w
             model=OpenIA_LLM.get_version_model("verify_skeleton"),
             max_tokens=self.max_tokens,
             temperature=0,
-            batch_size=1,
         )
 
         output = []
         for i in range(5):
-            traj = model.codegen(message, num_samples=1)[0]
-            row_output = traj["response"]
+            row_output = model.invoke(message).content
             print(row_output)
             if str(row_output).startswith("```"):
                 row_output = row_output[3:]
@@ -638,13 +632,11 @@ I have created a pseudocode for implementing specific requirements, but it was w
             model=OpenIA_LLM.get_version_model("give_skeleton"),
             max_tokens=self.max_tokens,
             temperature=0,
-            batch_size=1,
         )
         result = False
         output = None
         while not result:
-            traj = model.codegen(message, num_samples=1)[0]
-            row_output = traj["response"]
+            row_output = model.invoke(message).content
             print(row_output)
             output, result = self.extract_skleton(row_output)
         return output
@@ -666,11 +658,9 @@ I have created a pseudocode for implementing specific requirements, but it was w
             model=OpenIA_LLM.get_version_model("verify_tools_by_line"),
             max_tokens=self.max_tokens,
             temperature=0,
-            batch_size=1,
         )
-        traj = model.codegen(message, num_samples=1)[0]
-        traj["prompt"] = message
-        raw_output = traj["response"].replace("`", "")
+
+        raw_output = model.invoke(message).content
         list = raw_output.split("\n")
         result = []
         for el in list:
@@ -714,9 +704,8 @@ I have created a pseudocode for implementing specific requirements, but it was w
             model=OpenIA_LLM.get_version_model("map_pseudo_code_to_code"),
             max_tokens=self.max_tokens,
             temperature=0,
-            batch_size=1,
         )
-        traj = model.codegen(prompt, num_samples=1)[0]["response"].replace("`", "")
+        traj = model.invoke(prompt).content.replace("`", "")
         lines = []
         for res in traj.split("\n"):
             if not res or len(res) == 0:
@@ -769,11 +758,9 @@ I have created a pseudocode for implementing specific requirements, but it was w
             model=OpenIA_LLM.get_version_model("localize_function_from_compressed_files"),
             max_tokens=self.max_tokens,
             temperature=0,
-            batch_size=1,
         )
-        traj = model.codegen(message, num_samples=1)[0]
-        traj["prompt"] = message
-        raw_output = traj["response"]
+
+        raw_output = model.invoke(message).content
         model_found_locs = extract_code_blocks(raw_output)
         model_found_locs_separated = extract_locs_for_files(
             model_found_locs, file_names
@@ -789,5 +776,5 @@ I have created a pseudocode for implementing specific requirements, but it was w
 
         print(raw_output)
 
-        return model_found_locs_separated, {"raw_output_loc": raw_output}, traj
+        return model_found_locs_separated, {"raw_output_loc": raw_output}
 

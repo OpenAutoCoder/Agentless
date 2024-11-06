@@ -80,6 +80,7 @@ def repair_error_code( testcode):
     })
     corrected_code = row_res.content
 
+    print("corrected after review the code error:")
     print(corrected_code)
     return corrected_code
 

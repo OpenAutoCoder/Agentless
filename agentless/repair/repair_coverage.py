@@ -217,6 +217,7 @@ def generate_coverage_error_ticket(graph, doc_ref, test_code):
     corrected_code = test_code
     for cr in crs:
         corrected_code = iteration_repair(cr, doc_ref, graph, model, corrected_code)
+    print("Corrected code after repair coverage error tickets")
     print(corrected_code)
     return corrected_code
 

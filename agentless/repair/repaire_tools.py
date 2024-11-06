@@ -290,6 +290,7 @@ def repair_taf_implementation(doc_ref, test_code_text,requirement, graph):
 
          generated_code = generate_version_with_tool({"test_step_explanation":test_step['explanation'],"pseudocode_steps": lines})
          code_corrected = merge_two_versions_of_code(test_step['explanation'], tools_for_test_step, old_code, generated_code, code_corrected, requirement)
+    print("corrected code after taf tool repair:")
     print(code_corrected)
     return code_corrected
 
