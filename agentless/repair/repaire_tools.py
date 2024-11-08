@@ -274,7 +274,7 @@ def repair_taf_implementation(doc_ref, test_code_text,requirement, graph):
             if "number" in code_related[0].keys():
                 number  = int(code_related[0]['number'])
         for code_line in code_related:
-            if int(code_line["number"]) - number > 1:
+            if  ("number" in code_line.keys())and(int(code_line["number"]) - number > 1):
                 old_code += "\n#other code...   \n\n"
             old_code += code_line['reference']
             old_code += '\n'
