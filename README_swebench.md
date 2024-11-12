@@ -351,8 +351,8 @@ Finally, using the regression and reproduction test results, Agentless performs 
 Run the following command (`--regression` indicates we are using regression tests for selection `--reproduction` indicates we are using the reproduction tests for selection)
 
 ```shell
-python agentless/repair/rerank.py --patch_folder results/swe-bench-lite/repair_sample_1/ \
-                                  --num_samples 10 \
+python agentless/repair/rerank.py --patch_folder results/swe-bench-lite/repair_sample_1/,results/swe-bench-lite/repair_sample_2/,results/swe-bench-lite/repair_sample_3/,results/swe-bench-lite/repair_sample_4/ \
+                                  --num_samples 40 \
                                   --deduplicate \
                                   --regression \
                                   --reproduction
