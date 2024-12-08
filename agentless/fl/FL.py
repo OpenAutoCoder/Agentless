@@ -84,6 +84,7 @@ folder4/folder5/
 {file_content}
 ```
 """
+
     obtain_relevant_code_combine_top_n_prompt = """
 Please review the following GitHub problem description and relevant files, and provide a set of locations that need to be edited to fix the issue.
 The locations can be specified as class names, function or method names, or exact line numbers that require modification.
@@ -97,6 +98,8 @@ The locations can be specified as class names, function or method names, or exac
 ###
 
 Please provide the class name, function or method name, or the exact line numbers that need to be edited.
+The possible location outputs should be either "class", "function" or "line".
+
 ### Examples:
 ```
 full_path1/file1.py
@@ -114,7 +117,7 @@ line: 24
 line: 156
 ```
 
-Return just the location(s)
+Return just the location(s) wrapped with ```.
 """
 
     obtain_relevant_code_combine_top_n_no_line_number_prompt = """
@@ -144,7 +147,7 @@ full_path3/file3.py
 function: my_function2
 ```
 
-Return just the location(s)
+Return just the location(s) wrapped with ```.
 """
     obtain_relevant_functions_and_vars_from_compressed_files_prompt_more = """
 Please look through the following GitHub Problem Description and the Skeleton of Relevant Files.
@@ -180,7 +183,7 @@ function: MyClass4.my_method_1
 class: MyClass5
 ```
 
-Return just the locations.
+Return just the locations wrapped with ```.
 """
 
     obtain_relevant_functions_and_vars_from_raw_files_prompt = """
@@ -217,7 +220,7 @@ function: MyClass4.my_method_1
 class: MyClass5
 ```
 
-Return just the locations.
+Return just the locations wrapped with ```.
 """
 
     def __init__(
@@ -577,7 +580,35 @@ Return just the locations.
         )
         self.logger.info(f"prompting with message:\n{message}")
         self.logger.info("=" * 80)
-        assert num_tokens_from_messages(message, self.model_name) < MAX_CONTEXT_LENGTH
+
+        def message_too_long(message):
+            return (
+                num_tokens_from_messages(message, self.model_name) >= MAX_CONTEXT_LENGTH
+            )
+
+        while message_too_long(message) and len(coarse_locs) > 1:
+            self.logger.info(f"reducing to \n{len(coarse_locs)} files")
+            coarse_locs.popitem()
+            topn_content, file_loc_intervals = construct_topn_file_context(
+                coarse_locs,
+                file_names,
+                file_contents,
+                self.structure,
+                context_window=context_window,
+                loc_interval=True,
+                add_space=add_space,
+                sticky_scroll=sticky_scroll,
+                no_line_number=no_line_number,
+            )
+            message = template.format(
+                problem_statement=self.problem_statement, file_contents=topn_content
+            )
+
+        if message_too_long(message):
+            raise ValueError(
+                "The remaining file content is too long to fit within the context length"
+            )
+
         if mock:
             self.logger.info("Skipping querying model since mock=True")
             traj = {
@@ -596,7 +627,9 @@ Return just the locations.
             temperature=temperature,
             batch_size=num_samples,
         )
-        raw_trajs = model.codegen(message, num_samples=num_samples)
+        raw_trajs = model.codegen(
+            message, num_samples=num_samples, prompt_cache=num_samples > 1
+        )
 
         # Merge trajectories
         raw_outputs = [raw_traj["response"] for raw_traj in raw_trajs]

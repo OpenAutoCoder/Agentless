@@ -18,6 +18,7 @@ from agentless.util.postprocess_data import (
     lint_code,
     parse_diff_edit_commands,
     parse_edit_commands,
+    parse_str_replace_edit_commands,
     split_edit_multifile_commands,
 )
 from agentless.util.preprocess_data import (
@@ -130,6 +131,22 @@ Please note that the *SEARCH/REPLACE* edit REQUIRES PROPER INDENTATION. If you w
 Wrap the *SEARCH/REPLACE* edit in blocks ```python...```.
 """
 
+repair_prompt_combine_topn_cot_str_replace = """
+We are currently solving the following issue within our repository. Here is the issue text:
+--- BEGIN ISSUE ---
+{problem_statement}
+--- END ISSUE ---
+
+{repair_relevant_file_instruction}
+--- BEGIN FILE ---
+```
+{content}
+```
+--- END FILE ---
+
+Please first localize the bug based on the issue statement, and then generate editing commands to fix the issue.
+"""
+
 
 def _post_process_multifile_repair(
     raw_output: str,
@@ -137,50 +154,73 @@ def _post_process_multifile_repair(
     logger,
     file_loc_intervals: dict[str, list],
     diff_format=False,
-):
-    edit_multifile_commands = extract_python_blocks(raw_output)
-    edited_file = ""
-    new_content = ""
+    str_replace_format=False,
+) -> tuple[list[str], list[str]]:
+    if not str_replace_format:
+        edit_multifile_commands = extract_python_blocks(raw_output)
+    else:
+        edit_multifile_commands = raw_output
+    edited_files = []
+    new_contents = []
     try:
         file_to_commands = split_edit_multifile_commands(
-            edit_multifile_commands, diff_format=diff_format
+            edit_multifile_commands,
+            diff_format=diff_format,
+            str_replace_format=str_replace_format,
         )
-        logger.info("=== file_to_commands: ===")
-        logger.info(json.dumps(file_to_commands, indent=2))
-        # Let's only edit the first file in the edit commands.
-        edited_file_key = next(iter(file_to_commands.keys()))
-        logger.info(f"=== edited_file: {edited_file_key} ===")
-        edit_commands = file_to_commands[edited_file_key]
-        logger.info("=== edit_commands: ===")
-        for c in edit_commands:
-            logger.info(c)
-            logger.info("\n" + "-" * 40)
-        edited_file = eval(edited_file_key)  # convert '"file.py"' to 'file.py'
-        content = file_contents[edited_file]
-        if diff_format:
-            new_content = parse_diff_edit_commands(
-                edit_commands, content, file_loc_intervals[edited_file]
-            )
-        else:
-            new_content = parse_edit_commands(edit_commands, content)
     except Exception as e:
         logger.error(e)
-        return edited_file, new_content
+        return edited_files, new_contents
 
-    diff = list(
-        unified_diff(
-            content.split("\n"),
-            new_content.split("\n"),
-            fromfile=edited_file,
-            tofile=edited_file,
-            lineterm="",
+    logger.info("=== file_to_commands: ===")
+    logger.info(json.dumps(file_to_commands, indent=2))
+
+    for edited_file_key in file_to_commands:
+        edited_file = ""
+        new_content = ""
+        try:
+            logger.info(f"=== edited_file: {edited_file_key} ===")
+            edit_commands = file_to_commands[edited_file_key]
+            logger.info("=== edit_commands: ===")
+            for c in edit_commands:
+                logger.info(c)
+                logger.info("\n" + "-" * 40)
+            edited_file = eval(edited_file_key)  # convert '"file.py"' to 'file.py'
+            content = file_contents[edited_file]
+            if diff_format:
+                new_content = parse_diff_edit_commands(
+                    edit_commands, content, file_loc_intervals[edited_file]
+                )
+            elif str_replace_format:
+                new_content = parse_str_replace_edit_commands(
+                    edit_commands, content, file_loc_intervals[edited_file]
+                )
+            else:
+                new_content = parse_edit_commands(edit_commands, content)
+        except Exception as e:
+            logger.error(e)
+            edited_file = ""
+            new_content = ""
+
+        if edited_file == "" or new_content == "":
+            continue
+        edited_files.append(edited_file)
+        new_contents.append(new_content)
+        diff = list(
+            unified_diff(
+                content.split("\n"),
+                new_content.split("\n"),
+                fromfile=edited_file,
+                tofile=edited_file,
+                lineterm="",
+            )
         )
-    )
 
-    logger.info(f"extracted patch:")
-    logger.info("\n".join(diff))
-    print("\n".join(diff))
-    return edited_file, new_content
+        logger.info(f"extracted patch:")
+        logger.info("\n".join(diff))
+        print("\n".join(diff))
+
+    return edited_files, new_contents
 
 
 def construct_topn_file_context(
@@ -288,7 +328,6 @@ def process_loc(loc, args, swe_bench_data, prev_o, write_lock=None):
     )
 
     raw_output = ""
-    new_content = ""
     topn_content = ""
     # Construct file contents
     file_contents = dict()
@@ -316,7 +355,7 @@ def process_loc(loc, args, swe_bench_data, prev_o, write_lock=None):
         loc_interval=args.loc_interval,
         fine_grain_loc_only=args.fine_grain_loc_only,
         add_space=args.add_space,
-        no_line_number=args.diff_format,
+        no_line_number=args.diff_format or args.str_replace_format,
         sticky_scroll=args.sticky_scroll,
     )
 
@@ -343,7 +382,9 @@ def process_loc(loc, args, swe_bench_data, prev_o, write_lock=None):
         return
 
     prompt_template = (
-        repair_prompt_combine_topn_cot_diff
+        repair_prompt_combine_topn_cot_str_replace
+        if args.cot and args.str_replace_format
+        else repair_prompt_combine_topn_cot_diff
         if args.cot and args.diff_format
         else repair_prompt_combine_topn_cot
         if args.cot
@@ -385,7 +426,15 @@ def process_loc(loc, args, swe_bench_data, prev_o, write_lock=None):
                 },
             }
         else:
-            greedy_traj = model.codegen(message, num_samples=1)[0]
+            if args.str_replace_format:
+                greedy_traj = model.codegen_w_tool(
+                    message, num_samples=1, prompt_cache=args.max_samples > 1
+                )[0]
+            else:
+                greedy_traj = model.codegen(
+                    message, num_samples=1, prompt_cache=args.max_samples > 1
+                )[0]
+
     sample_responses.append(greedy_traj)
     # get temperature samples
     model = make_model(
@@ -414,7 +463,15 @@ def process_loc(loc, args, swe_bench_data, prev_o, write_lock=None):
             sample_trajs = []
     else:
         if args.max_samples - 1:
-            sample_trajs = model.codegen(message, num_samples=args.max_samples - 1)
+            # always use cached prompt if possible for later samples
+            if args.str_replace_format:
+                sample_trajs = model.codegen_w_tool(
+                    message, num_samples=args.max_samples - 1, prompt_cache=True
+                )
+            else:
+                sample_trajs = model.codegen(
+                    message, num_samples=args.max_samples - 1, prompt_cache=True
+                )
         else:
             sample_trajs = []
 
@@ -433,22 +490,22 @@ def process_loc(loc, args, swe_bench_data, prev_o, write_lock=None):
         raw_output = ret["response"]
         logger.info(f"raw output:\n{raw_output}")
         all_generations.append(raw_output)
-
-        edited_file, new_content = _post_process_multifile_repair(
+        edited_files, new_contents = _post_process_multifile_repair(
             raw_output,
             file_contents,
             logger,
             file_loc_intervals,
             diff_format=args.diff_format,
+            str_replace_format=args.str_replace_format,
         )
 
-        if new_content == "":
+        if len(new_contents) == 0:
             prev_contents.append("")
             file_names.append("")
         else:
-            prev_content = file_contents[edited_file]
+            prev_content = [file_contents[edited_file] for edited_file in edited_files]
             prev_contents.append(prev_content)
-            file_names.append(edited_file)
+            file_names.append(edited_files)
 
         counts.append(count)
         raw_outputs.append(raw_output)
@@ -513,58 +570,39 @@ def post_process_raw_output(
 ):
     git_diffs = ""
     raw_git_diffs = ""
-    lint_success = False
-    content = ""
+    contents = []
     try:
-        edited_file, new_content = _post_process_multifile_repair(
+        edited_files, new_contents = _post_process_multifile_repair(
             raw_output_text,
             file_contents,
             logger,
             file_loc_intervals,
             diff_format=args.diff_format,
+            str_replace_format=args.str_replace_format,
         )
-        if edited_file in file_contents:
-            content = file_contents[edited_file]
 
-            git_diff = fake_git_repo("playground", edited_file, content, new_content)
+        contents = [file_contents[edited_file] for edited_file in edited_files]
 
-            raw_git_diffs += "\n" + git_diff.replace(
-                "\ No newline at end of file\n", ""
-            )
+        git_diff = fake_git_repo("playground", edited_files, contents, new_contents)
 
-            syntax_success = check_syntax(new_content)
-            lint_success, prev_errors, errors = lint_code(
-                "playground", "test.py", new_content, file_contents[edited_file]
-            )
+        raw_git_diffs += "\n" + git_diff.replace("\ No newline at end of file\n", "")
 
-            differ_by_empty_lines = check_code_differ_by_just_empty_lines(
-                new_content, file_contents[edited_file]
-            )
+        syntax_success = check_syntax(new_contents)
 
-            logger.info(
-                f"{lint_success = }, {prev_errors = }, {errors = }, {differ_by_empty_lines = }"
-            )
-            if syntax_success and not differ_by_empty_lines:
-                git_diffs = raw_git_diffs
-            else:
-                git_diffs = ""  # no need to evaluate
+        differ_by_empty_lines = check_code_differ_by_just_empty_lines(
+            new_contents, contents
+        )
+
+        logger.info(f"{differ_by_empty_lines = }")
+        if syntax_success and not differ_by_empty_lines:
+            git_diffs = raw_git_diffs
         else:
-            diff = list(
-                unified_diff(
-                    content.split("\n"),
-                    new_content.split("\n"),
-                    fromfile=edited_file,
-                    tofile=edited_file,
-                    lineterm="",
-                )
-            )
-            print("Failed parsing diff!")
-            print("\n".join(diff))
+            git_diffs = ""  # no need to evaluate
     except Exception as e:
         print(raw_output_text)
         print(e)
 
-    return git_diffs, raw_git_diffs, content
+    return git_diffs, raw_git_diffs, contents
 
 
 def post_process_repair(args):
@@ -614,14 +652,23 @@ def post_process_repair(args):
                     # for backward compatibility
                     raw_output["raw_output"] = [raw_output["raw_output"]]
 
-                file_contents = {pred_file: original_file_content}
+                if isinstance(original_file_content, str):
+                    original_file_content = [original_file_content]
+                    pred_file = [pred_file]
+
+                file_contents = {
+                    file_name: o_file_content
+                    for file_name, o_file_content in zip(
+                        pred_file, original_file_content
+                    )
+                }
 
                 file_loc_intervals = dict()
 
                 loc = [loc for loc in locs if loc["instance_id"] == instance_id][0]
 
                 for i, tmp_pred_file in enumerate(pred_files):
-                    if tmp_pred_file != pred_file:
+                    if tmp_pred_file not in pred_file:
                         continue
                     if (
                         "found_edit_locs" in loc
@@ -634,14 +681,14 @@ def post_process_repair(args):
                             args.context_window,
                             args.loc_interval,
                             args.fine_grain_loc_only,
-                            file_content=file_contents[pred_file]
-                            if pred_file in file_contents
+                            file_content=file_contents[tmp_pred_file]
+                            if tmp_pred_file in file_contents
                             else "",
                         )
                     else:
                         line_locs, context_intervals = [], []  # default values.
 
-                    file_loc_intervals[pred_file] = context_intervals
+                    file_loc_intervals[tmp_pred_file] = context_intervals
             except Exception as e:
                 logger.info(e)
                 print(e)
@@ -690,10 +737,18 @@ def main():
         "--model",
         type=str,
         default="gpt-4o-2024-05-13",
-        choices=["gpt-4o-2024-05-13", "deepseek-coder", "gpt-4o-mini-2024-07-18"],
+        choices=[
+            "gpt-4o-2024-05-13",
+            "deepseek-coder",
+            "gpt-4o-mini-2024-07-18",
+            "claude-3-5-sonnet-20241022",
+        ],
     )
     parser.add_argument(
-        "--backend", type=str, default="openai", choices=["openai", "deepseek"]
+        "--backend",
+        type=str,
+        default="openai",
+        choices=["openai", "deepseek", "anthropic"],
     )
     parser.add_argument("--output_folder", type=str, required=True)
     parser.add_argument("--post_process", action="store_true")
@@ -701,6 +756,7 @@ def main():
     parser.add_argument("--cot", action="store_true")
     parser.add_argument("--fine_grain_loc_only", action="store_true")
     parser.add_argument("--diff_format", action="store_true")
+    parser.add_argument("--str_replace_format", action="store_true")
     parser.add_argument("--skip_greedy", action="store_true")
     parser.add_argument("--sticky_scroll", action="store_true")
     parser.add_argument(
@@ -725,6 +781,16 @@ def main():
     assert (not "deepseek" in args.model) or (
         args.backend == "deepseek"
     ), "Must specify `--backend deepseek` if using a DeepSeek model"
+
+    # diff_format and str_replace_format cannot be both True
+    assert not (
+        args.diff_format and args.str_replace_format
+    ), "Cannot use both diff_format and str_replace_format"
+
+    # str_replace_format only supported with anthropic backend
+    assert not (
+        args.str_replace_format and args.backend != "anthropic"
+    ), "str_replace_format only supported with anthropic backend"
 
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
