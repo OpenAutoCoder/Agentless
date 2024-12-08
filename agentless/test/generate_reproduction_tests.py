@@ -163,7 +163,9 @@ def gen_test(instance_id, args, swe_bench_data, prev_o, write_lock=None):
                 },
             }
         else:
-            greedy_traj = model.codegen(message, num_samples=1)[0]
+            greedy_traj = model.codegen(
+                message, num_samples=1, prompt_cache=args.max_samples > 1
+            )[0]
 
     sample_responses.append(greedy_traj)
     # get temperature samples
@@ -193,9 +195,9 @@ def gen_test(instance_id, args, swe_bench_data, prev_o, write_lock=None):
             sample_trajs = []
     else:
         if args.max_samples - 1:
+            # always use cached prompt if possible for later samples
             sample_trajs = model.codegen(
-                message,
-                num_samples=args.max_samples - 1,
+                message, num_samples=args.max_samples - 1, prompt_cache=True
             )
         else:
             sample_trajs = []
@@ -416,7 +418,6 @@ def test_selection(args):
                     filtered_status = filtered[0]["verified"]
                 else:
                     filtered_status = False
-                # print(len(filtered))
                 test_exec_results.setdefault(test_patch["instance_id"], []).append(
                     {
                         "normalized_test": test_patch["normalized_test"].strip(),
@@ -498,12 +499,14 @@ def main():
             "gpt-4o-2024-05-13",
             "deepseek-coder",
             "gpt-4o-mini-2024-07-18",
-            "gpt-4o-mini",
-            "gpt-4o",
+            "claude-3-5-sonnet-20241022",
         ],
     )
     parser.add_argument(
-        "--backend", type=str, default="openai", choices=["openai", "deepseek"]
+        "--backend",
+        type=str,
+        default="openai",
+        choices=["openai", "deepseek", "anthropic"],
     )
     parser.add_argument("--output_folder", type=str, required=True)
     parser.add_argument("--output_file", type=str)

@@ -1,6 +1,7 @@
 import time
 from typing import Dict, Union
 
+import anthropic
 import openai
 import tiktoken
 
@@ -100,19 +101,18 @@ def request_chatgpt_engine(config, logger, base_url=None, max_retries=40, timeou
 
 def create_anthropic_config(
     message: str,
-    prefill_message: str,
     max_tokens: int,
     temperature: float = 1,
     batch_size: int = 1,
     system_message: str = "You are a helpful assistant.",
     model: str = "claude-2.1",
+    tools: list = None,
 ) -> Dict:
     if isinstance(message, list):
         config = {
             "model": model,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "system": system_message,
             "messages": message,
         }
     else:
@@ -120,23 +120,37 @@ def create_anthropic_config(
             "model": model,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "system": system_message,
             "messages": [
-                {"role": "user", "content": message},
-                {"role": "assistant", "content": prefill_message},
+                {"role": "user", "content": [{"type": "text", "text": message}]},
             ],
         }
+
+    if tools:
+        config["tools"] = tools
+
     return config
 
 
-def request_anthropic_engine(client, config, logger, max_retries=40, timeout=100):
+def request_anthropic_engine(
+    config, logger, max_retries=40, timeout=500, prompt_cache=False
+):
     ret = None
     retries = 0
+
+    client = anthropic.Anthropic()
 
     while ret is None and retries < max_retries:
         try:
             start_time = time.time()
-            ret = client.messages.create(**config)
+            if prompt_cache:
+                # following best practice to cache mainly the reused content at the beginning
+                # this includes any tools, system messages (which is already handled since we try to cache the first message)
+                config["messages"][0]["content"][0]["cache_control"] = {
+                    "type": "ephemeral"
+                }
+                ret = client.beta.prompt_caching.messages.create(**config)
+            else:
+                ret = client.messages.create(**config)
         except Exception as e:
             logger.error("Unknown error. Waiting...", exc_info=True)
             # Check if the timeout has been exceeded
@@ -144,7 +158,7 @@ def request_anthropic_engine(client, config, logger, max_retries=40, timeout=100
                 logger.warning("Request timed out. Retrying...")
             else:
                 logger.warning("Retrying after an unknown error...")
-            time.sleep(10)
+            time.sleep(10 * retries)
         retries += 1
 
     return ret

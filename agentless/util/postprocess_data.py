@@ -9,12 +9,18 @@ from get_repo_structure.get_patch_info import parse_patch
 
 
 def check_syntax(code):
-    if not code.strip():  # Check for cases where the model didn't return a python block
-        return False
-    try:
-        ast.parse(code)
-    except SyntaxError as e:
-        return False
+    if not isinstance(code, list):
+        code = [code]
+
+    for c in code:
+        if (
+            not c.strip()
+        ):  # Check for cases where the model didn't return a python block
+            return False
+        try:
+            ast.parse(c)
+        except SyntaxError as e:
+            return False
     return True
 
 
@@ -26,10 +32,19 @@ def remove_empty_lines(code: str) -> str:
     return "\n".join(filtered_lines)
 
 
-def check_code_differ_by_just_empty_lines(code, prev_code) -> bool:
-    # Normalize both code snippets
-    normalized_code1 = remove_empty_lines(code)
-    normalized_code2 = remove_empty_lines(prev_code)
+def check_code_differ_by_just_empty_lines(codes, prev_codes) -> bool:
+
+    if not isinstance(codes, list):
+        codes = [codes]
+        prev_codes = [prev_codes]
+
+    normalized_code1 = ""
+    normalized_code2 = ""
+
+    for code, prev_code in zip(codes, prev_codes):
+        # Normalize both code snippets
+        normalized_code1 += remove_empty_lines(code)
+        normalized_code2 += remove_empty_lines(prev_code)
 
     return normalized_code1 == normalized_code2
 
@@ -89,8 +104,14 @@ def lint_code(repo_playground, temp_name, code, prev_code="") -> tuple[bool, set
     return True, set(), set()
 
 
-def fake_git_repo(repo_playground, file_path, old_content, new_content) -> str:
+def fake_git_repo(repo_playground, file_pathes, old_contents, new_contents) -> str:
     """create a fake git repo to obtain git diff format"""
+
+    if not isinstance(file_pathes, list):
+        # for backwards compatibility
+        file_pathes = [file_pathes]
+        old_contents = [old_contents]
+        new_contents = [new_contents]
 
     # Generate a temperary folder and add uuid to avoid collision
     repo_playground = os.path.join(repo_playground, str(uuid.uuid4()))
@@ -104,27 +125,34 @@ def fake_git_repo(repo_playground, file_path, old_content, new_content) -> str:
     # create a fake git repo
     subprocess.run(f"cd {repo_playground} && git init", shell=True)
 
-    # create a file
-    subprocess.run(
-        f"mkdir -p {repo_playground}/{os.path.dirname(file_path)}", shell=True
-    )
+    for file_path, old_content, new_content in zip(
+        file_pathes, old_contents, new_contents
+    ):
+        # create a file
+        subprocess.run(
+            f"mkdir -p {repo_playground}/{os.path.dirname(file_path)}", shell=True
+        )
 
-    with open(f"{repo_playground}/{file_path}", "w") as f:
-        f.write(old_content)
+        with open(f"{repo_playground}/{file_path}", "w") as f:
+            f.write(old_content)
 
-    # add file to git
-    subprocess.run(
-        f"cd {repo_playground} && git add {file_path} && git commit -m 'initial commit'",
-        shell=True,
-    )
+        # add file to git
+        # same message is okay
+        subprocess.run(
+            f"cd {repo_playground} && git add {file_path} && git commit -m 'initial commit'",
+            shell=True,
+        )
 
-    # edit file
-    with open(f"{repo_playground}/{file_path}", "w") as f:
-        f.write(new_content)
+    for file_path, old_content, new_content in zip(
+        file_pathes, old_contents, new_contents
+    ):
+        # edit file
+        with open(f"{repo_playground}/{file_path}", "w") as f:
+            f.write(new_content)
 
     # get git diff
     o = subprocess.run(
-        f"cd {repo_playground} && git diff {file_path}", shell=True, capture_output=True
+        f"cd {repo_playground} && git diff .", shell=True, capture_output=True
     )
 
     s = o.stdout.decode("utf-8")
@@ -397,7 +425,6 @@ def normalize_patch(instance_id, patch: str, original_file_content: str) -> str:
     new_content = fake_git_apply("playground", edited_file, old_content, patch)
     if new_content is None:
         # Error during applying diff
-        # print("ERROR in applying patch")
         return patch
 
     # Normalize file contents
@@ -508,10 +535,53 @@ def overlap(subcommand1, subcommand2):
     return not (end1 < start2 or end2 < start1)
 
 
-def split_edit_multifile_commands(commands, diff_format=False) -> dict[str, str]:
+def split_edit_multifile_commands(
+    commands, diff_format=False, str_replace_format=False
+) -> dict[str, str]:
     """Split commands based on edited files."""
     file_to_commands = OrderedDict()
-    if diff_format:
+    if str_replace_format:
+        for command in commands:
+            file_name = None
+            for json_message in command:
+                if json_message["type"] == "tool_use":
+                    str_replace_command = json_message["input"]
+
+                    if "command" not in str_replace_command:
+                        str_replace_command["command"] = "str_replace"
+
+                    if "path" not in str_replace_command:
+                        continue
+
+                    if "command" not in str_replace_command:
+                        continue
+
+                    if str_replace_command["command"] == "str_replace":
+                        if "old_str" not in str_replace_command:
+                            continue
+
+                        if "new_str" not in str_replace_command:
+                            # add empty string
+                            str_replace_command["new_str"] = ""
+
+                    if str_replace_command["command"] == "insert":
+                        if (
+                            "insert_line" not in str_replace_command
+                            or "new_str" not in str_replace_command
+                        ):
+                            continue
+
+                    file_name = "'" + str_replace_command["path"] + "'"
+                    # deduplicate
+                    if (
+                        file_name not in file_to_commands
+                        or str_replace_command not in file_to_commands[file_name]
+                    ):
+                        file_to_commands.setdefault(file_name, []).append(
+                            str_replace_command
+                        )
+
+    elif diff_format:
         for command in commands:
             file_name = None
             for subcommand in command.split(">>>>>>> REPLACE")[:-1]:
@@ -535,6 +605,7 @@ def split_edit_multifile_commands(commands, diff_format=False) -> dict[str, str]
                     or converted_command not in file_to_commands[file_name]
                 ):
                     file_to_commands.setdefault(file_name, []).append(converted_command)
+
     else:
         for command in commands:
             for subcommand in command.split("edit_file(")[1:]:
@@ -546,7 +617,90 @@ def split_edit_multifile_commands(commands, diff_format=False) -> dict[str, str]
                     or converted_command not in file_to_commands[file_name]
                 ):
                     file_to_commands.setdefault(file_name, []).append(converted_command)
+
     return file_to_commands
+
+
+def parse_str_replace_edit_commands(
+    commands, content, file_loc_intervals: list[tuple[int, int]]
+):
+    """
+    Original implementation: https://github.com/anthropics/anthropic-quickstarts/blob/main/computer-use-demo/computer_use_demo/tools/edit.py
+    """
+    # let's first make sure the intervals are sorted
+    file_loc_intervals.sort()
+    replaced = False
+    # apply the edits from the end of file to the beginning of file
+    # this is to make sure context is correct
+    for interval in file_loc_intervals[::-1]:
+        start, end = interval
+        start = max(start - 1, 0)
+        # intervals are 1-indexed
+
+        context_segment = "\n".join(content.splitlines()[start:end])
+        context_segment = "\n" + context_segment + "\n"
+
+        # since we want to replace the original context, let's first check for all edits.
+        can_apply = []
+        for subcommand in commands:
+
+            if subcommand["command"] == "str_replace":
+                original, replace = subcommand["old_str"], subcommand["new_str"]
+
+                if original in context_segment:
+                    can_apply.append(subcommand)
+
+            elif subcommand["command"] == "insert":
+                insert_line = subcommand["insert_line"]
+                # TODO check this
+                if insert_line > start and insert_line <= end:
+                    can_apply.append(subcommand)
+
+        # apply edits backwards
+        for subcommand in can_apply[::-1]:
+
+            if subcommand["command"] == "str_replace":
+                original, replace = subcommand["old_str"], subcommand["new_str"]
+
+                if (
+                    original in context_segment
+                ):  # This may not be true after some previously applied edits
+                    context_segment = context_segment.replace(original, replace)
+                    replaced = True
+
+            elif subcommand["command"] == "insert":
+                insert_line = subcommand["insert_line"]
+                replace = subcommand["new_str"]
+                # TODO check this
+                if insert_line > start and insert_line <= end:
+
+                    if insert_line != start - 1:
+                        replace = "\n" + replace
+                    if insert_line != end:
+                        replace = replace + "\n"
+                    context_segment = (
+                        "\n".join(
+                            context_segment.splitlines()[: insert_line - start + 1]
+                        )
+                        + replace
+                        + "\n".join(
+                            context_segment.splitlines()[insert_line - start + 1 :]
+                        )
+                    )
+                    context_segment = context_segment + "\n"
+                    replaced = True
+
+        # reassembly
+        content = (
+            "\n".join(content.splitlines()[:start])
+            + context_segment
+            + "\n".join(content.splitlines()[end:])
+        )
+
+    if not replaced:
+        print("not replaced")
+
+    return content
 
 
 def parse_diff_edit_commands(
@@ -728,6 +882,30 @@ def parse_edit_commands(commands, content):
     content = "\n".join(content_lines)
 
     return content
+
+
+def test_parse_str_replace():
+
+    content = """A
+B
+C
+D
+E
+F
+""".strip()
+
+    from agentless.util.preprocess_data import line_wrap_content
+
+    shown_content = line_wrap_content(content, context_intervals=[(3, 5)])
+    print(shown_content)
+
+    commands = [
+        {"command": "insert", "path": "test", "insert_line": 1, "new_str": "test_str"}
+    ]
+    new_content = parse_str_replace_edit_commands(
+        commands, content, file_loc_intervals=[(1, 5)]
+    )
+    print(new_content)
 
 
 def test_parse():
