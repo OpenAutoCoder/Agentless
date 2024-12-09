@@ -16,6 +16,7 @@
 
 ## 😽 News 
 
+- *Dec 2nd, 2024*: We integrated Agentless with Claude 3.5 Sonnet to achieve 40.7% and 50.8% solve rate on SWE-bench lite and verified 
 - *Oct 28th, 2024*: We just released OpenAutoCoder-Agentless 1.5! 
 - *July 1st, 2024*: We just released OpenAutoCoder-Agentless 1.0! **Agentless** currently is the best open-source approach on SWE-bench lite with 82 fixes (27.3%) and costing on average $0.34 per issue.
 
