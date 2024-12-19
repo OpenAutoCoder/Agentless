@@ -570,7 +570,7 @@ def post_process_raw_output(
 ):
     git_diffs = ""
     raw_git_diffs = ""
-    contents = []
+    edited_files, new_contents, contents = [], [], []
     try:
         edited_files, new_contents = _post_process_multifile_repair(
             raw_output_text,
@@ -602,7 +602,7 @@ def post_process_raw_output(
         print(raw_output_text)
         print(e)
 
-    return git_diffs, raw_git_diffs, contents
+    return git_diffs, raw_git_diffs, contents, edited_files, new_contents
 
 
 def post_process_repair(args):
@@ -695,7 +695,13 @@ def post_process_repair(args):
                 raw_output_text = ""
 
         if raw_output_text:
-            git_diffs, raw_git_diffs, content = post_process_raw_output(
+            (
+                git_diffs,
+                raw_git_diffs,
+                content,
+                edited_files,
+                new_contents,
+            ) = post_process_raw_output(
                 raw_output_text, file_contents, logger, file_loc_intervals, args
             )
         else:
@@ -712,6 +718,8 @@ def post_process_repair(args):
                         "model_patch": git_diffs.lstrip(),
                         "raw_model_patch": raw_git_diffs.lstrip(),
                         "original_file_content": content,
+                        "edited_files": edited_files,
+                        "new_file_content": new_contents,
                     }
                 )
                 + "\n"

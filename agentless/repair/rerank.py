@@ -305,8 +305,14 @@ def normalize_patches(args):
                 instance_id = d["instance_id"]
                 patch = d["model_patch"]
                 original_file_content = d["original_file_content"]
+                new_file_content = d["new_file_content"]
+                edited_files = d["edited_files"]
                 normalized_patch = normalize_patch(
-                    instance_id, patch, original_file_content
+                    instance_id,
+                    patch,
+                    original_file_content,
+                    new_file_content,
+                    edited_files,
                 )
                 d["normalized_patch"] = normalized_patch
             with open(output_folder / f"output_{i}_normalized.jsonl", "w") as f:

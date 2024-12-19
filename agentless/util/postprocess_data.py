@@ -405,68 +405,69 @@ def remove_comments_and_docstrings(source):
     return out
 
 
-def normalize_patch(instance_id, patch: str, original_file_content: str) -> str:
+def normalize_patch(
+    instance_id,
+    patch: str,
+    original_file_content: list,
+    new_file_content: list,
+    edited_files: list,
+) -> str:
     "Remove edits to trailing spaces and comments in the patch."
     if not patch.strip():
         return ""
-    # Extract info.
-    file_changes = parse_patch(patch)
-    if not file_changes:
-        print(patch)
-        print("=")
-        import json
 
-        print(json.dumps(file_changes, indent=2))
-        exit(0)
+    normalized_diff = ""
 
-    edited_file = file_changes[0]["file"]
-    old_content = original_file_content
-    # Get new file
-    new_content = fake_git_apply("playground", edited_file, old_content, patch)
-    if new_content is None:
-        # Error during applying diff
-        return patch
+    for o_file_content, n_file_content, edited_file in zip(
+        original_file_content, new_file_content, edited_files
+    ):
+        old_content = o_file_content
+        new_content = n_file_content
 
-    # Normalize file contents
-    def normalize_code(code):
+        # Normalize file contents
+        def normalize_code(code):
+            try:
+                node = ast.parse(code)
+                return ast.unparse(node)
+            except:
+                return code
+
+        old_content = normalize_code(old_content)
+        new_content = normalize_code(new_content)
+
         try:
-            node = ast.parse(code)
-            return ast.unparse(node)
+            remove_docstring_old_content = remove_comments_and_docstrings(old_content)
+            ast.parse(remove_docstring_old_content)  # check
+            remove_docstring_new_content = remove_comments_and_docstrings(new_content)
+            ast.parse(remove_docstring_new_content)  # check
         except:
-            return code
+            # when does this exception happen?
+            # when the code has some class or function with empty docstring (thats valid python code)
+            # but removing it is not, to be save we just use the original.
+            remove_docstring_old_content = old_content
+            remove_docstring_new_content = new_content
 
-    old_content = normalize_code(old_content)
-    new_content = normalize_code(new_content)
+        diff = fake_git_repo(
+            "playground",
+            edited_file,
+            remove_docstring_old_content,
+            remove_docstring_new_content,
+        )
 
-    try:
-        remove_docstring_old_content = remove_comments_and_docstrings(old_content)
-        ast.parse(remove_docstring_old_content)  # check
-        remove_docstring_new_content = remove_comments_and_docstrings(new_content)
-        ast.parse(remove_docstring_new_content)  # check
-    except:
-        # when does this exception happen?
-        # when the code has some class or function with empty docstring (thats valid python code)
-        # but removing it is not, to be save we just use the original.
-        remove_docstring_old_content = old_content
-        remove_docstring_new_content = new_content
+        if is_just_new_function(
+            remove_docstring_old_content, remove_docstring_new_content
+        ):
+            # modify the diff to ignore context.
+            new_diff = []
+            for line in diff.splitlines():
+                if line.startswith("-") or line.startswith("+"):
+                    new_diff.append(line)
+            diff = "\n".join(new_diff)
 
-    diff = fake_git_repo(
-        "playground",
-        edited_file,
-        remove_docstring_old_content,
-        remove_docstring_new_content,
-    )
-
-    if is_just_new_function(remove_docstring_old_content, remove_docstring_new_content):
-        # modify the diff to ignore context.
-        new_diff = []
-        for line in diff.splitlines():
-            if line.startswith("-") or line.startswith("+"):
-                new_diff.append(line)
-        diff = "\n".join(new_diff)
+        normalized_diff += diff
 
     # Note that the normalized diff may not be applied to the original file.
-    return diff
+    return normalized_diff
 
 
 def extract_python_blocks(text):
