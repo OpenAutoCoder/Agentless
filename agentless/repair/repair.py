@@ -707,7 +707,9 @@ def post_process_repair(args):
         else:
             git_diffs = ""
             raw_git_diffs = ""
-            content = ""
+            content = []
+            edited_files = []
+            new_contents = []
 
         with open(args.output_file, "a") as f:
             f.write(
