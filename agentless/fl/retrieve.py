@@ -24,18 +24,17 @@ def retrieve_locs(bug, args, swe_bench_data, found_files, prev_o, write_lock=Non
             found = True
             break
 
+    instance_id = bug["instance_id"]
+    log_file = os.path.join(args.output_folder, "retrieval_logs", f"{instance_id}.log")
+    logger = setup_logger(log_file)
+    
     if found:
         logger.info(f"skipping {bug['instance_id']} since patch already generated")
         return None
 
-    instance_id = bug["instance_id"]
-
     if args.target_id is not None:
         if args.target_id != instance_id:
             return None
-
-    log_file = os.path.join(args.output_folder, "retrieval_logs", f"{instance_id}.log")
-    logger = setup_logger(log_file)
     logger.info(f"Processing bug {instance_id}")
 
     bench_data = [x for x in swe_bench_data if x["instance_id"] == instance_id][0]
