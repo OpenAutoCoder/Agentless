@@ -23,7 +23,7 @@ class CompressTransformer(cst.CSTTransformer):
             or (
                 self.keep_constant
                 and m.matches(stmt, m.SimpleStatementLine())
-                and m.matches(stmt.body[0], m.Assign())
+                and m.matches(stmt.body[0], m.Assign() | m.AnnAssign())
             )
         ]
         return updated_node.with_changes(body=new_body)
@@ -73,6 +73,9 @@ class GlobalVariableVisitor(cst.CSTVisitor):
         start_pos = self.get_metadata(cst.metadata.PositionProvider, stmt).start
         end_pos = self.get_metadata(cst.metadata.PositionProvider, stmt).end
         self.assigns.append([stmt, start_pos, end_pos])
+
+    def leave_AnnAssign(self, original_node: cst.AnnAssign) -> None:
+        self.leave_Assign(original_node)
 
 
 code = """
