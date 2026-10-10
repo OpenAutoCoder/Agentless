@@ -13,7 +13,7 @@ class GlobalVariableVisitor(cst.CSTVisitor):
         assigns = []
         for stmt in original_node.body:
             if m.matches(stmt, m.SimpleStatementLine()) and m.matches(
-                stmt.body[0], m.Assign()
+                stmt.body[0], m.Assign() | m.AnnAssign()
             ):
                 start_pos = self.get_metadata(cst.metadata.PositionProvider, stmt).start
                 end_pos = self.get_metadata(cst.metadata.PositionProvider, stmt).end
@@ -35,6 +35,13 @@ def parse_global_var_from_code(file_content: str) -> dict[str, dict]:
     global_assigns = {}
     for assign_stmt, start_pos, end_pos in visitor.global_assigns:
         for t in assign_stmt.body:
+            if isinstance(t, cst.AnnAssign):
+                if isinstance(t.target, cst.Name):
+                    global_assigns[t.target.value] = {
+                        "start_line": start_pos.line,
+                        "end_line": end_pos.line,
+                    }
+                continue
             try:
                 targets = [t.targets[0].target.value]
             except:
