@@ -56,10 +56,11 @@ def handler(signum, frame):
 
 
 def request_chatgpt_engine(config, logger, base_url=None, max_retries=40, timeout=100):
+    """Limit each SDK request, not the entire retry loop, to timeout seconds."""
     ret = None
     retries = 0
 
-    client = openai.OpenAI(base_url=base_url)
+    client = openai.OpenAI(base_url=base_url, timeout=timeout)
 
     while ret is None and retries < max_retries:
         try:
@@ -134,10 +135,11 @@ def create_anthropic_config(
 def request_anthropic_engine(
     config, logger, max_retries=40, timeout=500, prompt_cache=False
 ):
+    """Limit each SDK request, not the entire retry loop, to timeout seconds."""
     ret = None
     retries = 0
 
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=timeout)
 
     while ret is None and retries < max_retries:
         try:

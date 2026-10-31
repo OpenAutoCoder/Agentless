@@ -52,6 +52,16 @@ pre-commit install  # this allows a more standardized code style
 </div>
 </details>
 
+The API request helper regression tests use real SDKs with synthetic responses
+from a local HTTP server; no provider credentials or paid requests are needed:
+
+```shell
+python -m unittest discover -s tests -v
+```
+
+The helpers' `timeout` argument limits each SDK request. SDK retries and the
+outer retry loop's backoff can extend the total duration beyond that value.
+
 Then export your OpenAI API key 
 ```shell
 export OPENAI_API_KEY={key_here}
